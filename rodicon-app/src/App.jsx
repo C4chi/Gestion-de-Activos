@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 // Componentes de Layout
 import { Sidebar } from './Sidebar';
 import { PinModal } from './PinModal';
+import { FullScreenModal } from './FullScreenModal';
 
 // Vistas Principales
 import { InventoryView } from './InventoryView';
@@ -23,6 +24,7 @@ import { CorrectiveLogModal } from './CorrectiveLogModal';
 import { UpdateWorkshopModal } from './UpdateWorkshopModal';
 import { MtoDetailModal } from './MtoDetailModal';
 import { CommentModal } from './CommentModal';
+import { AssetAdminPanel } from './AssetAdminPanel';
 
 // NOTA: Otros componentes como FullScreenModal, StatusBadge, etc.,
 // ahora son importados directamente por los componentes que los usan.
@@ -43,6 +45,10 @@ export default function App() {
     handlePurchaseStatus,
     submitMaintenanceLog,
     submitSafetyReport,
+    submitSafety,
+    submitInitialCorrectiveLog,
+    updateWorkshopInfo,
+    submitCloseOrder,
     logout
   } = useAppContext();
 
@@ -57,6 +63,7 @@ export default function App() {
   const [tempAction, setTempAction] = useState(null);
   const [tempPurchase, setTempPurchase] = useState(null);
   const [viewingLog, setViewingLog] = useState(null);
+  const [adminPanelOpen, setAdminPanelOpen] = useState(false);
 
   // --- MANEJO DE ACCIONES PROTEGIDAS ---
   const protectedAction = (fn) => {
@@ -93,7 +100,8 @@ export default function App() {
   // --- FILTROS Y CÁLCULOS MEMOIZADOS ---
   const filteredAssets = useMemo(() => {
     return assets.filter(a => {
-      if (a.visible === 0) return false;
+      // Excluir activos no visibles y vendidos
+      if (a.visible === 0 || a.status === 'VENDIDO') return false;
       const match = (a.ficha + a.marca + a.modelo).toLowerCase().includes(search.toLowerCase());
 
       if (filter === 'NO_OP') {
@@ -119,16 +127,16 @@ export default function App() {
 
   // KPIs calculados
   const kpis = useMemo(() => ({
-    total: assets.length,
-    noOp: assets.filter(a => ['NO DISPONIBLE', 'EN TALLER', 'ESPERA REPUESTO', 'MTT PREVENTIVO'].includes(a.status)).length,
+    total: assets.filter(a => a.status !== 'VENDIDO').length,
+    noOp: assets.filter(a => a.status !== 'VENDIDO' && ['NO DISPONIBLE', 'EN TALLER', 'ESPERA REPUESTO', 'MTT PREVENTIVO'].includes(a.status)).length,
     warn: assets.filter(a => {
-      if (!a.fecha_de_vencimiento_de_seguro) return false;
+      if (a.status === 'VENDIDO' || !a.fecha_de_vencimiento_de_seguro) return false;
       const d = new Date(a.fecha_de_vencimiento_de_seguro);
       const today = new Date();
       const diff = Math.ceil((d - today) / (1000 * 60 * 60 * 24));
       return diff >= 0 && diff <= 30;
     }).length,
-    exp: assets.filter(a => a.fecha_de_vencimiento_de_seguro && new Date(a.fecha_de_vencimiento_de_seguro) < new Date()).length
+    exp: assets.filter(a => a.status !== 'VENDIDO' && a.fecha_de_vencimiento_de_seguro && new Date(a.fecha_de_vencimiento_de_seguro) < new Date()).length
   }), [assets]);
 
   // --- RENDER ---
@@ -149,6 +157,8 @@ export default function App() {
         onRefresh={fetchAllData}
         onLogout={() => { logout(); setActiveModal('PIN'); }}
         protectedAction={protectedAction}
+        onAdminPanel={() => setAdminPanelOpen(true)}
+        isAdmin={user?.rol === 'ADMIN'}
       />
 
       <InventoryView
@@ -173,28 +183,39 @@ export default function App() {
 
       {activeOverlay === 'PURCHASING' && (
         <PurchasingManagement
-          purchases={purchases}
           onClose={() => setActiveOverlay(null)}
-          onStatusChange={handlePurchaseStatus}
-          onDownloadPdf={generatePurchaseOrderPdf}
-          onPartialReceive={(purchase) => { setTempPurchase(purchase); setActiveModal('COMMENT'); }}
-          onReceive={(purchase) => { setTempPurchase(purchase); protectedAction(u => handleReception('TOTAL', '', purchase, u)); }}
         />
       )}
 
       {activeOverlay === 'SAFETY' && (
         <SafetyCenter
-          reports={safetyReports}
           onClose={() => setActiveOverlay(null)}
         />
+      )}
+
+      {activeOverlay === 'METRICS' && (
+        <FullScreenModal title="📊 Métricas y Reportes" color="blue" onClose={() => setActiveOverlay(null)}>
+          <div className="text-center py-20">
+            <div className="text-6xl mb-4">📊</div>
+            <h3 className="text-2xl font-bold text-gray-700 mb-2">Módulo de Métricas</h3>
+            <p className="text-gray-500 mb-6">Dashboard de KPIs y reportes analíticos</p>
+            <p className="text-sm text-gray-400 max-w-md mx-auto">
+              Este módulo mostrará gráficas, estadísticas y reportes de:
+              <br />• Activos por estado
+              <br />• Órdenes de compra completadas
+              <br />• Reportes HSE por prioridad
+              <br />• Mantenimientos realizados
+            </p>
+          </div>
+        </FullScreenModal>
       )}
 
       {/* --- SIDEBAR DETALLE (RIGHT) --- */}
       {detailSidebarOpen && selectedAsset && (
         <AssetDetailSidebar
           asset={selectedAsset}
-          mtoLogs={mtoLogs.filter(log => log.ficha_ref === selectedAsset.ficha)}
-          safetyReports={safetyReports.filter(report => report.ficha_ref === selectedAsset.ficha)}
+          mtoLogs={mtoLogs.filter(log => log.ficha === selectedAsset.ficha)}
+          safetyReports={safetyReports.filter(report => report.ficha === selectedAsset.ficha)}
           onClose={() => setDetailSidebarOpen(false)}
           onOpenModal={handleOpenModal}
         />
@@ -205,6 +226,7 @@ export default function App() {
         <NewAssetModal
           onClose={() => setActiveModal(null)}
           onSubmit={submitNewAsset}
+          isAdmin={user?.rol === 'ADMIN'}
         />
       )}
 
@@ -268,6 +290,11 @@ export default function App() {
           onClose={() => setActiveModal(null)}
           onSubmit={(comment) => protectedAction((u) => handleReception('PARCIAL', comment, tempPurchase, u))}
         />
+      )}
+
+      {/* Panel de Administrador */}
+      {adminPanelOpen && (
+        <AssetAdminPanel onClose={() => setAdminPanelOpen(false)} isAdmin={user?.rol === 'ADMIN'} />
       )}
 
     </div>

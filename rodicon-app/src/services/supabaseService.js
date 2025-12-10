@@ -40,7 +40,7 @@ export const supabaseService = {
 
   // ============ PURCHASES ============
   async fetchAllPurchases() {
-    return supabase.from('purchase_orders').select('*').order('created_at', { ascending: false });
+    return supabase.from('purchase_orders').select('*').order('fecha_solicitud', { ascending: false });
   },
 
   async getPurchaseById(id) {
@@ -72,7 +72,7 @@ export const supabaseService = {
     return supabase
       .from('maintenance_logs')
       .select('*')
-      .eq('ficha_ref', assetId)
+      .eq('ficha', assetId)
       .order('fecha', { ascending: false });
   },
 
@@ -86,15 +86,15 @@ export const supabaseService = {
 
   // ============ SAFETY REPORTS ============
   async fetchAllSafetyReports() {
-    return supabase.from('safety_reports').select('*').order('created_at', { ascending: false });
+    return supabase.from('safety_reports').select('*').order('fecha_reporte', { ascending: false });
   },
 
   async getSafetyReportsByAsset(assetId) {
     return supabase
       .from('safety_reports')
       .select('*')
-      .eq('ficha_ref', assetId)
-      .order('created_at', { ascending: false });
+      .eq('ficha', assetId)
+      .order('fecha_reporte', { ascending: false });
   },
 
   async createSafetyReport(reportData) {

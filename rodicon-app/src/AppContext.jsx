@@ -1,6 +1,10 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { supabase } from './supabaseClient';
+import { usePurchasingWorkflow } from './hooks/usePurchasingWorkflow';
+import { useWorkshopWorkflow } from './hooks/useWorkshopWorkflow';
+import { useSafetyWorkflow } from './hooks/useSafetyWorkflow';
+import { useFormValidation } from './hooks/useFormValidation';
 
 /**
  * AppContext centraliza TODO el estado global de la app
@@ -19,6 +23,12 @@ export const AppProvider = ({ children }) => {
   const [assetsPage, setAssetsPage] = useState(1);
   const [assetsTotalCount, setAssetsTotalCount] = useState(0);
   const assetsPageSize = 20;
+
+  // Integrar los tres nuevos hooks
+  const purchasingWorkflow = usePurchasingWorkflow();
+  const workshopWorkflow = useWorkshopWorkflow();
+  const safetyWorkflow = useSafetyWorkflow();
+  const formValidation = useFormValidation();
 
   // Fetch paginado de assets
   const fetchAssets = useCallback(async (page = 1) => {
@@ -51,8 +61,8 @@ export const AppProvider = ({ children }) => {
       setLoading(true);
       const [assetsRes, purchasesRes, safetyRes, mtoRes] = await Promise.all([
         supabase.from('assets').select('*').order('ficha'),
-        supabase.from('purchase_orders').select('*').order('created_at', { ascending: false }),
-        supabase.from('safety_reports').select('*').order('created_at', { ascending: false }),
+        supabase.from('purchase_orders').select('*').order('fecha_solicitud', { ascending: false }),
+        supabase.from('safety_reports').select('*').order('fecha_reporte', { ascending: false }),
         supabase.from('maintenance_logs').select('*').order('fecha', { ascending: false }),
       ]);
 
@@ -76,22 +86,39 @@ export const AppProvider = ({ children }) => {
   }, [user, fetchAllData]);
 
   // Métodos de negocio
-  const handlePinSubmit = async (pinInput) => {
+  const handlePinSubmit = async (pinInput, onSuccess, onError) => {
     try {
+      console.log('🔐 Intentando login con PIN:', pinInput);
+      
       const { data, error } = await supabase
         .from('app_users')
         .select('*')
-        .eq('pin', pinInput)
-        .single();
+        .eq('pin', pinInput);
 
-      if (error || !data) {
-        toast.error('PIN incorrecto');
+      console.log('📊 Respuesta Supabase - Data:', data, 'Error:', error);
+
+      // Si hay error en la consulta
+      if (error) {
+        console.warn('❌ Error en la consulta:', error.message);
+        if (onError) onError();
         return false;
       }
-      setUser(data);
+
+      // Si no hay datos o array está vacío
+      if (!data || data.length === 0) {
+        console.warn('❌ PIN incorrecto - No se encontró usuario');
+        if (onError) onError();
+        return false;
+      }
+
+      const user = data[0]; // Tomar el primer resultado
+      console.log('✅ Login exitoso para usuario:', user.nombre || user.id);
+      setUser(user);
+      if (onSuccess) onSuccess(user);
       return true;
     } catch (error) {
-      toast.error('Error al autenticar');
+      console.error('🚨 Error al autenticar:', error.message);
+      if (onError) onError();
       return false;
     }
   };
@@ -131,7 +158,7 @@ export const AppProvider = ({ children }) => {
       const uid = `REQ-${reqForm.req}-${Date.now().toString().slice(-4)}`;
       const { error } = await supabase.from('purchase_orders').insert([{
         req_id: uid,
-        ficha_ref: selectedAsset.ficha,
+        ficha: selectedAsset.ficha,
         solicitante: reqForm.solicitadoPor || user.nombre,
         proyecto: reqForm.project,
         prioridad: reqForm.priority,
@@ -144,7 +171,7 @@ export const AppProvider = ({ children }) => {
       if (selectedAsset.status === 'DISPONIBLE') {
         await supabase
           .from('assets')
-          .update({ status: 'ESPERA REPUESTO', numero_de_requisicion: reqForm.req })
+          .update({ status: 'ESPERA REPUESTO', numero_requisicion: reqForm.req })
           .eq('ficha', selectedAsset.ficha);
       }
       toast.success('Requisición creada');
@@ -169,15 +196,32 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  const submitMaintenanceLog = async (logData, assetId) => {
+  const submitMaintenanceLog = async (logData, asset, user) => {
     try {
-      const { error } = await supabase.from('maintenance_logs').insert([logData]);
+      // Construir el log con los campos correctos de la tabla
+      const logToInsert = {
+        ficha: asset && asset.ficha ? String(asset.ficha).trim() : (logData.ficha || null),
+        tipo: logData.tipo || 'NO ESPECIFICADO',
+        fecha: logData.fecha ? (logData.fecha instanceof Date ? logData.fecha.toISOString().split('T')[0] : String(logData.fecha)) : new Date().toISOString().split('T')[0],
+        mecanico: logData.mecanico || null,
+        descripcion: logData.descripcion ? String(logData.descripcion) : '',
+        costo: logData.costo || 0,
+        km_recorrido: logData.km ? parseInt(logData.km) : null,
+        proyeccion_proxima_mto: logData.proyeccion_km || null,
+        created_by: user && user.id ? user.id : null,
+      };
+
+      if (!logToInsert.ficha) {
+        throw new Error('Ficha del activo es requerida');
+      }
+
+      const { error } = await supabase.from('maintenance_logs').insert([logToInsert]);
       if (error) throw error;
       toast.success('Log de mantenimiento registrado');
       await fetchAllData();
       return true;
     } catch (error) {
-      toast.error(error.message);
+      toast.error(`Error: ${error.message}`);
       return false;
     }
   };
@@ -191,6 +235,134 @@ export const AppProvider = ({ children }) => {
       return true;
     } catch (error) {
       toast.error(error.message);
+      return false;
+    }
+  };
+
+  const submitSafety = async (safetyForm, selectedAsset, u) => {
+    try {
+      if (!selectedAsset || !selectedAsset.ficha) {
+        throw new Error('Activo no válido');
+      }
+
+      const { error } = await supabase.from('safety_reports').insert([{
+        ficha: selectedAsset.ficha,
+        tipo: safetyForm.tipo || 'INCIDENTE',
+        prioridad: safetyForm.prioridad || 'Media',
+        descripcion: safetyForm.desc || '',
+        reportado_por: u.id || null,
+        asignado_a: safetyForm.asignado || null,
+        estado: 'PENDIENTE'
+      }]);
+
+      if (error) throw error;
+      toast.success('Reporte de Seguridad registrado');
+      await fetchAllData();
+      return true;
+    } catch (error) {
+      toast.error(`Error al registrar reporte: ${error.message}`);
+      return false;
+    }
+  };
+
+  const submitInitialCorrectiveLog = async (failureData, selectedAsset, u) => {
+    try {
+      if (!selectedAsset || !selectedAsset.id || !selectedAsset.ficha) {
+        throw new Error('Activo no válido');
+      }
+      
+      const initialObservation = `[${new Date(failureData.fecha_entrada).toLocaleDateString()}] FALLA INICIAL: ${failureData.observacion_mecanica}`;
+
+      // 1. Poner el activo como NO DISPONIBLE
+      const { error: updateError } = await supabase.from('assets').update({ 
+        status: 'NO DISPONIBLE',
+        taller_responsable: failureData.mecanico,
+        proyeccion_entrada: failureData.fecha_entrada,
+        observacion_mecanica: initialObservation
+      }).eq('id', selectedAsset.id);
+
+      if (updateError) throw updateError;
+
+      // 2. Crear el log inicial de mantenimiento correctivo
+      const logData = {
+        ficha: String(selectedAsset.ficha).trim(),
+        tipo: 'CORRECTIVO',
+        fecha: failureData.fecha_entrada,
+        mecanico: failureData.mecanico || null,
+        descripcion: `FALLA INICIAL: ${failureData.observacion_mecanica}`,
+        costo: 0,
+        created_by: u.id || null,
+      };
+
+      const { error: logError } = await supabase.from('maintenance_logs').insert([logData]);
+      if (logError) throw logError;
+      
+      toast.success('Falla registrada correctamente');
+      await fetchAllData();
+      return true;
+    } catch (error) {
+      toast.error(`Error al registrar falla: ${error.message}`);
+      return false;
+    }
+  };
+
+  const updateWorkshopInfo = async (workshopData, selectedAsset, u) => {
+    try {
+      const oldComments = selectedAsset.observacion_mecanica || '';
+      const newCommentText = workshopData.new_comment ? `\n[${new Date().toLocaleDateString()}] ${workshopData.new_comment}` : '';
+      const updatedComments = oldComments + newCommentText;
+
+      await supabase.from('assets').update({
+        taller_responsable: workshopData.taller_responsable,
+        proyeccion_salida: workshopData.proyeccion_salida,
+        observacion_mecanica: updatedComments
+      }).eq('id', selectedAsset.id);
+
+      toast.success('Información del taller actualizada');
+      await fetchAllData();
+      return true;
+    } catch (error) {
+      toast.error(`Error: ${error.message}`);
+      return false;
+    }
+  };
+
+  const submitCloseOrder = async (closeOrderForm, selectedAsset, u) => {
+    try {
+      if (!selectedAsset || !selectedAsset.ficha) {
+        throw new Error('Activo no válido');
+      }
+
+      // Registrar el log final
+      const logData = {
+        ficha: String(selectedAsset.ficha).trim(),
+        tipo: 'CORRECTIVO',
+        fecha: new Date().toISOString().split('T')[0],
+        mecanico: closeOrderForm.mecanico || null,
+        descripcion: closeOrderForm.descripcion || 'Orden de cierre completada',
+        costo: closeOrderForm.costo || 0,
+        created_by: u.id || null,
+      };
+
+      const { error: logError } = await supabase.from('maintenance_logs').insert([logData]);
+      if (logError) throw logError;
+
+      // Marcar el activo como disponible
+      const { error: updateError } = await supabase.from('assets').update({
+        status: 'DISPONIBLE',
+        numero_requisicion: null,
+        taller_responsable: null,
+        observacion_mecanica: null,
+        proyeccion_salida: null
+      }).eq('id', selectedAsset.id);
+
+      if (updateError) throw updateError;
+
+      toast.success('Orden de cierre registrada');
+      await fetchAllData();
+      return true;
+    } catch (error) {
+      toast.error(`Error: ${error.message}`);
       return false;
     }
   };
@@ -222,7 +394,7 @@ export const AppProvider = ({ children }) => {
     setSafetyReports,
     setMtoLogs,
     
-    // Métodos de negocio
+    // Métodos de negocio (antiguos)
     handlePinSubmit,
     submitNewAsset,
     updateAsset,
@@ -230,6 +402,16 @@ export const AppProvider = ({ children }) => {
     handlePurchaseStatus,
     submitMaintenanceLog,
     submitSafetyReport,
+    submitSafety,
+    submitInitialCorrectiveLog,
+    updateWorkshopInfo,
+    submitCloseOrder,
+    
+    // Métodos de negocio (nuevos hooks)
+    ...purchasingWorkflow,
+    ...workshopWorkflow,
+    ...safetyWorkflow,
+    ...formValidation,
     
     // Fetch/Refresh
     fetchAssets,
