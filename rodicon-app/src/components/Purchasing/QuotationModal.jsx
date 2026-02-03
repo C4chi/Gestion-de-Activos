@@ -121,7 +121,6 @@ export const QuotationModal = ({ isOpen, onClose, onConfirm, purchaseOrder }) =>
                 <th className="text-right p-2 w-20">Subtotal</th>
               </tr>
             </thead>
-            </thead>
             <tbody>
               {items.map((item, idx) => {
                 const subtotal = item.precio_unitario * item.cantidad;
