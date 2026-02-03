@@ -43,8 +43,8 @@ export const RequisitionModal = ({ asset, onClose, onSubmit }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6 animate-scaleIn">
+    <div className="fixed inset-0 bg-black bg-opacity-70 z-[60] flex items-start justify-center p-4 backdrop-blur-sm overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6 animate-scaleIn max-h-[90vh] overflow-y-auto mt-6">
         <h3 className="text-lg font-bold text-gray-800 mb-4">Solicitar Repuestos: {asset?.ficha}</h3>
         <div className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -78,12 +78,14 @@ export const RequisitionModal = ({ asset, onClose, onSubmit }) => {
               <input name="qty" type="number" value={currentItem.qty} onChange={handleItemChange} placeholder="Cant." className="w-20 border p-2 rounded text-sm"/>
               <button onClick={handleAddItem} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-blue-700">+</button>
             </div>
-            {reqItems.map((item, index) => (
-              <div key={index} className="text-sm border-t py-2 flex justify-between items-center">
-                <span><strong className="font-mono text-xs bg-gray-200 px-1 rounded">{item.code || 'S/C'}</strong> ({item.qty}) {item.desc}</span>
-                <button onClick={() => handleRemoveItem(index)} className="text-red-500 hover:text-red-700"><Trash2 size={14}/></button>
-              </div>
-            ))}
+            <div className="max-h-64 overflow-y-auto">
+              {reqItems.map((item, index) => (
+                <div key={index} className="text-sm border-t py-2 flex justify-between items-center">
+                  <span><strong className="font-mono text-xs bg-gray-200 px-1 rounded">{item.code || 'S/C'}</strong> ({item.qty}) {item.desc}</span>
+                  <button onClick={() => handleRemoveItem(index)} className="text-red-500 hover:text-red-700"><Trash2 size={14}/></button>
+                </div>
+              ))}
+            </div>
           </div>
           <button onClick={handleInternalSubmit} className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 shadow-md">Crear Solicitud</button>
           <button onClick={onClose} className="w-full text-gray-500 py-2 text-sm">Cancelar</button>

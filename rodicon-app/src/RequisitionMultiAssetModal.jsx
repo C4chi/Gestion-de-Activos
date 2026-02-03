@@ -115,8 +115,8 @@ export const RequisitionMultiAssetModal = ({ onClose, onSubmit }) => {
   }, [reqItems]);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 z-[60] flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl p-6 my-8">
+    <div className="fixed inset-0 bg-black bg-opacity-70 z-[60] flex items-start justify-center p-4 backdrop-blur-sm overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl p-6 my-8 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-2xl font-bold text-gray-800">Solicitud de Compra Múltiple</h2>
