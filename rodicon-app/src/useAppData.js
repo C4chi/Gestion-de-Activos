@@ -64,42 +64,116 @@ export const useAppData = () => {
   };
 
   const submitRequisition = async (reqForm, reqItems, selectedAsset, u) => {
-    const uid = `REQ-${reqForm.req}-${Date.now().toString().slice(-4)}`;
-    await supabase.from('purchase_orders').insert([{
-      req_id: uid, ficha: selectedAsset.ficha, solicitante: reqForm.solicitadoPor || u.nombre, proyecto: reqForm.project, prioridad: reqForm.priority,
-      items_json: reqItems, items_summary: reqItems.map(i => `(${i.qty}) ${i.desc}`).join(', '), estado: 'PENDIENTE'
-    }]);
-    if (selectedAsset.status === 'DISPONIBLE') {
-      await supabase.from('assets').update({ status: 'ESPERA REPUESTO', numero_requisicion: reqForm.req }).eq('ficha', selectedAsset.ficha);
+    try {
+      const uid = `REQ-${reqForm.req}-${Date.now().toString().slice(-4)}`;
+      const createdByNumeric = Number.isFinite(Number(u?.id)) ? Number(u.id) : null;
+      
+      // 1. Insertar la orden de compra
+      const { data: orderData, error: orderError } = await supabase
+        .from('purchase_orders')
+        .insert([{
+          numero_requisicion: uid,
+          ficha: selectedAsset.ficha,
+          solicitante: reqForm.solicitadoPor || u.nombre,
+          proyecto: reqForm.project,
+          prioridad: reqForm.priority,
+          estado: 'PENDIENTE',
+          created_by: createdByNumeric
+        }])
+        .select();
+
+      if (orderError) throw orderError;
+      const orderId = orderData[0].id;
+
+      // 2. Insertar los items
+      if (reqItems && reqItems.length > 0) {
+        const itemsToInsert = reqItems.map(item => ({
+          purchase_id: orderId,
+          descripcion: item.desc || '',
+          cantidad: item.qty || 1,
+          codigo: item.codigo || null
+        }));
+
+        const { error: itemsError } = await supabase
+          .from('purchase_items')
+          .insert(itemsToInsert);
+
+        if (itemsError) throw itemsError;
+      }
+
+      // 3. Actualizar el estado del activo (siempre a ESPERA REPUESTO al crear requisición)
+      await supabase
+        .from('assets')
+        .update({ status: 'ESPERA REPUESTO', numero_requisicion: uid })
+        .eq('ficha', selectedAsset.ficha);
+      
+      toast.success('Requisición creada');
+      fetchData();
+    } catch (error) {
+      toast.error(`Error al crear requisición: ${error.message}`);
     }
-    fetchData();
   };
 
   const handleReception = async (mode, comment, tempPurchase, u) => {
-    const newStatus = mode === 'TOTAL' ? 'RECIBIDO' : 'PARCIAL';
-    // Actualiza el estado de la orden de compra
-    await supabase.from('purchase_orders').update({ estado: newStatus, notas_almacen: comment }).eq('id', tempPurchase.id);
-    
-    // Solo si la recepción es TOTAL, se cambia el estado del activo a "EN REPARACION"
+    let finalStatus = 'PENDIENTE';
+    let assetStatus = null;
+
     if (mode === 'TOTAL') {
-      await supabase.from('assets').update({ status: 'EN REPARACION' }).eq('ficha', tempPurchase.ficha);
+      // Recepción TOTAL: cerrar orden y actualizar asset
+      finalStatus = 'RECIBIDO';
+      assetStatus = 'EN REPARACION'; // Repuestos llegaron, pasa a reparación
+    } else {
+      // Recepción PARCIAL: volver a PENDIENTE para re-ordenar faltantes
+      finalStatus = 'PENDIENTE';
+      // Asset se queda en ESPERA REPUESTO
+    }
+
+    // Actualiza el estado de la orden de compra
+    await supabase
+      .from('purchase_orders')
+      .update({
+        estado: finalStatus,
+        comentario_recepcion: mode === 'PARCIAL' ? comment : null,
+        fecha_actualizacion: new Date().toISOString(),
+      })
+      .eq('id', tempPurchase.id);
+    
+    // Si la recepción es TOTAL, actualizar el activo
+    if (assetStatus) {
+      await supabase.from('assets').update({ 
+        status: assetStatus,
+        updated_at: new Date().toISOString()
+      }).eq('ficha', tempPurchase.ficha);
     }
     // Si es PARCIAL, el estado del activo no se toca, permanece en "ESPERA REPUESTO".
     fetchData();
   };
 
   const submitMaintenanceLog = async (logData, asset, user) => {    
-    // Construcción explícita del objeto para evitar conflictos de propiedades
+    if (!asset?.ficha) {
+      toast.error('No se pudo registrar: el activo no tiene ficha.');
+      return;
+    }
+
+    // Normalizar campos al tipo de la tabla (fecha DATE y proyección DATE, no números)
+    const fechaIso = logData.fecha instanceof Date
+      ? logData.fecha.toISOString().split('T')[0]
+      : (typeof logData.fecha === 'string' && logData.fecha.length >= 10
+          ? logData.fecha.slice(0, 10)
+          : new Date().toISOString().split('T')[0]);
+
+    const createdByNumeric = Number.isFinite(Number(user?.id)) ? Number(user.id) : null;
+
     const logToInsert = {
-      ficha: asset.ficha ? String(asset.ficha).trim() : null,
+      ficha: String(asset.ficha).trim(),
       tipo: logData.tipo || 'NO ESPECIFICADO',
-      fecha: logData.fecha ? logData.fecha.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      fecha: fechaIso,
       mecanico: logData.mecanico || null,
       descripcion: logData.descripcion ? String(logData.descripcion) : '',
-      costo: logData.costo || 0,
-      km_recorrido: logData.km ? parseInt(logData.km) : null,
-      proyeccion_proxima_mto: logData.proyeccion_km || null,
-      created_by: user.id || null,
+      costo: logData.costo ? Number(logData.costo) : 0,
+      km_recorrido: logData.km ? parseInt(logData.km, 10) : null,
+      proyeccion_proxima_km: logData.proyeccion_km ? Number(logData.proyeccion_km) : null,
+      created_by: createdByNumeric,
     };
 
     const { error } = await supabase.from('maintenance_logs').insert([logToInsert]);

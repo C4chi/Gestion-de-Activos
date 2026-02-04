@@ -56,7 +56,12 @@ export const supabaseService = {
   },
 
   async fetchPurchaseItems(purchaseOrderId) {
-    return supabase.from('purchase_items').select('*').eq('purchase_order_id', purchaseOrderId);
+    // purchase_items usa 'purchase_id' como FK
+    return supabase
+      .from('purchase_items')
+      .select('*')
+      .eq('purchase_id', purchaseOrderId)
+      .order('created_at', { ascending: true });
   },
 
   async createPurchaseItem(itemData) {

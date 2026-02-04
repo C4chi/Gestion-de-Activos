@@ -64,8 +64,8 @@ SELECT * FROM maintenance_logs WHERE ficha = 'AAAA01' ORDER BY created_at DESC L
 2. Completa:
    - Mecánico: "Carlos López"
    - Descripción: "Cambio de aceite realizado"
-   - Km actual: 5000
-   - Próximo mto: 10000
+  - Km actual: 5000
+  - Próximo mto (km/horas): 10000
 3. Haz clic en "Registrar Mantenimiento"
 
 **Resultado Esperado:**
@@ -73,7 +73,7 @@ SELECT * FROM maintenance_logs WHERE ficha = 'AAAA01' ORDER BY created_at DESC L
 - ✅ Se crea un log en `maintenance_logs` con:
   - `tipo`: PREVENTIVO
   - `km_recorrido`: 5000
-  - `proyeccion_proxima_mto`: 10000
+  - `proyeccion_proxima_mto`: 10000 (hasta migrar columna numérica)
 
 ---
 
@@ -166,7 +166,7 @@ foto_url, visible, created_at, updated_at, updated_by
 ### `maintenance_logs`
 ```
 id, ficha (NOT ficha_ref), tipo, fecha (DATE), descripcion, costo, mecanico
-km_recorrido, proyeccion_proxima_mto, created_by, created_at
+km_recorrido, proyeccion_proxima_mto (DATE), created_by, created_at
 ```
 
 ### `safety_reports`
@@ -189,7 +189,7 @@ created_by, updated_by
 
 - [ ] Reportar Falla crea log con `ficha`, no `ficha_ref`
 - [ ] Mantenimiento preventivo usa `km_recorrido`, no `km`
-- [ ] Mantenimiento preventivo usa `proyeccion_proxima_mto`, no `proyeccion`
+- [ ] Mantenimiento preventivo usa `proyeccion_proxima_mto` (temporal) o columna numérica cuando esté migrada
 - [ ] Cierre de orden marca activo como `DISPONIBLE`
 - [ ] Reporte HSE crea registro con `ficha`, no `ficha_ref`
 - [ ] Requisición crea `purchase_order` con `ficha`, no `ficha_ref`
