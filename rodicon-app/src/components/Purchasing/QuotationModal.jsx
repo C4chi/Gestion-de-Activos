@@ -63,9 +63,16 @@ export const QuotationModal = ({ isOpen, onClose, onConfirm, purchaseOrder }) =>
     onClose();
   };
 
-  const total = items.reduce((sum, item) => {
-    return sum + (item.precio_unitario * item.cantidad);
-  }, 0);
+  // Calcular totales por moneda
+  const totales = items.reduce((acc, item) => {
+    const subtotal = item.precio_unitario * item.cantidad;
+    const moneda = item.moneda || 'DOP';
+    acc[moneda] = (acc[moneda] || 0) + subtotal;
+    return acc;
+  }, {});
+
+  const totalDOP = totales.DOP || 0;
+  const totalUSD = totales.USD || 0;
 
   if (!isOpen) return null;
 
@@ -181,12 +188,22 @@ export const QuotationModal = ({ isOpen, onClose, onConfirm, purchaseOrder }) =>
               })}
             </tbody>
             <tfoot className="bg-gray-50 font-bold">
-              <tr>
-                <td colSpan="6" className="text-right p-3">TOTAL ESTIMADO:</td>
-                <td colSpan="2" className="text-right p-3 text-lg text-blue-600">
-                  ${total.toFixed(2)}
-                </td>
-              </tr>
+              {totalDOP > 0 && (
+                <tr>
+                  <td colSpan="6" className="text-right p-3">TOTAL DOP:</td>
+                  <td colSpan="2" className="text-right p-3 text-lg text-green-600">
+                    DOP ${totalDOP.toFixed(2)}
+                  </td>
+                </tr>
+              )}
+              {totalUSD > 0 && (
+                <tr>
+                  <td colSpan="6" className="text-right p-3">TOTAL USD:</td>
+                  <td colSpan="2" className="text-right p-3 text-lg text-blue-600">
+                    USD ${totalUSD.toFixed(2)}
+                  </td>
+                </tr>
+              )}
             </tfoot>
           </table>
         </div>
