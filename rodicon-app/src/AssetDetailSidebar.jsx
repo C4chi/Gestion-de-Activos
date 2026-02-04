@@ -16,6 +16,7 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
   const [editData, setEditData] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [eppAsignados, setEppAsignados] = useState([]);
+  const [hseInspections, setHseInspections] = useState([]);
 
   // Ubicaciones dinámicas desde los activos + opción de agregar nueva
   const UBICACIONES = [...new Set([...allLocations, assetData.ubicacion_actual].filter(Boolean))].sort();
@@ -50,8 +51,24 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
       }
     };
 
+    const loadHseInspections = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('hse_inspections')
+          .select('*')
+          .eq('asset_id', asset.id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setHseInspections(data || []);
+      } catch (err) {
+        console.error('Error cargando inspecciones HSE:', err);
+      }
+    };
+
     if (asset?.id) {
       loadEppAsignados();
+      loadHseInspections();
     }
   }, [asset?.id]);
 
@@ -335,18 +352,63 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
           )}
 
           {activeTab === 'HSE' && (
-            <div className="space-y-3">
-              <h3 className="font-bold text-orange-800 flex items-center gap-2"><Shield size={16}/> Historial de Seguridad</h3>
-              {safetyReports && safetyReports.length > 0 ? safetyReports.map(report => (
-                <div key={report.id} className="bg-white p-3 rounded-lg border text-xs">
-                  <div className="flex justify-between items-center">
-                    <p className="font-bold">{report.tipo}: <span className="font-normal">{new Date(report.created_at).toLocaleDateString()}</span></p>
-                    <StatusBadge status={report.estado} />
+            <div className="space-y-4">
+              {/* Inspecciones HSE */}
+              <div>
+                <h3 className="font-bold text-blue-800 flex items-center gap-2 mb-3">
+                  <Shield size={16}/> Inspecciones HSE
+                </h3>
+                {hseInspections && hseInspections.length > 0 ? hseInspections.map(insp => (
+                  <div key={insp.id} className="bg-white p-3 rounded-lg border text-xs mb-2 hover:bg-blue-50 cursor-pointer transition">
+                    <div className="flex justify-between items-center">
+                      <p className="font-bold text-blue-700">{insp.title}</p>
+                      <span className={`px-2 py-1 rounded text-xs font-bold ${
+                        insp.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
+                        insp.status === 'APPROVED' ? 'bg-blue-100 text-blue-700' :
+                        'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {insp.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1 text-gray-600">
+                      <span>{new Date(insp.created_at).toLocaleDateString()}</span>
+                      {insp.has_photos && <span>📸</span>}
+                      {insp.has_critical_issues && <span className="text-red-600 font-bold">⚠ Crítico</span>}
+                    </div>
+                    {insp.score_percentage != null && (
+                      <div className="mt-2">
+                        <div className="flex justify-between text-xs mb-1">
+                          <span>Puntuación</span>
+                          <span className="font-bold">{insp.score_percentage.toFixed(0)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className={`h-2 rounded-full ${insp.passed ? 'bg-green-500' : 'bg-red-500'}`}
+                            style={{ width: `${Math.min(100, insp.score_percentage)}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <p className="italic text-gray-600 my-1">"{report.descripcion}"</p>
-                  <p className="text-gray-500">Reportado por: {report.reportado_por}</p>
-                </div>
-              )) : <p className="text-sm text-gray-400 text-center py-8">No hay reportes.</p>}
+                )) : <p className="text-sm text-gray-400 text-center py-4">No hay inspecciones.</p>}
+              </div>
+
+              {/* Reportes de Incidentes */}
+              <div>
+                <h3 className="font-bold text-orange-800 flex items-center gap-2 mb-3">
+                  <AlertTriangle size={16}/> Reportes de Incidentes
+                </h3>
+                {safetyReports && safetyReports.length > 0 ? safetyReports.map(report => (
+                  <div key={report.id} className="bg-white p-3 rounded-lg border text-xs mb-2">
+                    <div className="flex justify-between items-center">
+                      <p className="font-bold">{report.tipo}: <span className="font-normal">{new Date(report.created_at).toLocaleDateString()}</span></p>
+                      <StatusBadge status={report.estado} />
+                    </div>
+                    <p className="italic text-gray-600 my-1">"{report.descripcion}"</p>
+                    <p className="text-gray-500">Reportado por: {report.reportado_por}</p>
+                  </div>
+                )) : <p className="text-sm text-gray-400 text-center py-4">No hay reportes.</p>}
+              </div>
             </div>
           )}
 
