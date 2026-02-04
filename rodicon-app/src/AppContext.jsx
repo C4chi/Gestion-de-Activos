@@ -713,6 +713,11 @@ export const AppProvider = ({ children }) => {
         throw new Error('Activo no válido');
       }
 
+      // Preparar evidencias si existen
+      const evidenciasJson = closeOrderForm.evidencias && closeOrderForm.evidencias.length > 0 
+        ? JSON.stringify(closeOrderForm.evidencias) 
+        : null;
+
       // Registrar el log final
       const logData = {
         ficha: String(selectedAsset.ficha).trim(),
@@ -722,6 +727,7 @@ export const AppProvider = ({ children }) => {
         descripcion: closeOrderForm.descripcion || 'Orden de cierre completada',
         costo: closeOrderForm.costo || 0,
         created_by: u.id || null,
+        evidencias: evidenciasJson, // Guardar evidencias como JSON
       };
 
       const { error: logError } = await supabase.from('maintenance_logs').insert([logData]);
