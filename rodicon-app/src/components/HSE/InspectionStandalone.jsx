@@ -35,11 +35,29 @@ export default function InspectionStandalone({ templateId }) {
 
     try {
       setSaving(true);
+      
+      // Extraer asset_id si hay un campo tipo 'asset' en las respuestas
+      let assetId = null;
+      let ficha = null;
+      
+      if (formData.answers && template?.schema?.sections) {
+        template.schema.sections.forEach(section => {
+          section.items?.forEach(item => {
+            if (item.type === 'asset' && formData.answers[item.id]?.value) {
+              assetId = formData.answers[item.id].value;
+              ficha = formData.answers[item.id].label?.split(' - ')[0]; // Extraer la ficha
+            }
+          });
+        });
+      }
+      
       const inspection = await createInspection({
         template_id: template.id,
         title: template.name,
         priority: 'MEDIA',
-        conducted_by: 1 // TODO: obtener usuario real
+        conducted_by: 1, // TODO: obtener usuario real
+        asset_id: assetId,
+        ficha: ficha
       });
 
       await completeInspection(inspection.id, {
