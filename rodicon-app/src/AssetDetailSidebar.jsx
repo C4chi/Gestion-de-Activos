@@ -307,15 +307,30 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
               </div>
               {mtoLogs && mtoLogs.length > 0 ? mtoLogs
                 .filter(log => mtoFilter === 'TODOS' || log.tipo === mtoFilter)
-                .map(log => (
-                <button key={log.id} onClick={() => onOpenModal('MTO_DETAIL', log)} className="w-full text-left bg-white p-3 rounded-lg border text-xs hover:bg-purple-50 hover:border-purple-300 transition">
-                  <div className="flex justify-between items-center">
-                    <p className={`font-bold ${log.tipo === 'CORRECTIVO' ? 'text-red-600' : 'text-purple-600'}`}>{log.tipo}</p>
-                    <p className="font-semibold text-gray-700">{new Date(log.fecha).toLocaleDateString()}</p>
-                  </div>
-                  <p className="italic text-gray-600 my-1 truncate">"{log.descripcion}"</p>
-                </button>
-              )) : <p className="text-sm text-gray-400 text-center py-8">No hay registros.</p>}
+                .map(log => {
+                  // Verificar si tiene evidencias
+                  let tieneEvidencias = false;
+                  if (log.evidencias) {
+                    try {
+                      const ev = typeof log.evidencias === 'string' ? JSON.parse(log.evidencias) : log.evidencias;
+                      tieneEvidencias = Array.isArray(ev) && ev.length > 0;
+                    } catch (e) {}
+                  }
+                  
+                  return (
+                    <button key={log.id} onClick={() => onOpenModal('MTO_DETAIL', log)} className="w-full text-left bg-white p-3 rounded-lg border text-xs hover:bg-purple-50 hover:border-purple-300 transition">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <p className={`font-bold ${log.tipo === 'CORRECTIVO' ? 'text-red-600' : 'text-purple-600'}`}>{log.tipo}</p>
+                          {tieneEvidencias && <span className="text-blue-600" title="Con evidencias fotográficas">📸</span>}
+                        </div>
+                        <p className="font-semibold text-gray-700">{new Date(log.fecha).toLocaleDateString()}</p>
+                      </div>
+                      <p className="italic text-gray-600 my-1 truncate">"{log.descripcion}"</p>
+                    </button>
+                  );
+                })
+              : <p className="text-sm text-gray-400 text-center py-8">No hay registros.</p>}
             </div>
           )}
 
