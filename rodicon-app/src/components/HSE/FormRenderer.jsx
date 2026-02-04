@@ -323,9 +323,13 @@ export default function FormRenderer({
           .select('ubicacion_actual', { distinct: true })
           .not('ubicacion_actual', 'is', null);
         if (error) throw error;
-        const opts = (data || [])
-          .map(r => r.ubicacion_actual)
-          .filter(Boolean)
+        // Eliminar duplicados usando Set
+        const uniqueLocations = [...new Set(
+          (data || [])
+            .map(r => r.ubicacion_actual)
+            .filter(Boolean)
+        )];
+        const opts = uniqueLocations
           .sort()
           .map(u => ({ value: u, label: u }));
         setLocationOptions(opts);
