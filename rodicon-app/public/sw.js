@@ -33,10 +33,22 @@ self.addEventListener('activate', (event) => {
 
 // Estrategia: Network First, fallback a Cache
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  
+  // NO interceptar peticiones a Supabase API - dejar pasar directamente
+  if (url.hostname.includes('supabase.co')) {
+    return;
+  }
+
+  // NO cachear peticiones POST/PUT/DELETE/PATCH
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // Cachear respuesta exitosa
+        // Cachear solo respuestas exitosas GET
         if (response && response.status === 200) {
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
