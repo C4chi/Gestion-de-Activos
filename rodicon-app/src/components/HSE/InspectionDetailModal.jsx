@@ -133,28 +133,27 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
 
     const buildSections = () => {
       if (!tpl.sections) return '';
-      return tpl.sections.map((section) => `
-        <div style="background:white;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:18px;overflow:hidden;box-shadow:0 8px 24px rgba(15,23,42,0.06);page-break-inside:avoid;break-inside:avoid;">
-          <div style="background:#f8fafc;padding:14px 18px;border-bottom:1px solid #e2e8f0;">
-            <h3 style="font-size:16px;font-weight:700;color:#0f172a;margin:0;letter-spacing:-0.01em;">${section.title || 'Sección'}</h3>
-            ${section.description ? `<p style="font-size:13px;color:#64748b;margin-top:4px;">${section.description}</p>` : ''}
+      return tpl.sections.map((section, idx) => `
+        <div style="margin-bottom:24px;page-break-inside:avoid;break-inside:avoid;">
+          <div style="background:#1e293b;color:white;padding:12px 16px;margin-bottom:2px;">
+            <h3 style="font-size:15px;font-weight:700;margin:0;">${section.title || 'Sección'}</h3>
+            ${section.description ? `<p style="font-size:12px;margin-top:4px;opacity:0.9;">${section.description}</p>` : ''}
           </div>
-          <div style="padding:16px 18px;display:grid;gap:16px;page-break-inside:avoid;break-inside:avoid;">
+          <table style="width:100%;border-collapse:collapse;background:white;">
             ${(section.items || []).map(item => {
               const answer = answers[item.id];
               return `
-                <div style="padding-bottom:14px;border-bottom:1px solid #f1f5f9;page-break-inside:avoid;break-inside:avoid;">
-                  <div style="font-weight:700;color:#475569;font-size:12px;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
-                    ${item.label}
-                    ${item.required ? '<span style="color:#ef4444;font-size:14px;">*</span>' : ''}
-                  </div>
-                  <div style="color:#0f172a;font-size:14px;line-height:1.6;">
+                <tr style="border-bottom:1px solid #e5e7eb;">
+                  <td style="padding:12px 16px;width:35%;vertical-align:top;font-weight:600;color:#475569;font-size:13px;">
+                    ${item.label}${item.required ? '<span style="color:#ef4444;"> *</span>' : ''}
+                  </td>
+                  <td style="padding:12px 16px;color:#0f172a;font-size:13px;">
                     ${renderFieldValue(item, answer)}
-                  </div>
-                </div>
+                  </td>
+                </tr>
               `;
             }).join('')}
-          </div>
+          </table>
         </div>
       `).join('');
     };
@@ -169,188 +168,199 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
           <style>
             * { margin:0; padding:0; box-sizing:border-box; }
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              background: #e5e7eb;
-              color: #0f172a;
+              font-family: Arial, Helvetica, sans-serif;
+              background: white;
+              color: #1f2937;
               padding: 0;
+              line-height: 1.5;
             }
             .page-container {
-              max-width: 880px;
-              margin: 24px auto;
+              max-width: 210mm;
+              margin: 0 auto;
               background: white;
-              border: 1px solid #e2e8f0;
-              border-radius: 16px;
-              overflow: hidden;
-              box-shadow: 0 18px 60px rgba(15,23,42,0.14);
+              padding: 20mm;
             }
-            .header-band {
-              background: #0f172a;
-              color: white;
-              padding: 28px 32px 24px;
-              border-bottom: 4px solid #2563eb;
+            .header {
+              border-bottom: 3px solid #1e293b;
+              padding-bottom: 16px;
+              margin-bottom: 24px;
             }
-            .logo-section {
-              display: flex;
-              align-items: center;
-              gap: 14px;
-              margin-bottom: 12px;
-            }
-            .company-logo {
-              width: 60px;
-              height: 60px;
-              background: white;
-              border-radius: 14px;
-              padding: 10px;
-              box-shadow: 0 10px 30px rgba(0,0,0,0.18);
-              object-fit: contain;
-            }
-            .doc-title {
+            .header-title {
               font-size: 24px;
-              font-weight: 700;
-              letter-spacing: -0.01em;
+              font-weight: bold;
+              color: #1e293b;
+              margin-bottom: 8px;
             }
-            .doc-subtitle {
-              font-size: 13px;
-              opacity: 0.88;
-              margin-top: 3px;
+            .header-subtitle {
+              font-size: 14px;
+              color: #64748b;
             }
-            .inspection-meta {
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              gap: 16px;
-              flex-wrap: wrap;
-              margin-top: 6px;
-            }
-            .meta-info { flex: 1; min-width: 260px; }
-            .meta-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
-            .meta-date { font-size: 13px; color: #cbd5e1; }
-            .status-badge {
-              padding: 10px 14px;
-              border-radius: 12px;
-              font-size: 13px;
-              font-weight: 700;
-              letter-spacing: 0.02em;
-              text-transform: uppercase;
-            }
-            .stats-bar {
+            .info-grid {
               display: grid;
-              grid-template-columns: repeat(3, minmax(0, 1fr));
-              gap: 16px;
-              padding: 18px 32px 6px;
+              grid-template-columns: 1fr 1fr;
+              gap: 12px;
+              margin-bottom: 24px;
+              padding: 16px;
               background: #f8fafc;
-              border-bottom: 1px solid #e2e8f0;
-            }
-            .stat-box {
               border: 1px solid #e2e8f0;
-              border-radius: 12px;
-              padding: 14px 16px;
-              background: white;
-              box-shadow: 0 6px 20px rgba(15,23,42,0.04);
+            }
+            .info-item {
+              font-size: 13px;
+            }
+            .info-label {
+              font-weight: 600;
+              color: #475569;
+              display: block;
+              margin-bottom: 4px;
+            }
+            .info-value {
+              color: #1f2937;
+            }
+            .stats-row {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 12px;
+              margin-bottom: 24px;
+              page-break-inside: avoid;
+            }
+            .stat-card {
               text-align: center;
-            }
-            .stat-value { font-size: 22px; font-weight: 800; color: #0f172a; display: block; }
-            .stat-label { font-size: 11px; color: #64748b; text-transform: uppercase; }
-            .content-area { padding: 24px 32px; }
-            .footer-area { padding: 24px 32px; background: #f8fafc; border-top: 1px solid #e2e8f0; }
-            .footer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px; }
-            .footer-item { font-size: 13px; color: #475569; }
-            .page-number { text-align: center; font-size: 11px; color: #94a3b8; }
-            
-            /* Page break control */
-            @media print {
-              .page-container { page-break-after: auto; }
-              .stats-bar { page-break-inside: avoid; page-break-after: avoid; }
-              .content-area > div { page-break-inside: avoid; break-inside: avoid; }
-              .stat-box { page-break-inside: avoid; }
-              .footer-area { page-break-before: auto; page-break-inside: avoid; }
-            }
-            .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-top: 4px; font-weight: 600; }
-            .content-area { padding: 28px 32px; background: #f8fafc; }
-            .footer-area {
+              padding: 16px;
+              border: 2px solid #e5e7eb;
               background: white;
-              padding: 22px 32px 28px;
-              border-top: 1px solid #e2e8f0;
+            }
+            .stat-value {
+              font-size: 28px;
+              font-weight: bold;
+              color: #1e293b;
+              display: block;
+            }
+            .stat-label {
+              font-size: 11px;
+              color: #64748b;
+              text-transform: uppercase;
+              margin-top: 4px;
+              display: block;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 2px;
+            }
+            td {
+              border: 1px solid #e5e7eb;
+            }
+            .footer {
+              margin-top: 32px;
+              padding-top: 16px;
+              border-top: 2px solid #e5e7eb;
             }
             .footer-grid {
               display: grid;
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-              gap: 14px 20px;
-              font-size: 13px;
+              grid-template-columns: 1fr 1fr;
+              gap: 12px;
+              margin-bottom: 16px;
+            }
+            .footer-item {
+              font-size: 12px;
               color: #475569;
             }
-            .footer-item strong { color: #0f172a; display: block; margin-bottom: 4px; }
-            .page-number {
-              text-align: center;
-              font-size: 11px;
-              color: #94a3b8;
-              margin-top: 14px;
-              padding-top: 10px;
-              border-top: 1px solid #e2e8f0;
+            .footer-label {
+              font-weight: 600;
+              color: #1f2937;
+              display: block;
+              margin-bottom: 2px;
             }
-            @media print { body { background: white; } .page-container { box-shadow: none; margin: 0; } }
+            .footer-text {
+              text-align: center;
+              font-size: 10px;
+              color: #94a3b8;
+              margin-top: 12px;
+            }
+            @media print {
+              body { margin: 0; }
+              .page-container { margin: 0; padding: 15mm; }
+              .stats-row, .stat-card { page-break-inside: avoid; }
+              table { page-break-inside: auto; }
+              tr { page-break-inside: avoid; page-break-after: auto; }
+            }
           </style>
         </head>
         <body>
           <div class="page-container">
-            <div class="header-band">
-              <div class="logo-section">
-                <img src="${window.location.origin}/logo.png" alt="RODICON" class="company-logo" onerror="this.style.display='none'" />
-                <div>
-                  <h1 class="doc-title">Reporte de Inspección HSE</h1>
-                  <p class="doc-subtitle">Sistema de Gestión de Seguridad y Salud Ocupacional</p>
-                </div>
-              </div>
-              <div class="inspection-meta">
-                <div class="meta-info">
-                  <div class="meta-title">${inspection.title}</div>
-                  <div class="meta-date">📅 ${new Date(inspection.completed_at || inspection.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
-                </div>
-                <div class="status-badge" style="background:${statusStyles.bg};color:${statusStyles.text};border:1px solid ${statusStyles.border};">
-                  ${statusStyles.icon} ${statusStyles.label}
-                </div>
+            <!-- Header -->
+            <div class="header">
+              <div class="header-title">${inspection.title || 'Inspección HSE'}</div>
+              <div class="header-subtitle">
+                ${inspection.inspection_number || ''} - 
+                ${new Date(inspection.completed_at || inspection.created_at).toLocaleDateString('es-ES', { 
+                  day: '2-digit', 
+                  month: 'long', 
+                  year: 'numeric' 
+                })}
               </div>
             </div>
 
-            <div class="stats-bar">
-              <div class="stat-box">
+            <!-- Info General -->
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="info-label">Estado</span>
+                <span class="info-value">${statusStyles.label}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Prioridad</span>
+                <span class="info-value">${inspection.priority || 'MEDIA'}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Inspector</span>
+                <span class="info-value">${inspection.conducted_by_name || 'No especificado'}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Categoría</span>
+                <span class="info-value">${tpl.category || 'General'}</span>
+              </div>
+            </div>
+
+            <!-- Estadísticas -->
+            <div class="stats-row">
+              <div class="stat-card">
                 <span class="stat-value">${completedItems}</span>
                 <span class="stat-label">Elementos Evaluados</span>
               </div>
-              <div class="stat-box">
+              <div class="stat-card">
                 <span class="stat-value">${totalItems}</span>
                 <span class="stat-label">Total de Ítems</span>
               </div>
-              <div class="stat-box">
+              <div class="stat-card">
                 <span class="stat-value">${totalItems ? Math.round((completedItems/totalItems)*100) : 0}%</span>
-                <span class="stat-label">Progreso</span>
+                <span class="stat-label">Completado</span>
               </div>
             </div>
 
-            <div class="content-area">
-              ${buildSections()}
-            </div>
+            <!-- Secciones -->
+            ${buildSections()}
 
-            <div class="footer-area">
+            <!-- Footer -->
+            <div class="footer">
               <div class="footer-grid">
                 <div class="footer-item">
-                  <strong>👤 Realizada por:</strong>
+                  <span class="footer-label">Realizada por:</span>
                   ${inspection.conducted_by_name || 'No especificado'}
                 </div>
                 <div class="footer-item">
-                  <strong>📆 Fecha generación:</strong>
+                  <span class="footer-label">Fecha generación:</span>
                   ${new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
                 </div>
                 <div class="footer-item">
-                  <strong>📍 Ubicación:</strong>
+                  <span class="footer-label">Ubicación:</span>
                   ${formLocation}
                 </div>
                 <div class="footer-item">
-                  <strong>🏢 Área:</strong>
+                  <span class="footer-label">Área:</span>
                   ${formArea}
                 </div>
               </div>
-              <div class="page-number">
+              <div class="footer-text">
                 Documento generado automáticamente por RODICON HSE
               </div>
             </div>
