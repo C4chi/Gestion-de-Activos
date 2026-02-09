@@ -730,6 +730,56 @@ export default function TemplateBuilderV2({ templateId, onClose, onSave }) {
                     </select>
                   </div>
 
+                  {/* Campo de valor para equals/not_equals */}
+                  {(selectedItemData.conditional.rules?.[0]?.condition === 'equals' || 
+                    selectedItemData.conditional.rules?.[0]?.condition === 'not_equals') && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Valor
+                      </label>
+                      {(selectedItemData.type === 'single_select' || selectedItemData.type === 'select') && selectedItemData.options?.length > 0 ? (
+                        <select
+                          value={selectedItemData.conditional.rules?.[0]?.value || ''}
+                          onChange={(e) => {
+                            const newConditional = {
+                              ...selectedItemData.conditional,
+                              rules: [{
+                                ...(selectedItemData.conditional.rules?.[0] || {}),
+                                value: e.target.value
+                              }]
+                            };
+                            updateField(selectedItem.sectionId, selectedItem.itemId, { conditional: newConditional });
+                          }}
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                        >
+                          <option value="">Selecciona una opción...</option>
+                          {selectedItemData.options.map((opt, idx) => (
+                            <option key={idx} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          value={selectedItemData.conditional.rules?.[0]?.value || ''}
+                          onChange={(e) => {
+                            const newConditional = {
+                              ...selectedItemData.conditional,
+                              rules: [{
+                                ...(selectedItemData.conditional.rules?.[0] || {}),
+                                value: e.target.value
+                              }]
+                            };
+                            updateField(selectedItem.sectionId, selectedItem.itemId, { conditional: newConditional });
+                          }}
+                          placeholder="Ingresa el valor..."
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                        />
+                      )}
+                    </div>
+                  )}
+
                   {/* Acciones */}
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-2">
