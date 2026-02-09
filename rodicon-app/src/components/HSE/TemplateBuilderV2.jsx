@@ -839,6 +839,27 @@ export default function TemplateBuilderV2({ templateId, onClose, onSave }) {
                               <span>💬 Haga preguntas</span>
                             </label>
 
+                            {rule.actions?.includes('show_questions') && (
+                              <div className="ml-6">
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Pregunta
+                                </label>
+                                <input
+                                  type="text"
+                                  value={rule.questionText || ''}
+                                  onChange={(e) => {
+                                    const newRules = [...selectedItemData.conditional.rules];
+                                    newRules[ruleIndex] = { ...newRules[ruleIndex], questionText: e.target.value };
+                                    updateField(selectedItem.sectionId, selectedItem.itemId, {
+                                      conditional: { ...selectedItemData.conditional, rules: newRules }
+                                    });
+                                  }}
+                                  placeholder="Escribe la pregunta..."
+                                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded bg-white"
+                                />
+                              </div>
+                            )}
+
                             {/* Notificar */}
                             <label className="flex items-center gap-2 text-sm">
                               <input

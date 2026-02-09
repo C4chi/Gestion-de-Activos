@@ -392,6 +392,25 @@ export default function FormRenderer({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const getFollowUpQuestions = useCallback((item) => {
+    if (!item?.conditional?.enabled || !Array.isArray(item.conditional.rules)) return [];
+
+    const currentValue = answers[item.id]?.value;
+
+    return item.conditional.rules
+      .map((rule, ruleIndex) => {
+        if (!rule.actions?.includes('show_questions')) return null;
+        if (!evaluateConditionalRule(rule, currentValue)) return null;
+
+        const questionText = (rule.questionText || '').trim();
+        return {
+          id: `${item.id}_question_${ruleIndex}`,
+          text: questionText || 'Pregunta adicional'
+        };
+      })
+      .filter(Boolean);
+  }, [answers]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -486,8 +505,11 @@ export default function FormRenderer({
 
               {/* Items de la sección */}
               <div className="space-y-4 pl-1">
-                {section.items?.map((item) => (
-                  visibleItems.has(item.id) && (
+                {section.items?.map((item) => {
+                  if (!visibleItems.has(item.id)) return null;
+                  const followUpQuestions = getFollowUpQuestions(item);
+
+                  return (
                     <FormItem
                       key={item.id}
                       item={item}
@@ -498,10 +520,11 @@ export default function FormRenderer({
                       locationOptions={locationOptions}
                       answers={answers}
                       updateAnswer={updateAnswer}
+                      followUpQuestions={followUpQuestions}
                       disabled={mode === 'view' || isSubmitting}
                     />
-                  )
-                ))}
+                  );
+                })}
               </div>
             </div>
           )
@@ -570,7 +593,7 @@ export default function FormRenderer({
 /**
  * Componente para renderizar un item individual
  */
-function FormItem({ item, value, error, onChange, disabled, assetOptions = [], locationOptions = [], answers = {}, updateAnswer }) {
+function FormItem({ item, value, error, onChange, disabled, assetOptions = [], locationOptions = [], answers = {}, updateAnswer, followUpQuestions = [] }) {
   const renderInput = () => {
     switch (item.type) {
       case 'text':
@@ -922,6 +945,30 @@ function FormItem({ item, value, error, onChange, disabled, assetOptions = [], l
 
       {/* Input */}
       {renderInput()}
+
+      {followUpQuestions.length > 0 && (
+        <div className="pl-4 border-l-4 border-indigo-400 space-y-3 pt-2">
+          <p className="text-sm font-medium text-indigo-700 flex items-center gap-2">
+            <span>💬</span>
+            Preguntas adicionales
+          </p>
+          {followUpQuestions.map((question) => (
+            <div key={question.id} className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">
+                {question.text}
+              </label>
+              <input
+                type="text"
+                value={answers[question.id]?.value || ''}
+                onChange={(e) => updateAnswer(question.id, e.target.value, { type: 'text', label: question.text })}
+                disabled={disabled}
+                placeholder="Escribe tu respuesta..."
+                className={`w-full px-3 py-2 border rounded-lg ${disabled ? 'bg-gray-50' : ''}`}
+              />
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Error */}
       {error && (
