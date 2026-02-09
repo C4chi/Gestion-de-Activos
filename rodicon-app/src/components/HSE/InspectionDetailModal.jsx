@@ -26,15 +26,17 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
   const loadData = async () => {
     setLoading(true);
     try {
+      console.log('Loading inspection:', inspectionId);
       const [inspectionData, actionsData] = await Promise.all([
         getInspectionById(inspectionId),
         getCorrectiveActions(inspectionId)
       ]);
+      console.log('Inspection loaded:', inspectionData);
       setInspection(inspectionData);
       setCorrectiveActions(actionsData || []);
     } catch (error) {
       console.error('Error loading inspection:', error);
-      toast.error('Error al cargar inspección');
+      toast.error(`Error al cargar inspección: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -248,6 +250,21 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
               text-align: center;
             }
             .stat-value { font-size: 22px; font-weight: 800; color: #0f172a; display: block; }
+            .stat-label { font-size: 11px; color: #64748b; text-transform: uppercase; }
+            .content-area { padding: 24px 32px; }
+            .footer-area { padding: 24px 32px; background: #f8fafc; border-top: 1px solid #e2e8f0; }
+            .footer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px; }
+            .footer-item { font-size: 13px; color: #475569; }
+            .page-number { text-align: center; font-size: 11px; color: #94a3b8; }
+            
+            /* Page break control */
+            @media print {
+              .page-container { page-break-after: auto; }
+              .stats-bar { page-break-inside: avoid; page-break-after: avoid; }
+              .content-area > div { page-break-inside: avoid; break-inside: avoid; }
+              .stat-box { page-break-inside: avoid; }
+              .footer-area { page-break-before: auto; page-break-inside: avoid; }
+            }
             .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-top: 4px; font-weight: 600; }
             .content-area { padding: 28px 32px; background: #f8fafc; }
             .footer-area {
@@ -343,14 +360,34 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
             window.onload = function() {
               const element = document.querySelector('.page-container');
               const opt = {
-                margin: 0,
+                margin: [10, 10, 10, 10],
                 filename: '${inspection.inspection_number || 'inspeccion'}.pdf',
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                image: { type: 'jpeg', quality: 0.95 },
+                html2canvas: { 
+                  scale: 2, 
+                  useCORS: true, 
+                  letterRendering: true,
+                  logging: false,
+                  windowWidth: 900
+                },
+                jsPDF: { 
+                  unit: 'mm', 
+                  format: 'a4', 
+                  orientation: 'portrait',
+                  compress: true
+                },
+                pagebreak: { 
+                  mode: ['avoid-all', 'css', 'legacy'],
+                  before: '.page-break-before',
+                  after: '.page-break-after',
+                  avoid: ['.stat-box', '.footer-area']
+                }
               };
               html2pdf().set(opt).from(element).save().then(() => {
                 setTimeout(() => window.close(), 1000);
+              }).catch(err => {
+                console.error('Error generating PDF:', err);
+                alert('Error generando PDF: ' + err.message);
               });
             };
           </script>

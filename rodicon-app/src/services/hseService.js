@@ -362,7 +362,14 @@ export const getInspectionById = async (id) => {
 
 // Obtener inspecciones con filtros
 export const getInspections = async (filters = {}) => {
-  let query = supabase.from('hse_inspections_full').select('*');
+  // Usar tabla directa en lugar de vista para evitar problemas
+  let query = supabase
+    .from('hse_inspections')
+    .select(`
+      *,
+      template:hse_templates(name, category),
+      conductor:app_users!hse_inspections_conducted_by_fkey(nombre)
+    `);
 
   if (filters.status) {
     query = query.eq('status', filters.status);
@@ -391,8 +398,18 @@ export const getInspections = async (filters = {}) => {
 
   const { data, error } = await query.order('created_at', { ascending: false });
 
-  if (error) throw error;
-  return data;
+  if (error) {
+    console.error('Error fetching inspections:', error);
+    throw error;
+  }
+  
+  // Mapear los datos para coincidir con el formato esperado
+  return (data || []).map(item => ({
+    ...item,
+    template_name: item.template?.name,
+    template_category: item.template?.category,
+    conducted_by_name: item.conductor?.nombre
+  }));
 };
 
 // Eliminar inspección (solo drafts)
