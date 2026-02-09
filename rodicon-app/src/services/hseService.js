@@ -362,14 +362,10 @@ export const getInspectionById = async (id) => {
 
 // Obtener inspecciones con filtros
 export const getInspections = async (filters = {}) => {
-  // Usar tabla directa en lugar de vista para evitar problemas
+  // Primero intentar con la tabla directa sin joins complejos
   let query = supabase
     .from('hse_inspections')
-    .select(`
-      *,
-      template:hse_templates(name, category),
-      conductor:app_users!hse_inspections_conducted_by_fkey(nombre)
-    `);
+    .select('*');
 
   if (filters.status) {
     query = query.eq('status', filters.status);
@@ -403,12 +399,45 @@ export const getInspections = async (filters = {}) => {
     throw error;
   }
   
-  // Mapear los datos para coincidir con el formato esperado
-  return (data || []).map(item => ({
+  // Si tenemos datos, hacer las consultas adicionales de forma segura
+  if (!data || data.length === 0) {
+    return [];
+  }
+
+  // Obtener nombres de templates y usuarios en paralelo
+  const templateIds = [...new Set(data.map(i => i.template_id).filter(Boolean))];
+  const userIds = [...new Set(data.map(i => i.conducted_by).filter(Boolean))];
+
+  let templatesMap = {};
+  let usersMap = {};
+
+  try {
+    if (templateIds.length > 0) {
+      const { data: templates } = await supabase
+        .from('hse_templates')
+        .select('id, name, category')
+        .in('id', templateIds);
+      templatesMap = (templates || []).reduce((acc, t) => ({ ...acc, [t.id]: t }), {});
+    }
+
+    if (userIds.length > 0) {
+      const { data: users } = await supabase
+        .from('app_users')
+        .select('id, nombre')
+        .in('id', userIds);
+      usersMap = (users || []).reduce((acc, u) => ({ ...acc, [u.id]: u }), {});
+    }
+  } catch (err) {
+    console.warn('Error loading related data:', err);
+    // Continuar sin los datos relacionados
+  }
+  
+  // Mapear los datos para incluir información relacionada
+  return data.map(item => ({
     ...item,
-    template_name: item.template?.name,
-    template_category: item.template?.category,
-    conducted_by_name: item.conductor?.nombre
+    template_name: templatesMap[item.template_id]?.name || 'N/A',
+    template_category: templatesMap[item.template_id]?.category || 'general',
+    conducted_by_name: usersMap[item.conducted_by]?.nombre || 'No especificado'
   }));
 };
 
