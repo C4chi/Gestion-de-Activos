@@ -216,32 +216,6 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
             .info-value {
               color: #1f2937;
             }
-            .stats-row {
-              display: grid;
-              grid-template-columns: repeat(3, 1fr);
-              gap: 12px;
-              margin-bottom: 24px;
-              page-break-inside: avoid;
-            }
-            .stat-card {
-              text-align: center;
-              padding: 16px;
-              border: 2px solid #e5e7eb;
-              background: white;
-            }
-            .stat-value {
-              font-size: 28px;
-              font-weight: bold;
-              color: #1e293b;
-              display: block;
-            }
-            .stat-label {
-              font-size: 11px;
-              color: #64748b;
-              text-transform: uppercase;
-              margin-top: 4px;
-              display: block;
-            }
             table {
               width: 100%;
               border-collapse: collapse;
@@ -280,7 +254,6 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
             @media print {
               body { margin: 0; }
               .page-container { margin: 0; padding: 15mm; }
-              .stats-row, .stat-card { page-break-inside: avoid; }
               table { page-break-inside: auto; }
               tr { page-break-inside: avoid; page-break-after: auto; }
             }
@@ -318,22 +291,6 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
               <div class="info-item">
                 <span class="info-label">Categoría</span>
                 <span class="info-value">${tpl.category || 'General'}</span>
-              </div>
-            </div>
-
-            <!-- Estadísticas -->
-            <div class="stats-row">
-              <div class="stat-card">
-                <span class="stat-value">${completedItems}</span>
-                <span class="stat-label">Elementos Evaluados</span>
-              </div>
-              <div class="stat-card">
-                <span class="stat-value">${totalItems}</span>
-                <span class="stat-label">Total de Ítems</span>
-              </div>
-              <div class="stat-card">
-                <span class="stat-value">${totalItems ? Math.round((completedItems/totalItems)*100) : 0}%</span>
-                <span class="stat-label">Completado</span>
               </div>
             </div>
 
