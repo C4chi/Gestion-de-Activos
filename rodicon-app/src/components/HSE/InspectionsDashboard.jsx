@@ -28,6 +28,8 @@ export default function InspectionsDashboard() {
   const [inspections, setInspections] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState(null);
 
@@ -68,13 +70,15 @@ export default function InspectionsDashboard() {
         getInspections({
           status: statusFilter !== 'ALL' ? statusFilter : undefined,
           priority: priorityFilter !== 'ALL' ? priorityFilter : undefined,
-          template_id: templateFilter !== 'ALL' ? templateFilter : undefined
+          template_id: templateFilter !== 'ALL' ? templateFilter : undefined,
+          limit: 50 // Cargar solo 50 inicialmente
         }),
         getActiveTemplates()
       ]);
 
       setInspections(inspectionsData || []);
       setTemplates(templatesData || []);
+      setHasMore((inspectionsData || []).length >= 50);
 
       // Calcular estadísticas
       calculateStats(inspectionsData || []);
@@ -100,6 +104,34 @@ export default function InspectionsDashboard() {
       : 0;
 
     setStats({ total, completed, draft, passed, avgScore });
+  };
+
+  // Cargar más inspecciones
+  const loadMore = async () => {
+    if (loadingMore || !hasMore) return;
+    
+    setLoadingMore(true);
+    try {
+      const moreData = await getInspections({
+        status: statusFilter !== 'ALL' ? statusFilter : undefined,
+        priority: priorityFilter !== 'ALL' ? priorityFilter : undefined,
+        template_id: templateFilter !== 'ALL' ? templateFilter : undefined,
+        limit: 50,
+        offset: inspections.length
+      });
+
+      if (moreData && moreData.length > 0) {
+        setInspections(prev => [...prev, ...moreData]);
+        setHasMore(moreData.length >= 50);
+      } else {
+        setHasMore(false);
+      }
+    } catch (error) {
+      console.error('Error loading more:', error);
+      toast.error('Error al cargar más inspecciones');
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   // Sincronizar inspecciones offline
@@ -457,6 +489,26 @@ export default function InspectionsDashboard() {
                 ))}
               </tbody>
             </table>
+
+            {/* Botón Cargar Más */}
+            {hasMore && !loading && filteredInspections.length > 0 && (
+              <div className="flex justify-center py-6 border-t">
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {loadingMore ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Cargando...
+                    </>
+                  ) : (
+                    <>Cargar más inspecciones</>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </main>

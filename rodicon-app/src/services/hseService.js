@@ -362,10 +362,24 @@ export const getInspectionById = async (id) => {
 
 // Obtener inspecciones con filtros
 export const getInspections = async (filters = {}) => {
-  // Primero intentar con la tabla directa sin joins complejos
+  // Seleccionar solo campos necesarios para mejor performance
   let query = supabase
     .from('hse_inspections')
-    .select('*');
+    .select(`
+      id,
+      inspection_number,
+      title,
+      status,
+      priority,
+      template_id,
+      conducted_by,
+      ficha,
+      score_percentage,
+      passed,
+      has_critical_issues,
+      completed_at,
+      created_at
+    `);
 
   if (filters.status) {
     query = query.eq('status', filters.status);
@@ -392,7 +406,10 @@ export const getInspections = async (filters = {}) => {
     query = query.or(`title.ilike.%${filters.search}%,inspection_number.ilike.%${filters.search}%`);
   }
 
-  const { data, error } = await query.order('created_at', { ascending: false });
+  const { data, error } = await query
+    .order('created_at', { ascending: false })
+    .limit(filters.limit || 50) // Limitar a 50 registros por defecto
+    .range(filters.offset || 0, (filters.offset || 0) + (filters.limit || 50) - 1);
 
   if (error) {
     console.error('Error fetching inspections:', error);
@@ -412,21 +429,18 @@ export const getInspections = async (filters = {}) => {
   let usersMap = {};
 
   try {
-    if (templateIds.length > 0) {
-      const { data: templates } = await supabase
-        .from('hse_templates')
-        .select('id, name, category')
-        .in('id', templateIds);
-      templatesMap = (templates || []).reduce((acc, t) => ({ ...acc, [t.id]: t }), {});
-    }
+    // Ejecutar ambas queries en paralelo para mayor velocidad
+    const [templatesResult, usersResult] = await Promise.all([
+      templateIds.length > 0 
+        ? supabase.from('hse_templates').select('id, name, category').in('id', templateIds)
+        : Promise.resolve({ data: [] }),
+      userIds.length > 0 
+        ? supabase.from('app_users').select('id, nombre').in('id', userIds)
+        : Promise.resolve({ data: [] })
+    ]);
 
-    if (userIds.length > 0) {
-      const { data: users } = await supabase
-        .from('app_users')
-        .select('id, nombre')
-        .in('id', userIds);
-      usersMap = (users || []).reduce((acc, u) => ({ ...acc, [u.id]: u }), {});
-    }
+    templatesMap = (templatesResult.data || []).reduce((acc, t) => ({ ...acc, [t.id]: t }), {});
+    usersMap = (usersResult.data || []).reduce((acc, u) => ({ ...acc, [u.id]: u }), {});
   } catch (err) {
     console.warn('Error loading related data:', err);
     // Continuar sin los datos relacionados
