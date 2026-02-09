@@ -13,18 +13,23 @@ import { createTemplate, updateTemplate, getTemplateById } from '../../services/
 
 // Tipos de campo disponibles
 const FIELD_TYPES = [
-  { value: 'text', label: '📝 Respuesta de texto', icon: '📝' },
-  { value: 'textarea', label: '📄 Párrafo', icon: '📄' },
-  { value: 'number', label: '🔢 Número', icon: '🔢' },
-  { value: 'date', label: '📅 Fecha', icon: '📅' },
-  { value: 'datetime', label: '🕐 Fecha y hora', icon: '🕐' },
-  { value: 'single_select', label: '🔘 Selección única', icon: '🔘' },
-  { value: 'checkbox', label: '☑️ Casilla', icon: '☑️' },
-  { value: 'asset', label: '📦 Activo', icon: '📦' },
-  { value: 'location', label: '📍 Ubicación', icon: '📍' },
-  { value: 'area', label: '🏢 Área', icon: '🏢' },
-  { value: 'photo', label: '📷 Foto', icon: '📷' },
-  { value: 'signature', label: '✍️ Firma', icon: '✍️' },
+  { value: 'text', label: 'Respuesta de texto', icon: '📝', description: 'Texto corto en una línea' },
+  { value: 'textarea', label: 'Párrafo', icon: '📄', description: 'Texto largo en varias líneas' },
+  { value: 'number', label: 'Número', icon: '🔢', description: 'Respuesta numérica' },
+  { value: 'date', label: 'Fecha de la inspección', icon: '📅', description: 'Seleccionar fecha' },
+  { value: 'datetime', label: 'Fecha y hora', icon: '🕐', description: 'Seleccionar fecha y hora' },
+  { value: 'single_select', label: 'Selección única', icon: '🔘', description: 'Opciones de respuesta única' },
+  { value: 'checkbox', label: 'Casilla de verificación', icon: '☑️', description: 'Sí/No' },
+  { value: 'asset', label: 'Activo', icon: '📦', description: 'Selector de activo' },
+  { value: 'location', label: 'Ubicación', icon: '📍', description: 'Selector de ubicación' },
+  { value: 'area', label: 'Sitio', icon: '🏢', description: 'Área o sitio de trabajo' },
+  { value: 'photo', label: 'Archivos multimedia', icon: '📷', description: 'Foto o video' },
+  { value: 'signature', label: 'Firma', icon: '✍️', description: 'Firma digital' },
+  { value: 'rating', label: 'Control deslizante', icon: '⭐', description: 'Calificación o escala' },
+  { value: 'instruction', label: 'Instrucción', icon: 'ℹ️', description: 'Texto informativo (no es pregunta)' },
+  { value: 'file_number', label: 'Número del archivo', icon: '🔢', description: 'Número de archivo o folio' },
+  { value: 'company', label: 'Empresa', icon: '🏭', description: 'Nombre de empresa' },
+  { value: 'annotation', label: 'Anotación', icon: '✏️', description: 'Campo de anotaciones' },
 ];
 
 export default function TemplateBuilderV2({ templateId, onClose, onSave }) {
@@ -62,6 +67,42 @@ export default function TemplateBuilderV2({ templateId, onClose, onSave }) {
       console.error('Error loading template:', error);
       toast.error('Error al cargar plantilla');
     }
+  };
+
+  // Agregar nueva sección
+  const addSection = () => {
+    const newSection = {
+      id: `section_${Date.now()}`,
+      title: 'Sección sin título',
+      description: '',
+      items: []
+    };
+    
+    setTemplate(prev => ({
+      ...prev,
+      sections: [...prev.sections, newSection]
+    }));
+    
+    toast.success('Sección agregada');
+  };
+
+  // Eliminar sección
+  const deleteSection = (sectionId) => {
+    if (template.sections.length === 1) {
+      toast.error('Debe haber al menos una sección');
+      return;
+    }
+    
+    if (!window.confirm('¿Eliminar esta sección y todas sus preguntas?')) {
+      return;
+    }
+    
+    setTemplate(prev => ({
+      ...prev,
+      sections: prev.sections.filter(s => s.id !== sectionId)
+    }));
+    
+    toast.success('Sección eliminada');
   };
 
   // Agregar campo
@@ -322,19 +363,45 @@ export default function TemplateBuilderV2({ templateId, onClose, onSave }) {
                     section={section}
                     isSelected={selectedItem?.itemId === item.id}
                     onClick={() => setSelectedItem({ sectionId: section.id, itemId: item.id })}
+                    onUpdate={(updates) => updateField(section.id, item.id, updates)}
                     onDuplicate={() => duplicateField(section.id, item.id)}
                     onDelete={() => deleteField(section.id, item.id)}
                   />
                 ))}
 
-                {/* Add Field Button */}
-                <button
-                  onClick={() => addField(section.id)}
-                  className="w-full py-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-400 hover:bg-purple-50 text-gray-600 hover:text-purple-600 flex items-center justify-center gap-2"
-                >
-                  <Plus size={20} />
-                  Agregar pregunta
-                </button>
+                {/* Add Field Buttons */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => addField(section.id)}
+                    className="flex-1 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-400 hover:bg-purple-50 text-gray-600 hover:text-purple-600 flex items-center justify-center gap-2 font-medium"
+                  >
+                    <Plus size={20} />
+                    Agregar pregunta
+                  </button>
+                  
+                  {sectionIdx === template.sections.length - 1 && (
+                    <button
+                      onClick={addSection}
+                      className="flex-1 py-3 border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 text-blue-600 hover:text-blue-700 flex items-center justify-center gap-2 font-medium"
+                    >
+                      <Plus size={20} />
+                      Agregar sección
+                    </button>
+                  )}
+                </div>
+
+                {/* Delete Section Button */}
+                {template.sections.length > 1 && (
+                  <div className="flex justify-end mt-2">
+                    <button
+                      onClick={() => deleteSection(section.id)}
+                      className="text-sm text-red-600 hover:text-red-700 flex items-center gap-1"
+                    >
+                      <Trash2 size={14} />
+                      Eliminar sección
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -353,12 +420,19 @@ export default function TemplateBuilderV2({ templateId, onClose, onSave }) {
               <select
                 value={selectedItemData.type}
                 onChange={(e) => updateField(selectedItem.sectionId, selectedItem.itemId, { type: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
               >
                 {FIELD_TYPES.map(ft => (
-                  <option key={ft.value} value={ft.value}>{ft.label}</option>
+                  <option key={ft.value} value={ft.value}>
+                    {ft.icon} {ft.label}
+                  </option>
                 ))}
               </select>
+              {FIELD_TYPES.find(f => f.value === selectedItemData.type)?.description && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {FIELD_TYPES.find(f => f.value === selectedItemData.type)?.description}
+                </p>
+              )}
             </div>
 
             {/* Opciones para select */}
@@ -439,7 +513,7 @@ export default function TemplateBuilderV2({ templateId, onClose, onSave }) {
 }
 
 // Componente de tarjeta de campo
-function FieldCard({ item, section, isSelected, onClick, onDuplicate, onDelete }) {
+function FieldCard({ item, section, isSelected, onClick, onUpdate, onDuplicate, onDelete }) {
   const fieldTypeInfo = FIELD_TYPES.find(ft => ft.value === item.type);
 
   return (
@@ -458,6 +532,7 @@ function FieldCard({ item, section, isSelected, onClick, onDuplicate, onDelete }
           <input
             type="text"
             value={item.label}
+            onChange={(e) => onUpdate({ label: e.target.value })}
             className="text-base font-medium w-full border-none focus:outline-none bg-transparent"
             placeholder="Pregunta sin título"
             onClick={(e) => e.stopPropagation()}
@@ -487,6 +562,12 @@ function FieldCard({ item, section, isSelected, onClick, onDuplicate, onDelete }
 
       {/* Preview del campo */}
       <div className="mt-4">
+        {item.type === 'instruction' && (
+          <div className="p-3 bg-blue-50 border-l-4 border-blue-400 text-sm text-blue-800">
+            ℹ️ Campo informativo (no requiere respuesta)
+          </div>
+        )}
+        
         {item.type === 'single_select' && (
           <div className="space-y-2">
             {(item.options || []).map((option, idx) => (
@@ -511,12 +592,58 @@ function FieldCard({ item, section, isSelected, onClick, onDuplicate, onDelete }
           </div>
         )}
         
-        {(item.type === 'text' || item.type === 'textarea') && (
+        {item.type === 'rating' && (
+          <div className="flex gap-1">
+            {[1,2,3,4,5].map(star => (
+              <span key={star} className="text-2xl text-gray-300">⭐</span>
+            ))}
+          </div>
+        )}
+        
+        {(item.type === 'text' || item.type === 'textarea' || item.type === 'company' || 
+          item.type === 'annotation' || item.type === 'file_number') && (
           <input
             type="text"
             disabled
             className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
             placeholder={item.placeholder || 'Respuesta...'}
+          />
+        )}
+        
+        {(item.type === 'asset' || item.type === 'location' || item.type === 'area') && (
+          <select disabled className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50">
+            <option>Seleccionar...</option>
+          </select>
+        )}
+        
+        {item.type === 'photo' && (
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+            <span className="text-4xl">📷</span>
+            <p className="text-sm text-gray-500 mt-2">Tomar foto o subir archivo</p>
+          </div>
+        )}
+        
+        {item.type === 'signature' && (
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+            <span className="text-4xl">✍️</span>
+            <p className="text-sm text-gray-500 mt-2">Espacio para firma</p>
+          </div>
+        )}
+        
+        {(item.type === 'date' || item.type === 'datetime') && (
+          <input
+            type="date"
+            disabled
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+          />
+        )}
+        
+        {item.type === 'number' && (
+          <input
+            type="number"
+            disabled
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+            placeholder="0"
           />
         )}
       </div>
