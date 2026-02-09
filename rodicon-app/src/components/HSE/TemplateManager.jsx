@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Plus, RefreshCw, Pencil, Copy, Archive, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getActiveTemplates, updateTemplate, createTemplate } from '../../services/hseService';
-import TemplateBuilder from './TemplateBuilder';
+import TemplateBuilderV2 from './TemplateBuilderV2';
 import { useAppContext } from '../../AppContext';
 
 export default function TemplateManager({ onClose }) {
@@ -75,7 +75,7 @@ export default function TemplateManager({ onClose }) {
 
   if (showBuilder) {
     return (
-      <TemplateBuilder
+      <TemplateBuilderV2
         templateId={editingId}
         onClose={() => {
           setShowBuilder(false);
