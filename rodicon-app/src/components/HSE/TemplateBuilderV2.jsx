@@ -32,6 +32,54 @@ const FIELD_TYPES = [
   { value: 'annotation', label: 'Anotación', icon: '✏️', description: 'Campo de anotaciones' },
 ];
 
+// Presets predefinidos para selección simple
+const DEFAULT_PRESETS = [
+  {
+    id: 'quality',
+    name: 'Calidad',
+    options: [
+      { value: 'Buena', label: 'Buena', color: 'green' },
+      { value: 'Razonable', label: 'Razonable', color: 'yellow' },
+      { value: 'Deficiente', label: 'Deficiente', color: 'red' }
+    ]
+  },
+  {
+    id: 'safety',
+    name: 'Seguridad',
+    options: [
+      { value: 'Seguro', label: 'Seguro', color: 'green' },
+      { value: 'En riesgo', label: 'En riesgo', color: 'red' },
+      { value: 'N/A', label: 'N/A', color: 'gray' }
+    ]
+  },
+  {
+    id: 'approval',
+    name: 'Aprobación',
+    options: [
+      { value: 'Aprueba', label: 'Aprueba', color: 'green' },
+      { value: 'Falla', label: 'Falla', color: 'red' },
+      { value: 'N/A', label: 'N/A', color: 'gray' }
+    ]
+  },
+  {
+    id: 'yesno',
+    name: 'Sí/No',
+    options: [
+      { value: 'Sí', label: 'Sí', color: 'green' },
+      { value: 'No', label: 'No', color: 'red' }
+    ]
+  },
+  {
+    id: 'compliance',
+    name: 'Cumplimiento',
+    options: [
+      { value: 'Cumple', label: 'Cumple', color: 'green' },
+      { value: 'No cumple', label: 'No cumple', color: 'red' },
+      { value: 'N/A', label: 'N/A', color: 'gray' }
+    ]
+  }
+];
+
 export default function TemplateBuilderV2({ templateId, onClose, onSave }) {
   const [template, setTemplate] = useState({
     name: 'Plantilla sin título',
@@ -52,6 +100,24 @@ export default function TemplateBuilderV2({ templateId, onClose, onSave }) {
 
   const [selectedItem, setSelectedItem] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [customPresets, setCustomPresets] = useState([]);
+  const [showNewPresetModal, setShowNewPresetModal] = useState(false);
+  const [newPresetName, setNewPresetName] = useState('');
+
+  // Cargar presets personalizados del localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('hse_select_presets');
+    if (saved) {
+      try {
+        setCustomPresets(JSON.parse(saved));
+      } catch (error) {
+        console.error('Error loading presets:', error);
+      }
+    }
+  }, []);
+
+  // Combinar presets predefinidos con personalizados
+  const allPresets = [...DEFAULT_PRESETS, ...customPresets];
 
   useEffect(() => {
     if (templateId) {
@@ -227,6 +293,56 @@ export default function TemplateBuilderV2({ templateId, onClose, onSave }) {
 
     const newOptions = item.options.filter((_, idx) => idx !== optionIndex);
     updateField(sectionId, itemId, { options: newOptions });
+  };
+
+  // Aplicar preset a campo
+  const applyPreset = (sectionId, itemId, presetId) => {
+    const preset = allPresets.find(p => p.id === presetId);
+    if (!preset) return;
+
+    updateField(sectionId, itemId, {
+      options: JSON.parse(JSON.stringify(preset.options)) // Deep copy
+    });
+    toast.success(`Preset "${preset.name}" aplicado`);
+  };
+
+  // Guardar opciones actuales como nuevo preset
+  const saveAsPreset = () => {
+    if (!selectedItem || !newPresetName.trim()) {
+      toast.error('Ingresa un nombre para el preset');
+      return;
+    }
+
+    const section = template.sections.find(s => s.id === selectedItem.sectionId);
+    const item = section?.items.find(i => i.id === selectedItem.itemId);
+    if (!item || !item.options || item.options.length === 0) {
+      toast.error('Agrega al menos una opción antes de guardar');
+      return;
+    }
+
+    const newPreset = {
+      id: `custom_${Date.now()}`,
+      name: newPresetName.trim(),
+      options: JSON.parse(JSON.stringify(item.options))
+    };
+
+    const updatedPresets = [...customPresets, newPreset];
+    setCustomPresets(updatedPresets);
+    localStorage.setItem('hse_select_presets', JSON.stringify(updatedPresets));
+
+    setNewPresetName('');
+    setShowNewPresetModal(false);
+    toast.success(`Preset "${newPreset.name}" guardado`);
+  };
+
+  // Eliminar preset personalizado
+  const deletePreset = (presetId) => {
+    if (!window.confirm('¿Eliminar este preset?')) return;
+
+    const updatedPresets = customPresets.filter(p => p.id !== presetId);
+    setCustomPresets(updatedPresets);
+    localStorage.setItem('hse_select_presets', JSON.stringify(updatedPresets));
+    toast.success('Preset eliminado');
   };
 
   // Guardar plantilla
@@ -435,47 +551,87 @@ export default function TemplateBuilderV2({ templateId, onClose, onSave }) {
               )}
             </div>
 
-            {/* Opciones para select */}
+            {/* Opciones para select con presets */}
             {(selectedItemData.type === 'single_select' || selectedItemData.type === 'select') && (
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Opciones
-                </label>
-                {(selectedItemData.options || []).map((option, idx) => (
-                  <div key={idx} className="flex items-center gap-2 mb-2">
-                    <input
-                      type="text"
-                      value={option.label}
-                      onChange={(e) => updateOption(selectedItem.sectionId, selectedItem.itemId, idx, { label: e.target.value, value: e.target.value })}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
-                      placeholder={`Opción ${idx + 1}`}
-                    />
-                    <select
-                      value={option.color}
-                      onChange={(e) => updateOption(selectedItem.sectionId, selectedItem.itemId, idx, { color: e.target.value })}
-                      className="px-2 py-2 border border-gray-300 rounded-lg"
-                    >
-                      <option value="gray">⚪</option>
-                      <option value="green">🟢</option>
-                      <option value="red">🔴</option>
-                      <option value="yellow">🟡</option>
-                      <option value="blue">🔵</option>
-                    </select>
-                    <button
-                      onClick={() => deleteOption(selectedItem.sectionId, selectedItem.itemId, idx)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Opciones de respuesta
+                  </label>
+                  <button
+                    onClick={() => setShowNewPresetModal(true)}
+                    className="text-xs text-purple-600 hover:text-purple-700 flex items-center gap-1"
+                  >
+                    <Save size={12} />
+                    Guardar preset
+                  </button>
+                </div>
+
+                {/* Selector de presets */}
+                <div className="mb-3">
+                  <label className="block text-xs text-gray-600 mb-1">Usar preset:</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {allPresets.map(preset => (
+                      <button
+                        key={preset.id}
+                        onClick={() => applyPreset(selectedItem.sectionId, selectedItem.itemId, preset.id)}
+                        className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-purple-50 hover:border-purple-400 text-left relative group"
+                      >
+                        {preset.name}
+                        {preset.id.startsWith('custom_') && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deletePreset(preset.id);
+                            }}
+                            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-red-600 hover:text-red-700"
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
+                      </button>
+                    ))}
                   </div>
-                ))}
-                <button
-                  onClick={() => addOption(selectedItem.sectionId, selectedItem.itemId)}
-                  className="text-sm text-purple-600 hover:text-purple-700 flex items-center gap-1"
-                >
-                  <Plus size={16} />
-                  Agregar opción
-                </button>
+                </div>
+
+                <div className="border-t pt-3">
+                  <label className="block text-xs text-gray-600 mb-2">Opciones personalizadas:</label>
+                  {(selectedItemData.options || []).map((option, idx) => (
+                    <div key={idx} className="flex items-center gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={option.label}
+                        onChange={(e) => updateOption(selectedItem.sectionId, selectedItem.itemId, idx, { label: e.target.value, value: e.target.value })}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder={`Opción ${idx + 1}`}
+                      />
+                      <select
+                        value={option.color}
+                        onChange={(e) => updateOption(selectedItem.sectionId, selectedItem.itemId, idx, { color: e.target.value })}
+                        className="px-2 py-2 border border-gray-300 rounded-lg"
+                      >
+                        <option value="gray">⚪</option>
+                        <option value="green">🟢</option>
+                        <option value="red">🔴</option>
+                        <option value="yellow">🟡</option>
+                        <option value="blue">🔵</option>
+                      </select>
+                      <button
+                        onClick={() => deleteOption(selectedItem.sectionId, selectedItem.itemId, idx)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => addOption(selectedItem.sectionId, selectedItem.itemId)}
+                    className="text-sm text-purple-600 hover:text-purple-700 flex items-center gap-1"
+                  >
+                    <Plus size={16} />
+                    Agregar opción
+                  </button>
+                </div>
               </div>
             )}
 
@@ -707,6 +863,44 @@ export default function TemplateBuilderV2({ templateId, onClose, onSave }) {
           </div>
         )}
       </div>
+
+      {/* Modal para guardar nuevo preset */}
+      {showNewPresetModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-bold mb-4">Guardar como preset</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Las opciones actuales se guardarán como un preset reutilizable.
+            </p>
+            <input
+              type="text"
+              value={newPresetName}
+              onChange={(e) => setNewPresetName(e.target.value)}
+              placeholder="Nombre del preset (ej: Estados de equipo)"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4"
+              autoFocus
+              onKeyPress={(e) => e.key === 'Enter' && saveAsPreset()}
+            />
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowNewPresetModal(false);
+                  setNewPresetName('');
+                }}
+                className="px-4 py-2 text-gray-600 hover:text-gray-700"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveAsPreset}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              >
+                Guardar preset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
