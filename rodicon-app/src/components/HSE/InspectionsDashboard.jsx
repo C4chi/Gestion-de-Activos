@@ -9,6 +9,7 @@ import {
   CheckCircle, Clock, AlertTriangle, Award, TrendingUp
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAppContext } from '../../AppContext';
 import FormRenderer from './FormRenderer';
 import TemplateSelector from './TemplateSelector';
 import InspectionCard from './InspectionCard';
@@ -23,6 +24,7 @@ import {
 } from '../../services/hseService';
 
 export default function InspectionsDashboard() {
+  const { user } = useAppContext();
   const [inspections, setInspections] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);

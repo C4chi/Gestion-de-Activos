@@ -4,8 +4,10 @@ import toast from 'react-hot-toast';
 import FormRenderer from './FormRenderer';
 import { getTemplateById, createInspection, completeInspection, getInspectionById } from '../../services/hseService';
 import { supabase } from '../../supabaseClient';
+import { useAppContext } from '../../AppContext';
 
 export default function InspectionStandalone({ templateId }) {
+  const { user } = useAppContext();
   const [template, setTemplate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -55,7 +57,7 @@ export default function InspectionStandalone({ templateId }) {
         template_id: template.id,
         title: template.name,
         priority: 'MEDIA',
-        conducted_by: 1, // TODO: obtener usuario real
+        conducted_by: user?.id || null,
         asset_id: assetId,
         ficha: ficha
       });
