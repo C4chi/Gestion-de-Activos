@@ -40,6 +40,29 @@ const evaluateCondition = (condition, value) => {
 };
 
 /**
+ * Evalúa las reglas condicionales del nuevo formato
+ */
+const evaluateConditionalRule = (rule, value) => {
+  if (!rule || !rule.condition) return false;
+  
+  const { condition } = rule;
+  const hasValue = value !== null && value !== undefined && value !== '';
+  
+  switch (condition) {
+    case 'not_blank':
+      return hasValue;
+    case 'is_blank':
+      return !hasValue;
+    case 'equals':
+      return value === rule.value;
+    case 'not_equals':
+      return value !== rule.value;
+    default:
+      return false;
+  }
+};
+
+/**
  * Hook para manejar el estado del formulario dinámico
  */
 const useFormState = (initialSchema, initialAnswers = {}) => {
@@ -71,13 +94,12 @@ const useFormState = (initialSchema, initialAnswers = {}) => {
 
     initialSchema.sections.forEach(section => {
       section.items?.forEach(item => {
+        // Soporte para formato antiguo (dependsOn)
         if (item.conditional?.dependsOn === itemId) {
           const { showWhen } = item.conditional;
           
-          // Evaluar la condición de forma segura (sin eval)
           let shouldShow = false;
           try {
-            // Soporta: value === 'X', value !== 'Y', value > 5, etc.
             shouldShow = evaluateCondition(showWhen, value);
           } catch (e) {
             console.error('Error evaluating conditional:', e);
@@ -87,7 +109,33 @@ const useFormState = (initialSchema, initialAnswers = {}) => {
             newVisible.add(item.id);
           } else {
             newVisible.delete(item.id);
-            // Limpiar respuesta si se oculta
+            setAnswers(prev => {
+              const updated = { ...prev };
+              delete updated[item.id];
+              return updated;
+            });
+          }
+        }
+        
+        // Soporte para nuevo formato (conditional.enabled con rules)
+        if (item.conditional?.enabled && item.conditional?.rules) {
+          const rules = Array.isArray(item.conditional.rules) ? item.conditional.rules : [item.conditional.rules];
+          
+          // Evaluar todas las reglas (por ahora AND lógico)
+          const allRulesSatisfied = rules.every(rule => evaluateConditionalRule(rule, value));
+          
+          if (allRulesSatisfied) {
+            newVisible.add(item.id);
+            
+            // Ejecutar acciones si las reglas se cumplen
+            rules.forEach(rule => {
+              if (rule.actions?.includes('require_note')) {
+                // Marcar campo como requerido si tiene la acción
+                item.required = true;
+              }
+            });
+          } else {
+            newVisible.delete(item.id);
             setAnswers(prev => {
               const updated = { ...prev };
               delete updated[item.id];
@@ -657,6 +705,7 @@ function FormItem({ item, value, error, onChange, disabled, assetOptions = [], l
                         value={answers[`${item.id}_photo`]?.value}
                         onChange={(val) => updateAnswer(`${item.id}_photo`, val, { type: 'photo' })}
                         disabled={disabled}
+                        allowMultiple={selectedOption.allowMultiple}
                       />
                     )}
                   </div>
@@ -822,7 +871,7 @@ function FormItem({ item, value, error, onChange, disabled, assetOptions = [], l
         );
 
       case 'photo':
-        return <PhotoUpload value={value} onChange={onChange} disabled={disabled} />;
+        return <PhotoUpload value={value} onChange={onChange} disabled={disabled} allowMultiple={item.allowMultiple} />;
 
       case 'signature':
         return <SignatureCapture value={value} onChange={onChange} disabled={disabled} />;
@@ -888,32 +937,44 @@ function FormItem({ item, value, error, onChange, disabled, assetOptions = [], l
 /**
  * Componente para subir fotos
  */
-function PhotoUpload({ value, onChange, disabled }) {
+function PhotoUpload({ value, onChange, disabled, allowMultiple = false }) {
   const [uploading, setUploading] = useState(false);
 
   const handleFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}`;
-      // Algunos buckets requieren prefijo public/ para políticas RLS
-      const filePath = `public/hse-inspections/${fileName}`;
+      const uploadPromises = Array.from(files).map(async (file) => {
+        const fileExt = file.name.split('.').pop();
+        const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+        const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}`;
+        const filePath = `public/hse-inspections/${fileName}`;
 
-      const { error } = await supabase.storage
-        .from('uploads')
-        .upload(filePath, file, { contentType: file.type, upsert: false });
+        const { error } = await supabase.storage
+          .from('uploads')
+          .upload(filePath, file, { contentType: file.type, upsert: false });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('uploads')
-        .getPublicUrl(filePath);
+        const { data: { publicUrl } } = supabase.storage
+          .from('uploads')
+          .getPublicUrl(filePath);
 
-      onChange(publicUrl);
+        return publicUrl;
+      });
+
+      const urls = await Promise.all(uploadPromises);
+      
+      if (allowMultiple) {
+        // Si permite múltiples, agregar a la lista existente
+        const currentUrls = Array.isArray(value) ? value : (value ? [value] : []);
+        onChange([...currentUrls, ...urls]);
+      } else {
+        // Si no permite múltiples, reemplazar con el primero
+        onChange(urls[0]);
+      }
     } catch (error) {
       console.error('Error uploading photo:', error);
 
@@ -926,8 +987,15 @@ function PhotoUpload({ value, onChange, disabled }) {
           reader.readAsDataURL(fileObj);
         });
 
-        const dataUrl = await toBase64(file);
-        onChange(dataUrl);
+        const dataUrlsPromises = Array.from(files).map(file => toBase64(file));
+        const dataUrls = await Promise.all(dataUrlsPromises);
+        
+        if (allowMultiple) {
+          const currentUrls = Array.isArray(value) ? value : (value ? [value] : []);
+          onChange([...currentUrls, ...dataUrls]);
+        } else {
+          onChange(dataUrls[0]);
+        }
         toast.success('Guardado local (sin subir). Revisa permisos del bucket uploads.');
       } catch (fallbackErr) {
         console.error('Error fallback base64:', fallbackErr);
@@ -938,39 +1006,63 @@ function PhotoUpload({ value, onChange, disabled }) {
     }
   };
 
+  const removePhoto = (urlToRemove) => {
+    if (allowMultiple && Array.isArray(value)) {
+      onChange(value.filter(url => url !== urlToRemove));
+    } else {
+      onChange(null);
+    }
+  };
+
+  // Normalizar valor a array si permite múltiples
+  const photos = allowMultiple 
+    ? (Array.isArray(value) ? value : (value ? [value] : []))
+    : (value ? [value] : []);
+
   return (
     <div>
-      {value ? (
-        <div className="relative inline-block">
-          <img src={value} alt="Preview" className="w-32 h-32 object-cover rounded-lg" />
-          {!disabled && (
-            <button
-              type="button"
-              onClick={() => onChange(null)}
-              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
-            >
-              <X size={14} />
-            </button>
-          )}
+      {photos.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-2">
+          {photos.map((url, index) => (
+            <div key={index} className="relative inline-block">
+              <img src={url} alt={`Preview ${index + 1}`} className="w-full h-32 object-cover rounded-lg" />
+              {!disabled && (
+                <button
+                  type="button"
+                  onClick={() => removePhoto(url)}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          ))}
         </div>
-      ) : (
-        <label className={`flex items-center gap-2 px-4 py-2 border-2 border-dashed rounded-lg ${
-          disabled ? 'bg-gray-50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'
-        }`}>
-          <Camera size={20} className="text-gray-400" />
-          <span className="text-sm text-gray-600">
-            {uploading ? 'Subiendo...' : 'Tomar / Subir Foto'}
-          </span>
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleFileChange}
-            disabled={disabled || uploading}
-            className="hidden"
-          />
-        </label>
       )}
+      
+      <label className={`flex flex-col items-center gap-2 px-4 py-3 border-2 border-dashed rounded-lg ${
+        disabled ? 'bg-gray-50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50 active:bg-gray-100'
+      }`}>
+        <Camera size={24} className="text-gray-400" />
+        <span className="text-sm text-gray-600 font-medium text-center">
+          {uploading ? 'Subiendo...' : (allowMultiple ? 'Tomar / Subir Fotos' : 'Tomar / Subir Foto')}
+        </span>
+        {allowMultiple && !uploading && (
+          <span className="text-xs text-gray-500">
+            {photos.length > 0 ? `${photos.length} foto${photos.length > 1 ? 's' : ''} agregada${photos.length > 1 ? 's' : ''}` : 'Selecciona múltiples archivos'}
+          </span>
+        )}
+        <input
+          type="file"
+          accept="image/*,video/*"
+          capture="environment"
+          multiple={allowMultiple}
+          onChange={handleFileChange}
+          disabled={disabled || uploading}
+          className="hidden"
+          data-testid="photo-upload-input"
+        />
+      </label>
     </div>
   );
 }

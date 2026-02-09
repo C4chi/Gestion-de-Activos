@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Plus, Save, Eye, X, GripVertical, MoreVertical,
-  Copy, Trash2, Edit3, ChevronDown
+  Copy, Trash2, Edit3, ChevronDown, Zap
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createTemplate, updateTemplate, getTemplateById } from '../../services/hseService';
@@ -505,6 +505,205 @@ export default function TemplateBuilderV2({ templateId, onClose, onSave }) {
                 placeholder="Instrucciones adicionales..."
               />
             </div>
+
+            {/* Permitir múltiples fotos */}
+            {selectedItemData.type === 'photo' && (
+              <div className="mb-4">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedItemData.allowMultiple || false}
+                    onChange={(e) => updateField(selectedItem.sectionId, selectedItem.itemId, { allowMultiple: e.target.checked })}
+                    className="rounded"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Permitir múltiples archivos</span>
+                </label>
+              </div>
+            )}
+
+            {/* Lógica Condicional */}
+            <div className="mb-4 border-t pt-4 mt-6">
+              <button
+                onClick={() => {
+                  const hasLogic = selectedItemData.conditional;
+                  if (hasLogic) {
+                    updateField(selectedItem.sectionId, selectedItem.itemId, { conditional: null });
+                  } else {
+                    updateField(selectedItem.sectionId, selectedItem.itemId, {
+                      conditional: {
+                        enabled: true,
+                        rules: [{
+                          condition: 'not_blank',
+                          actions: []
+                        }]
+                      }
+                    });
+                  }
+                }}
+                className="text-sm text-purple-600 hover:text-purple-700 flex items-center gap-1 font-medium"
+              >
+                <Zap size={16} />
+                {selectedItemData.conditional ? 'Quitar lógica' : 'Agregar lógica'}
+              </button>
+
+              {selectedItemData.conditional && (
+                <div className="mt-4 space-y-3">
+                  {/* Condición */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Si respuesta
+                    </label>
+                    <select
+                      value={selectedItemData.conditional.rules?.[0]?.condition || 'not_blank'}
+                      onChange={(e) => {
+                        const newConditional = {
+                          ...selectedItemData.conditional,
+                          rules: [{
+                            ...(selectedItemData.conditional.rules?.[0] || {}),
+                            condition: e.target.value
+                          }]
+                        };
+                        updateField(selectedItem.sectionId, selectedItem.itemId, { conditional: newConditional });
+                      }}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                    >
+                      <option value="not_blank">no es en blanco</option>
+                      <option value="is_blank">es en blanco</option>
+                      <option value="equals">es igual a</option>
+                      <option value="not_equals">no es igual a</option>
+                    </select>
+                  </div>
+
+                  {/* Acciones */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-2">
+                      entonces
+                    </label>
+                    <div className="space-y-2">
+                      {/* Hacer preguntas */}
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={selectedItemData.conditional.rules?.[0]?.actions?.includes('show_questions') || false}
+                          onChange={(e) => {
+                            const currentActions = selectedItemData.conditional.rules?.[0]?.actions || [];
+                            const newActions = e.target.checked 
+                              ? [...currentActions, 'show_questions']
+                              : currentActions.filter(a => a !== 'show_questions');
+                            const newConditional = {
+                              ...selectedItemData.conditional,
+                              rules: [{
+                                ...(selectedItemData.conditional.rules?.[0] || {}),
+                                actions: newActions
+                              }]
+                            };
+                            updateField(selectedItem.sectionId, selectedItem.itemId, { conditional: newConditional });
+                          }}
+                          className="rounded"
+                        />
+                        <span>💬 Haga preguntas</span>
+                      </label>
+
+                      {/* Notificar */}
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={selectedItemData.conditional.rules?.[0]?.actions?.includes('notify') || false}
+                          onChange={(e) => {
+                            const currentActions = selectedItemData.conditional.rules?.[0]?.actions || [];
+                            const newActions = e.target.checked 
+                              ? [...currentActions, 'notify']
+                              : currentActions.filter(a => a !== 'notify');
+                            const newConditional = {
+                              ...selectedItemData.conditional,
+                              rules: [{
+                                ...(selectedItemData.conditional.rules?.[0] || {}),
+                                actions: newActions
+                              }]
+                            };
+                            updateField(selectedItem.sectionId, selectedItem.itemId, { conditional: newConditional });
+                          }}
+                          className="rounded"
+                        />
+                        <span>🔔 Notificar</span>
+                      </label>
+
+                      {/* Requerir nota */}
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={selectedItemData.conditional.rules?.[0]?.actions?.includes('require_note') || false}
+                          onChange={(e) => {
+                            const currentActions = selectedItemData.conditional.rules?.[0]?.actions || [];
+                            const newActions = e.target.checked 
+                              ? [...currentActions, 'require_note']
+                              : currentActions.filter(a => a !== 'require_note');
+                            const newConditional = {
+                              ...selectedItemData.conditional,
+                              rules: [{
+                                ...(selectedItemData.conditional.rules?.[0] || {}),
+                                actions: newActions
+                              }]
+                            };
+                            updateField(selectedItem.sectionId, selectedItem.itemId, { conditional: newConditional });
+                          }}
+                          className="rounded"
+                        />
+                        <span>📝 Se requiere nota</span>
+                      </label>
+
+                      {/* Requerir archivos */}
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={selectedItemData.conditional.rules?.[0]?.actions?.includes('require_files') || false}
+                          onChange={(e) => {
+                            const currentActions = selectedItemData.conditional.rules?.[0]?.actions || [];
+                            const newActions = e.target.checked 
+                              ? [...currentActions, 'require_files']
+                              : currentActions.filter(a => a !== 'require_files');
+                            const newConditional = {
+                              ...selectedItemData.conditional,
+                              rules: [{
+                                ...(selectedItemData.conditional.rules?.[0] || {}),
+                                actions: newActions
+                              }]
+                            };
+                            updateField(selectedItem.sectionId, selectedItem.itemId, { conditional: newConditional });
+                          }}
+                          className="rounded"
+                        />
+                        <span>📎 Se requieren archivos multimedia</span>
+                      </label>
+
+                      {/* Requerir acción */}
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={selectedItemData.conditional.rules?.[0]?.actions?.includes('require_action') || false}
+                          onChange={(e) => {
+                            const currentActions = selectedItemData.conditional.rules?.[0]?.actions || [];
+                            const newActions = e.target.checked 
+                              ? [...currentActions, 'require_action']
+                              : currentActions.filter(a => a !== 'require_action');
+                            const newConditional = {
+                              ...selectedItemData.conditional,
+                              rules: [{
+                                ...(selectedItemData.conditional.rules?.[0] || {}),
+                                actions: newActions
+                              }]
+                            };
+                            updateField(selectedItem.sectionId, selectedItem.itemId, { conditional: newConditional });
+                          }}
+                          className="rounded"
+                        />
+                        <span>⚡ Se requiere acción</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -559,6 +758,25 @@ function FieldCard({ item, section, isSelected, onClick, onUpdate, onDuplicate, 
           </button>
         </div>
       </div>
+
+      {/* Indicador de lógica condicional */}
+      {item.conditional?.enabled && (
+        <div className="mt-3 mb-2">
+          <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+            <Zap size={12} />
+            Tiene lógica condicional
+          </div>
+        </div>
+      )}
+
+      {/* Indicador de fotos múltiples */}
+      {item.type === 'photo' && item.allowMultiple && (
+        <div className="mt-3 mb-2">
+          <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+            📸 Permite múltiples fotos
+          </div>
+        </div>
+      )}
 
       {/* Preview del campo */}
       <div className="mt-4">
