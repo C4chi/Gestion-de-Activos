@@ -108,7 +108,6 @@ export const PurchasingManagement = ({ onClose, onDownloadPdf, canManage = true 
     }
     try {
       console.log(`[performStatusUpdate] Actualizar orden ${orderId} a ${newStatus}`);
-      setLoading(true);
       
       // Obtener PIN del usuario (desde AppContext o localStorage)
       const userPin = localStorage.getItem('userPin') || '0000';
@@ -123,14 +122,12 @@ export const PurchasingManagement = ({ onClose, onDownloadPdf, canManage = true 
       console.log(`[performStatusUpdate] Órdenes recargadas:`, updatedOrders);
       
       setPurchaseOrders(updatedOrders || []);
-      setLoading(false);
 
       toast.success(`Orden ${newStatus === 'RECIBIDO' ? 'completada' : newStatus === 'ORDENADO' ? 'ordenada' : 'actualizada'}`);
       setCommentModalOpen(false);
       setQuotationModalOpen(false);
     } catch (err) {
       console.error('Error en performStatusUpdate:', err);
-      setLoading(false);
       toast.error(err.message || 'Error al actualizar orden');
     }
   };
