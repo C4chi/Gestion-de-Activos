@@ -179,16 +179,28 @@ export default function InspectionStandalone({ templateId }) {
         };
         const colors = colorMap[option?.color] || colorMap.gray;
 
+        // Manejar múltiples fotos en evidencia
+        const photoValue = answers[item.id + '_photo']?.value;
+        const photos = Array.isArray(photoValue) ? photoValue : (photoValue ? [photoValue] : []);
+        const photoHTML = photos.length > 0 ? `
+          <div style="margin-top:12px;">
+            <p style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;">Evidencia (${photos.length} foto${photos.length > 1 ? 's' : ''})</p>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;">
+              ${photos.map((url, idx) => `
+                <div style="position:relative;">
+                  <img src="${url}" style="width:100%;height:150px;object-fit:cover;border-radius:10px;border:1px solid #e2e8f0;" />
+                  <span style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.7);color:white;padding:2px 6px;border-radius:4px;font-size:10px;">Foto ${idx + 1}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : '';
+
         return `
           <div style="display:inline-flex;align-items:center;gap:8px;padding:10px 14px;background:${colors.bg};color:${colors.text};border-radius:10px;font-weight:700;font-size:14px;margin-top:4px;border:1px solid #e2e8f0;">
             ${value || '—'}
           </div>
-          ${answer && answers[item.id + '_photo']?.value ? `
-            <div style="margin-top:12px;">
-              <p style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;">Evidencia</p>
-              <img src="${answers[item.id + '_photo'].value}" style="max-width:100%;height:auto;border-radius:10px;border:1px solid #e2e8f0;" />
-            </div>
-          ` : ''}
+          ${photoHTML}
           ${answer && answers[item.id + '_note']?.value ? `
             <div style="margin-top:8px;padding:12px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;">
               <p style="font-size:12px;color:#92400e;margin-bottom:4px;font-weight:700;">Nota</p>
@@ -204,7 +216,26 @@ export default function InspectionStandalone({ templateId }) {
       }
 
       if (item.type === 'photo' || value?.startsWith?.('data:image') || value?.includes?.('http')) {
-        return `<div style="margin-top:8px;"><img src="${value}" style="max-width:100%;height:auto;border-radius:10px;border:1px solid #e2e8f0;" /></div>`;
+        const photos = Array.isArray(value) ? value : (value ? [value] : []);
+        if (photos.length === 0) return '<div style="margin-top:4px;color:#9ca3af;">Sin fotos</div>';
+        
+        if (photos.length === 1) {
+          return `<div style="margin-top:8px;"><img src="${photos[0]}" style="max-width:100%;height:auto;border-radius:10px;border:1px solid #e2e8f0;" /></div>`;
+        }
+        
+        return `
+          <div style="margin-top:8px;">
+            <p style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;">${photos.length} fotos</p>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;">
+              ${photos.map((url, idx) => `
+                <div style="position:relative;">
+                  <img src="${url}" style="width:100%;height:150px;object-fit:cover;border-radius:10px;border:1px solid #e2e8f0;" />
+                  <span style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.7);color:white;padding:2px 6px;border-radius:4px;font-size:10px;">Foto ${idx + 1}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
       }
 
       if (item.type === 'checkbox') {

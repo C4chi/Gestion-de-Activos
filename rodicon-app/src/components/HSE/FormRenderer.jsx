@@ -392,7 +392,8 @@ export default function FormRenderer({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const getFollowUpQuestions = useCallback((item) => {
+  // Memoizar follow-up questions para evitar re-renders infinitos
+  const getFollowUpQuestions = (item) => {
     if (!item?.conditional?.enabled || !Array.isArray(item.conditional.rules)) return [];
 
     const currentValue = answers[item.id]?.value;
@@ -409,7 +410,7 @@ export default function FormRenderer({
         };
       })
       .filter(Boolean);
-  }, [answers]);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -706,31 +707,12 @@ function FormItem({ item, value, error, onChange, disabled, assetOptions = [], l
                       <Camera size={16} className="inline mr-1" />
                       Fotografía
                     </label>
-                    {value && answers[`${item.id}_photo`]?.value ? (
-                      <div className="relative inline-block">
-                        <img 
-                          src={answers[`${item.id}_photo`].value} 
-                          alt="Preview" 
-                          className="w-32 h-32 object-cover rounded-lg border" 
-                        />
-                        {!disabled && (
-                          <button
-                            type="button"
-                            onClick={() => updateAnswer(`${item.id}_photo`, null, { type: 'photo' })}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                          >
-                            <X size={14} />
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <PhotoUpload 
-                        value={answers[`${item.id}_photo`]?.value}
-                        onChange={(val) => updateAnswer(`${item.id}_photo`, val, { type: 'photo' })}
-                        disabled={disabled}
-                        allowMultiple={selectedOption.allowMultiple}
-                      />
-                    )}
+                    <PhotoUpload 
+                      value={answers[`${item.id}_photo`]?.value}
+                      onChange={(val) => updateAnswer(`${item.id}_photo`, val, { type: 'photo' })}
+                      disabled={disabled}
+                      allowMultiple={selectedOption.allowMultiple !== false}
+                    />
                   </div>
                 )}
 
@@ -894,7 +876,7 @@ function FormItem({ item, value, error, onChange, disabled, assetOptions = [], l
         );
 
       case 'photo':
-        return <PhotoUpload value={value} onChange={onChange} disabled={disabled} allowMultiple={item.allowMultiple} />;
+        return <PhotoUpload value={value} onChange={onChange} disabled={disabled} allowMultiple={item.allowMultiple !== false} />;
 
       case 'signature':
         return <SignatureCapture value={value} onChange={onChange} disabled={disabled} />;
@@ -1067,49 +1049,75 @@ function PhotoUpload({ value, onChange, disabled, allowMultiple = false }) {
     : (value ? [value] : []);
 
   return (
-    <div>
+    <div className="space-y-2">
       {photos.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
           {photos.map((url, index) => (
-            <div key={index} className="relative inline-block">
-              <img src={url} alt={`Preview ${index + 1}`} className="w-full h-32 object-cover rounded-lg" />
+            <div key={index} className="relative group">
+              <img 
+                src={url} 
+                alt={`Foto ${index + 1}`} 
+                className="w-full h-32 object-cover rounded-lg border-2 border-gray-200 shadow-sm" 
+              />
               {!disabled && (
                 <button
                   type="button"
                   onClick={() => removePhoto(url)}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 shadow-lg hover:bg-red-600 transition-colors opacity-90 group-hover:opacity-100"
+                  title="Eliminar foto"
                 >
-                  <X size={14} />
+                  <X size={16} />
                 </button>
               )}
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-2 rounded-b-lg">
+                <span className="text-xs text-white font-medium">Foto {index + 1}</span>
+              </div>
             </div>
           ))}
         </div>
       )}
       
-      <label className={`flex flex-col items-center gap-2 px-4 py-3 border-2 border-dashed rounded-lg ${
-        disabled ? 'bg-gray-50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50 active:bg-gray-100'
-      }`}>
-        <Camera size={24} className="text-gray-400" />
-        <span className="text-sm text-gray-600 font-medium text-center">
-          {uploading ? 'Subiendo...' : (allowMultiple ? 'Tomar / Subir Fotos' : 'Tomar / Subir Foto')}
-        </span>
-        {allowMultiple && !uploading && (
-          <span className="text-xs text-gray-500">
-            {photos.length > 0 ? `${photos.length} foto${photos.length > 1 ? 's' : ''} agregada${photos.length > 1 ? 's' : ''}` : 'Selecciona múltiples archivos'}
+      {(!disabled || photos.length === 0) && (
+        <label className={`flex flex-col items-center gap-2 px-4 py-6 border-2 border-dashed rounded-lg transition-all ${
+          disabled ? 'bg-gray-50 cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-blue-50 hover:border-blue-400 active:bg-blue-100'
+        }`}>
+          <Camera size={28} className={disabled ? "text-gray-400" : "text-blue-500"} />
+          <span className="text-sm font-medium text-center">
+            {uploading ? (
+              <span className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                Subiendo...
+              </span>
+            ) : (
+              <span className={disabled ? "text-gray-500" : "text-gray-700"}>
+                {allowMultiple ? '📸 Tomar / Subir Fotos' : '📸 Tomar / Subir Foto'}
+              </span>
+            )}
           </span>
-        )}
-        <input
-          type="file"
-          accept="image/*,video/*"
-          capture="environment"
-          multiple={allowMultiple}
-          onChange={handleFileChange}
-          disabled={disabled || uploading}
-          className="hidden"
-          data-testid="photo-upload-input"
-        />
-      </label>
+          {allowMultiple && !uploading && (
+            <span className="text-xs text-gray-500">
+              {photos.length > 0 
+                ? `✓ ${photos.length} foto${photos.length > 1 ? 's' : ''} agregada${photos.length > 1 ? 's' : ''} · Toca para agregar más` 
+                : 'Puedes seleccionar múltiples archivos'}
+            </span>
+          )}
+          {!allowMultiple && photos.length > 0 && (
+            <span className="text-xs text-orange-600 font-medium">
+              Subir una nueva reemplazará la actual
+            </span>
+          )}
+          <input
+            type="file"
+            accept="image/*,video/*"
+            capture="environment"
+            multiple={allowMultiple}
+            onChange={handleFileChange}
+            disabled={disabled || uploading}
+            className="hidden"
+            data-testid="photo-upload-input"
+          />
+        </label>
+      )}
     </div>
   );
 }

@@ -117,7 +117,26 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
       }
 
       if (item.type === 'photo' || value?.startsWith?.('data:image') || value?.includes?.('http')) {
-        return `<div style="margin-top:8px;"><img src="${value}" style="max-width:100%;height:auto;border-radius:10px;border:1px solid #e2e8f0;" /></div>`;
+        const photos = Array.isArray(value) ? value : (value ? [value] : []);
+        if (photos.length === 0) return '<div style="margin-top:4px;color:#9ca3af;">Sin fotos</div>';
+        
+        if (photos.length === 1) {
+          return `<div style="margin-top:8px;"><img src="${photos[0]}" style="max-width:100%;height:auto;border-radius:10px;border:1px solid #e2e8f0;" /></div>`;
+        }
+        
+        return `
+          <div style="margin-top:8px;">
+            <p style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;">${photos.length} fotos</p>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;">
+              ${photos.map((url, idx) => `
+                <div style="position:relative;">
+                  <img src="${url}" style="width:100%;height:150px;object-fit:cover;border-radius:10px;border:1px solid #e2e8f0;" />
+                  <span style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.7);color:white;padding:2px 6px;border-radius:4px;font-size:10px;">Foto ${idx + 1}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
       }
 
       if (item.type === 'checkbox') {
@@ -514,8 +533,10 @@ function renderAnswerValue(item, answer) {
   if (item.type === 'asset' || item.type === 'location' || item.type === 'area') {
     return label || value || '—';
   }
-  if (item.type === 'photo' || (typeof value === 'string' && (value.startsWith('data:image') || value.includes('http')))) {
-    return '📷 Foto adjunta';
+  if (item.type === 'photo' || (typeof value === 'string' && (value.startsWith('data:image') || value.includes('http'))) || Array.isArray(value)) {
+    const photos = Array.isArray(value) ? value : (value ? [value] : []);
+    if (photos.length === 0) return '—';
+    return photos.length === 1 ? '📷 Foto adjunta' : `📷 ${photos.length} fotos adjuntas`;
   }
   if (item.type === 'signature') {
     if (typeof value === 'string' && value.startsWith('text:')) return value.replace('text:', '');
