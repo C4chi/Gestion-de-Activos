@@ -161,8 +161,12 @@ const useFormState = (initialSchema, initialAnswers = {}) => {
       }
     }));
 
-    // Evaluar condicionales
-    evaluateConditionals(itemId, value);
+    // Solo evaluar condicionales si es un campo principal (no follow-up)
+    // Los campos follow-up tienen IDs como "item_id_question_0" o "item_id_followup_note"
+    const isFollowUpField = itemId.includes('_question_') || itemId.includes('_followup_');
+    if (!isFollowUpField) {
+      evaluateConditionals(itemId, value);
+    }
 
     // Limpiar error si existe
     setErrors(prev => {
@@ -217,11 +221,13 @@ const useFormState = (initialSchema, initialAnswers = {}) => {
   }, [answers, initialSchema, visibleItems]);
 
   // Validar formulario
+  // Validar formulario (incluir campos follow-up cuando están activos)
   const runValidations = (sectionsToValidate) => {
     const validationErrors = {};
 
     sectionsToValidate?.forEach(section => {
       section.items?.forEach(item => {
+        // Validar items principales visibles y requeridos
         if (item.required && visibleItems.has(item.id)) {
           const answer = answers[item.id];
           if (!answer || answer.value === '' || answer.value === null || answer.value === undefined) {
@@ -246,6 +252,40 @@ const useFormState = (initialSchema, initialAnswers = {}) => {
             }
             if (pattern && !new RegExp(pattern).test(value)) {
               validationErrors[item.id] = 'Formato inválido';
+            }
+          }
+        }
+
+        // Validar campos follow-up si el item es visible y tiene respuesta que activa acciones
+        if (visibleItems.has(item.id) && answers[item.id]) {
+          const followUpActions = getFollowUpActions(item, answers[item.id].value);
+
+          // Validar preguntas follow-up
+          if (followUpActions.questions.length > 0) {
+            followUpActions.questions.forEach((question, idx) => {
+              const questionId = `${item.id}_question_${idx}`;
+              const questionAnswer = answers[questionId];
+              if (!questionAnswer || questionAnswer.value === '' || questionAnswer.value === null || questionAnswer.value === undefined) {
+                validationErrors[questionId] = 'Pregunta obligatoria';
+              }
+            });
+          }
+
+          // Validar nota requerida
+          if (followUpActions.requireNote) {
+            const noteId = `${item.id}_followup_note`;
+            const noteAnswer = answers[noteId];
+            if (!noteAnswer || noteAnswer.value === '' || noteAnswer.value === null || noteAnswer.value === undefined) {
+              validationErrors[noteId] = 'Nota obligatoria';
+            }
+          }
+
+          // Validar archivos requeridos
+          if (followUpActions.requireFiles) {
+            const filesId = `${item.id}_followup_files`;
+            const filesAnswer = answers[filesId];
+            if (!filesAnswer || !filesAnswer.value || !Array.isArray(filesAnswer.value) || filesAnswer.value.length === 0) {
+              validationErrors[filesId] = 'Adjuntar al menos un archivo';
             }
           }
         }
