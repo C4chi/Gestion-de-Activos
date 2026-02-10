@@ -1,0 +1,7 @@
+# Ignore everything by default
+*
+!.gitignore
+
+# Only include rodicon-app/
+!rodicon-app/
+!rodicon-app/**
