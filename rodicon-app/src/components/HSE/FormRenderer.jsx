@@ -392,24 +392,46 @@ export default function FormRenderer({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Memoizar follow-up questions para evitar re-renders infinitos
-  const getFollowUpQuestions = (item) => {
-    if (!item?.conditional?.enabled || !Array.isArray(item.conditional.rules)) return [];
+  // Obtener acciones de seguimiento (preguntas, notas, archivos) basadas en reglas condicionales
+  const getFollowUpActions = (item) => {
+    if (!item?.conditional?.enabled || !Array.isArray(item.conditional.rules)) return null;
 
     const currentValue = answers[item.id]?.value;
+    const actions = {
+      questions: [],
+      requireNote: false,
+      requireFiles: false
+    };
 
-    return item.conditional.rules
-      .map((rule, ruleIndex) => {
-        if (!rule.actions?.includes('show_questions')) return null;
-        if (!evaluateConditionalRule(rule, currentValue)) return null;
+    item.conditional.rules.forEach((rule, ruleIndex) => {
+      if (!evaluateConditionalRule(rule, currentValue)) return;
 
+      // Preguntas adicionales
+      if (rule.actions?.includes('show_questions')) {
         const questionText = (rule.questionText || '').trim();
-        return {
+        actions.questions.push({
           id: `${item.id}_question_${ruleIndex}`,
           text: questionText || 'Pregunta adicional'
-        };
-      })
-      .filter(Boolean);
+        });
+      }
+
+      // Notas requeridas
+      if (rule.actions?.includes('require_note')) {
+        actions.requireNote = true;
+      }
+
+      // Archivos multimedia requeridos
+      if (rule.actions?.includes('require_files')) {
+        actions.requireFiles = true;
+      }
+    });
+
+    // Retornar null si no hay acciones activas
+    if (actions.questions.length === 0 && !actions.requireNote && !actions.requireFiles) {
+      return null;
+    }
+
+    return actions;
   };
 
   const handleSubmit = async (e) => {
@@ -508,7 +530,7 @@ export default function FormRenderer({
               <div className="space-y-4 pl-1">
                 {section.items?.map((item) => {
                   if (!visibleItems.has(item.id)) return null;
-                  const followUpQuestions = getFollowUpQuestions(item);
+                  const followUpActions = getFollowUpActions(item);
 
                   return (
                     <FormItem
@@ -521,7 +543,7 @@ export default function FormRenderer({
                       locationOptions={locationOptions}
                       answers={answers}
                       updateAnswer={updateAnswer}
-                      followUpQuestions={followUpQuestions}
+                      followUpActions={followUpActions}
                       disabled={mode === 'view' || isSubmitting}
                     />
                   );
@@ -594,7 +616,7 @@ export default function FormRenderer({
 /**
  * Componente para renderizar un item individual
  */
-function FormItem({ item, value, error, onChange, disabled, assetOptions = [], locationOptions = [], answers = {}, updateAnswer, followUpQuestions = [] }) {
+function FormItem({ item, value, error, onChange, disabled, assetOptions = [], locationOptions = [], answers = {}, updateAnswer, followUpActions = null }) {
   const renderInput = () => {
     switch (item.type) {
       case 'text':
@@ -928,13 +950,16 @@ function FormItem({ item, value, error, onChange, disabled, assetOptions = [], l
       {/* Input */}
       {renderInput()}
 
-      {followUpQuestions.length > 0 && (
-        <div className="pl-4 border-l-4 border-indigo-400 space-y-3 pt-2">
+      {/* Follow-up actions (preguntas, notas, archivos) */}
+      {followUpActions && (
+        <div className="mt-3 pl-4 border-l-4 border-indigo-400 space-y-3 pt-2">
           <p className="text-sm font-medium text-indigo-700 flex items-center gap-2">
             <span>💬</span>
-            Preguntas adicionales
+            Información adicional requerida
           </p>
-          {followUpQuestions.map((question) => (
+
+          {/* Preguntas adicionales */}
+          {followUpActions.questions.map((question) => (
             <div key={question.id} className="space-y-1">
               <label className="block text-sm font-medium text-gray-700">
                 {question.text}
@@ -949,6 +974,40 @@ function FormItem({ item, value, error, onChange, disabled, assetOptions = [], l
               />
             </div>
           ))}
+
+          {/* Nota requerida */}
+          {followUpActions.requireNote && (
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">
+                <Edit3 size={16} className="inline mr-1" />
+                Nota / Comentario
+              </label>
+              <textarea
+                value={answers[`${item.id}_followup_note`]?.value || ''}
+                onChange={(e) => updateAnswer(`${item.id}_followup_note`, e.target.value, { type: 'textarea', label: 'Nota' })}
+                disabled={disabled}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="Escribe una nota o comentario..."
+              />
+            </div>
+          )}
+
+          {/* Archivos multimedia requeridos */}
+          {followUpActions.requireFiles && (
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">
+                <Camera size={16} className="inline mr-1" />
+                Archivos multimedia
+              </label>
+              <PhotoUpload
+                value={answers[`${item.id}_followup_files`]?.value}
+                onChange={(val) => updateAnswer(`${item.id}_followup_files`, val, { type: 'photo', label: 'Archivos multimedia' })}
+                disabled={disabled}
+                allowMultiple={true}
+              />
+            </div>
+          )}
         </div>
       )}
 
