@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Trash2 } from 'lucide-react';
+import { OperationalStatusModal } from './components/Purchasing/OperationalStatusModal';
 
 export const RequisitionModal = ({ asset, onClose, onSubmit }) => {
   const [reqItems, setReqItems] = useState([]);
@@ -11,6 +12,8 @@ export const RequisitionModal = ({ asset, onClose, onSubmit }) => {
     solicitadoPor: ''
   });
   const [currentItem, setCurrentItem] = useState({ code: '', desc: '', qty: 1 });
+  const [showOperationalModal, setShowOperationalModal] = useState(false);
+  const [operationalData, setOperationalData] = useState(null);
 
   const handleFormChange = (e) => {
     setReqForm({ ...reqForm, [e.target.name]: e.target.value });
