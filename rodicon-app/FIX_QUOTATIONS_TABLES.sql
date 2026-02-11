@@ -55,7 +55,45 @@ CREATE TABLE IF NOT EXISTS purchase_quotation_items (
 CREATE INDEX IF NOT EXISTS idx_quotation_items_quotation ON purchase_quotation_items(quotation_id);
 CREATE INDEX IF NOT EXISTS idx_quotation_items_purchase_item ON purchase_quotation_items(purchase_item_id);
 
--- 3. Agregar columnas a purchase_orders si no existen
+-- 3. HABILITAR RLS (Row Level Security)
+ALTER TABLE purchase_quotations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE purchase_quotation_items ENABLE ROW LEVEL SECURITY;
+
+-- 4. POLÍTICAS DE SEGURIDAD (Permitir todo a usuarios autenticados)
+DROP POLICY IF EXISTS "Usuarios autenticados pueden ver cotizaciones" ON purchase_quotations;
+CREATE POLICY "Usuarios autenticados pueden ver cotizaciones" ON purchase_quotations
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Usuarios autenticados pueden crear cotizaciones" ON purchase_quotations;
+CREATE POLICY "Usuarios autenticados pueden crear cotizaciones" ON purchase_quotations
+  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Usuarios autenticados pueden editar cotizaciones" ON purchase_quotations;
+CREATE POLICY "Usuarios autenticados pueden editar cotizaciones" ON purchase_quotations
+  FOR UPDATE USING (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Usuarios autenticados pueden eliminar cotizaciones" ON purchase_quotations;
+CREATE POLICY "Usuarios autenticados pueden eliminar cotizaciones" ON purchase_quotations
+  FOR DELETE USING (auth.role() = 'authenticated');
+
+-- Políticas para purchase_quotation_items
+DROP POLICY IF EXISTS "Usuarios autenticados pueden ver items" ON purchase_quotation_items;
+CREATE POLICY "Usuarios autenticados pueden ver items" ON purchase_quotation_items
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Usuarios autenticados pueden crear items" ON purchase_quotation_items;
+CREATE POLICY "Usuarios autenticados pueden crear items" ON purchase_quotation_items
+  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Usuarios autenticados pueden editar items" ON purchase_quotation_items;
+CREATE POLICY "Usuarios autenticados pueden editar items" ON purchase_quotation_items
+  FOR UPDATE USING (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Usuarios autenticados pueden eliminar items" ON purchase_quotation_items;
+CREATE POLICY "Usuarios autenticados pueden eliminar items" ON purchase_quotation_items
+  FOR DELETE USING (auth.role() = 'authenticated');
+
+-- 5. Agregar columnas a purchase_orders si no existen
 DO $$ 
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='purchase_orders' AND column_name='cotizacion_aprobada_id') THEN
@@ -71,6 +109,9 @@ BEGIN
   END IF;
 END $$;
 
+-- 6. REFRESCAR SCHEMA CACHE
+NOTIFY pgrst, 'reload schema';
+
 -- ═══════════════════════════════════════════════════════════════════════════════
--- ✅ LISTO! Ahora puedes usar el sistema de cotizaciones por item
+-- ✅ LISTO! Recarga la página (Ctrl+Shift+R) y prueba de nuevo
 -- ═══════════════════════════════════════════════════════════════════════════════
