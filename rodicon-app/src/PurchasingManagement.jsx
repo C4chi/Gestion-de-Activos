@@ -363,9 +363,12 @@ export const PurchasingManagement = ({ onClose, onDownloadPdf, canManage = true 
                     <thead className="bg-gray-100">
                       <tr>
                         <th className="text-left p-2">#</th>
+                        <th className="text-left p-2">Código</th>
                         <th className="text-left p-2">Descripción</th>
                         <th className="text-center p-2">Cant.</th>
+                        <th className="text-left p-2">Proveedor</th>
                         <th className="text-right p-2">Precio Unit.</th>
+                        <th className="text-center p-2">Moneda</th>
                         <th className="text-right p-2">Subtotal</th>
                       </tr>
                     </thead>
@@ -373,31 +376,48 @@ export const PurchasingManagement = ({ onClose, onDownloadPdf, canManage = true 
                       {detailOrder.purchase_items.map((item, idx) => {
                         const precio = parseFloat(item.precio_unitario || 0);
                         const subtotal = precio * (item.cantidad || 0);
+                        const moneda = item.moneda || 'DOP';
                         return (
                           <tr key={item.id || idx} className="border-b">
                             <td className="p-2">{idx + 1}</td>
                             <td className="p-2">
+                              <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded">{item.codigo || 'S/C'}</span>
+                            </td>
+                            <td className="p-2">
                               <div className="font-medium">{item.descripcion || 'Sin descripción'}</div>
-                              {item.codigo && <div className="text-xs text-gray-500">Código: {item.codigo}</div>}
                               {item.cotizacion && <div className="text-xs text-blue-600 mt-1">📋 {item.cotizacion}</div>}
                             </td>
                             <td className="text-center p-2">{item.cantidad}</td>
+                            <td className="p-2 text-xs">{item.proveedor || '-'}</td>
                             <td className="text-right p-2">${precio.toFixed(2)}</td>
-                            <td className="text-right p-2 font-semibold">${subtotal.toFixed(2)}</td>
+                            <td className="text-center p-2">
+                              <span className="text-xs font-semibold px-2 py-1 rounded bg-blue-100 text-blue-700">{moneda}</span>
+                            </td>
+                            <td className="text-right p-2 font-semibold">{moneda} ${subtotal.toFixed(2)}</td>
                           </tr>
                         );
                       })}
                     </tbody>
                     <tfoot className="bg-gray-50 font-bold">
-                      <tr>
-                        <td colSpan="4" className="text-right p-2">TOTAL:</td>
-                        <td className="text-right p-2">
-                          ${detailOrder.purchase_items.reduce((sum, item) => {
-                            const precio = parseFloat(item.precio_unitario || 0);
-                            return sum + (precio * (item.cantidad || 0));
-                          }, 0).toFixed(2)}
-                        </td>
-                      </tr>
+                      {(() => {
+                        // Calcular totales por moneda
+                        const totales = detailOrder.purchase_items.reduce((acc, item) => {
+                          const precio = parseFloat(item.precio_unitario || 0);
+                          const subtotal = precio * (item.cantidad || 0);
+                          const moneda = item.moneda || 'DOP';
+                          acc[moneda] = (acc[moneda] || 0) + subtotal;
+                          return acc;
+                        }, {});
+                        
+                        return Object.entries(totales).map(([moneda, total]) => (
+                          <tr key={moneda}>
+                            <td colSpan="7" className="text-right p-2">TOTAL {moneda}:</td>
+                            <td className="text-right p-2 text-lg">
+                              {moneda} ${total.toFixed(2)}
+                            </td>
+                          </tr>
+                        ));
+                      })()}
                     </tfoot>
                   </table>
                 </div>

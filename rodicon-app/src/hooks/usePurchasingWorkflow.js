@@ -171,11 +171,18 @@ export const usePurchasingWorkflow = () => {
           comentario_recepcion,
           fecha_solicitud,
           fecha_actualizacion,
+          fecha_estimada_llegada,
+          fecha_ordenado,
           purchase_items (
             id,
             codigo,
             descripcion,
-            cantidad
+            cantidad,
+            precio_unitario,
+            proveedor,
+            cotizacion,
+            moneda,
+            ficha_ref
           )
         `)
         .order('fecha_solicitud', { ascending: false });
@@ -224,10 +231,19 @@ export const usePurchasingWorkflow = () => {
           proyecto,
           prioridad,
           fecha_solicitud,
+          fecha_estimada_llegada,
+          fecha_ordenado,
+          comentario_recepcion,
           purchase_items (
             id,
+            codigo,
             descripcion,
-            cantidad
+            cantidad,
+            precio_unitario,
+            proveedor,
+            cotizacion,
+            moneda,
+            ficha_ref
           )
         `);
 

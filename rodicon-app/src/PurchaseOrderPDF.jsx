@@ -114,34 +114,68 @@ export const generatePdf = async (purchaseOrder, asset) => {
                         }
                 });
 
-        // --- Tabla de Ítems estilo limpio ---
-        const tableColumn = ["#", "CÓDIGO", "CANT.", "FICHA", "DESCRIPCIÓN"];
+        // --- Tabla de Ítems con precios y proveedores ---
+        const tableColumn = ["#", "CÓDIGO", "DESCRIPCIÓN", "PROVEEDOR", "CANT.", "P. UNIT.", "MONEDA", "SUBTOTAL"];
         const tableRows = [];
+        
+        // Calcular totales por moneda
+        const totales = { DOP: 0, USD: 0 };
+        
         items.forEach((item, index) => {
+            const precio = parseFloat(item.precio_unitario || 0);
+            const cantidad = parseInt(item.cantidad || 0);
+            const moneda = item.moneda || 'DOP';
+            const subtotal = precio * cantidad;
+            
+            // Acumular total por moneda
+            totales[moneda] += subtotal;
+            
             const itemData = [
               index + 1,
               item.codigo || 'S/C',
-              item.cantidad || '',
-              purchaseOrder.ficha || '',
-              item.descripcion || ''
+              item.descripcion || '',
+              item.proveedor || '-',
+              cantidad,
+              `$${precio.toFixed(2)}`,
+              moneda,
+              `${moneda} $${subtotal.toFixed(2)}`
             ];
             tableRows.push(itemData);
         });
+        
+        // Agregar fila(s) de total al final
+        if (totales.DOP > 0) {
+            tableRows.push(['', '', '', '', '', '', 'TOTAL DOP:', `DOP $${totales.DOP.toFixed(2)}`]);
+        }
+        if (totales.USD > 0) {
+            tableRows.push(['', '', '', '', '', '', 'TOTAL USD:', `USD $${totales.USD.toFixed(2)}`]);
+        }
 
         autoTable(doc, {
             startY: doc.lastAutoTable.finalY + 12,
             head: [tableColumn],
             body: tableRows,
             theme: 'grid',
-            headStyles: { fillColor: [25, 72, 152], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', cellPadding: 4 },
-            bodyStyles: { textColor: GRAY_DARK, halign: 'center', cellPadding: 3, lineColor: [220,220,220], lineWidth: 0.1 },
+            headStyles: { fillColor: [25, 72, 152], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', cellPadding: 3, fontSize: 8 },
+            bodyStyles: { textColor: GRAY_DARK, halign: 'center', cellPadding: 2, lineColor: [220,220,220], lineWidth: 0.1, fontSize: 8 },
             alternateRowStyles: { fillColor: [247, 248, 250] },
             columnStyles: {
-                0: { cellWidth: 12, halign: 'center' },
-                1: { cellWidth: 30, halign: 'center' },
-                2: { cellWidth: 20, halign: 'center' },
-                3: { cellWidth: 30, halign: 'center' },
-                4: { halign: 'left' },
+                0: { cellWidth: 8, halign: 'center' },   // #
+                1: { cellWidth: 22, halign: 'center', fontSize: 7 },  // CÓDIGO
+                2: { cellWidth: 48, halign: 'left' },    // DESCRIPCIÓN
+                3: { cellWidth: 28, halign: 'left', fontSize: 7 },   // PROVEEDOR
+                4: { cellWidth: 12, halign: 'center' },  // CANT
+                5: { cellWidth: 18, halign: 'right' },   // P. UNIT
+                6: { cellWidth: 15, halign: 'center' },  // MONEDA
+                7: { cellWidth: 25, halign: 'right', fontStyle: 'bold' }, // SUBTOTAL
+            },
+            didDrawCell: function(data) {
+                // Resaltar filas de total
+                if (data.section === 'body' && data.cell.raw && 
+                    (String(data.cell.raw).includes('TOTAL DOP') || String(data.cell.raw).includes('TOTAL USD'))) {
+                    doc.setFillColor(220, 252, 231); // Verde claro
+                    doc.setFont('helvetica', 'bold');
+                }
             },
             didDrawPage: function () {
                 // --- Footer de Página ---
@@ -162,33 +196,42 @@ export const generatePdf = async (purchaseOrder, asset) => {
         });
 
         // --- Firmas ---
-        const signatureBaseY = doc.lastAutoTable.finalY;
-        const lineY = signatureBaseY + 20;
-        doc.setDrawColor(0,0,0);
-        doc.line(margin + 10, lineY, margin + 80, lineY); // Solicitado
-        doc.line(pageWidth - margin - 80, lineY, pageWidth - margin - 10, lineY); // Aprobado
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Solicitado por', margin + 45, lineY + 7, { align: 'center' });
-        doc.text('Firma autorización', pageWidth - margin - 45, lineY + 7, { align: 'center' });
-        doc.setTextColor(BLUE_PRIMARY[0], BLUE_PRIMARY[1], BLUE_PRIMARY[2]);
-        doc.text(`Total de ítems: ${items.length}`, pageWidth - margin, doc.lastAutoTable.finalY + 10, { align: 'right' });
-        doc.setTextColor(GRAY_DARK[0], GRAY_DARK[1], GRAY_DARK[2]); // Reset color
-
-        // --- Sección de Firmas ---
-        if (signatureBaseY < pageHeight - 60) { // Solo añadir si hay espacio
-            doc.setFontSize(10);
-            doc.setTextColor(0);
-            doc.setFont('helvetica', 'normal');
-
-            const signatureY = signatureBaseY + 40;
+        const signatureBaseY = doc.lastAutoTable.finalY + 8;
+        
+        // Agregar información de cotizaciones si existen
+        const itemsConCotizacion = items.filter(item => item.cotizacion && item.cotizacion.trim());
+        if (itemsConCotizacion.length > 0) {
+            doc.setFontSize(8);
+            doc.setTextColor(100);
+            doc.text('Cotizaciones:', margin, signatureBaseY);
+            let yPos = signatureBaseY + 4;
+            itemsConCotizacion.forEach((item, idx) => {
+                doc.text(`• ${item.descripcion.substring(0, 40)}: ${item.cotizacion}`, margin + 5, yPos);
+                yPos += 4;
+            });
+            doc.setTextColor(GRAY_DARK[0], GRAY_DARK[1], GRAY_DARK[2]);
+        }
+        
+        const lineY = signatureBaseY + 25 + (itemsConCotizacion.length * 4);
+        
+        if (lineY < pageHeight - 40) { // Solo añadir si hay espacio
             doc.setDrawColor(BLUE_PRIMARY[0], BLUE_PRIMARY[1], BLUE_PRIMARY[2]);
-            doc.line(margin + 10, signatureY, margin + 80, signatureY); // Línea para Solicitado
-            doc.text(purchaseOrder.solicitante, margin + 45, signatureY - 2, { align: 'center' });
-            doc.text("Firma Solicitante", margin + 45, signatureY + 5, { align: 'center' });
-
-            doc.line(pageWidth - margin - 80, signatureY, pageWidth - margin - 10, signatureY); // Línea para Aprobado
-            doc.text("Firma Aprobación (Compras)", pageWidth - margin - 45, signatureY + 5, { align: 'center' });
+            doc.line(margin + 10, lineY, margin + 80, lineY); // Solicitado
+            doc.line(pageWidth - margin - 80, lineY, pageWidth - margin - 10, lineY); // Aprobado
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(GRAY_DARK[0], GRAY_DARK[1], GRAY_DARK[2]);
+            doc.text('Solicitado por', margin + 45, lineY + 5, { align: 'center' });
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.text(purchaseOrder.solicitante || 'N/A', margin + 45, lineY + 10, { align: 'center' });
+            
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.text('Aprobado por', pageWidth - margin - 45, lineY + 5, { align: 'center' });
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.text('Compras', pageWidth - margin - 45, lineY + 10, { align: 'center' });
         }
 
         doc.save(`Requisicion_${purchaseOrder.numero_requisicion}.pdf`);
