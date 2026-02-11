@@ -36,7 +36,10 @@ export const usePurchasingWorkflow = () => {
 
         // 2. Validar transición de estado
         const validTransitions = {
-          'PENDIENTE': ['ORDENADO'],
+          'PENDIENTE': ['EN_COTIZACION', 'ORDENADO'], // Puede cotizar o saltar directo a ordenar
+          'EN_COTIZACION': ['PENDIENTE_APROBACION'], // Después de cotizar
+          'PENDIENTE_APROBACION': ['APROBADO', 'EN_COTIZACION'], // Gerente aprueba o regresa a cotizar
+          'APROBADO': ['ORDENADO'], // Después de aprobar, COMPRAS ordena
           'ORDENADO': ['PARCIAL', 'RECIBIDO'],
           'PARCIAL': ['ORDENADO', 'RECIBIDO'], // Desde PARCIAL se puede re-ordenar o cerrar
           'RECIBIDO': [],
