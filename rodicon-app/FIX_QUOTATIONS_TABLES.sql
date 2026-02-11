@@ -62,36 +62,36 @@ ALTER TABLE purchase_quotation_items ENABLE ROW LEVEL SECURITY;
 -- 4. POLÍTICAS DE SEGURIDAD (Permitir todo a usuarios autenticados)
 DROP POLICY IF EXISTS "Usuarios autenticados pueden ver cotizaciones" ON purchase_quotations;
 CREATE POLICY "Usuarios autenticados pueden ver cotizaciones" ON purchase_quotations
-  FOR SELECT USING (auth.role() = 'authenticated');
+  FOR SELECT USING (auth.uid() IS NOT NULL);
 
 DROP POLICY IF EXISTS "Usuarios autenticados pueden crear cotizaciones" ON purchase_quotations;
 CREATE POLICY "Usuarios autenticados pueden crear cotizaciones" ON purchase_quotations
-  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
 DROP POLICY IF EXISTS "Usuarios autenticados pueden editar cotizaciones" ON purchase_quotations;
 CREATE POLICY "Usuarios autenticados pueden editar cotizaciones" ON purchase_quotations
-  FOR UPDATE USING (auth.role() = 'authenticated');
+  FOR UPDATE USING (auth.uid() IS NOT NULL);
 
 DROP POLICY IF EXISTS "Usuarios autenticados pueden eliminar cotizaciones" ON purchase_quotations;
 CREATE POLICY "Usuarios autenticados pueden eliminar cotizaciones" ON purchase_quotations
-  FOR DELETE USING (auth.role() = 'authenticated');
+  FOR DELETE USING (auth.uid() IS NOT NULL);
 
 -- Políticas para purchase_quotation_items
 DROP POLICY IF EXISTS "Usuarios autenticados pueden ver items" ON purchase_quotation_items;
 CREATE POLICY "Usuarios autenticados pueden ver items" ON purchase_quotation_items
-  FOR SELECT USING (auth.role() = 'authenticated');
+  FOR SELECT USING (auth.uid() IS NOT NULL);
 
 DROP POLICY IF EXISTS "Usuarios autenticados pueden crear items" ON purchase_quotation_items;
 CREATE POLICY "Usuarios autenticados pueden crear items" ON purchase_quotation_items
-  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
 DROP POLICY IF EXISTS "Usuarios autenticados pueden editar items" ON purchase_quotation_items;
 CREATE POLICY "Usuarios autenticados pueden editar items" ON purchase_quotation_items
-  FOR UPDATE USING (auth.role() = 'authenticated');
+  FOR UPDATE USING (auth.uid() IS NOT NULL);
 
 DROP POLICY IF EXISTS "Usuarios autenticados pueden eliminar items" ON purchase_quotation_items;
 CREATE POLICY "Usuarios autenticados pueden eliminar items" ON purchase_quotation_items
-  FOR DELETE USING (auth.role() = 'authenticated');
+  FOR DELETE USING (auth.uid() IS NOT NULL);
 
 -- 5. Agregar columnas a purchase_orders si no existen
 DO $$ 
