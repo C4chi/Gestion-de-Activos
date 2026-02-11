@@ -59,41 +59,30 @@ CREATE INDEX IF NOT EXISTS idx_quotation_items_purchase_item ON purchase_quotati
 ALTER TABLE purchase_quotations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE purchase_quotation_items ENABLE ROW LEVEL SECURITY;
 
--- 4. POLÍTICAS DE SEGURIDAD (Permitir todo a usuarios autenticados)
-DROP POLICY IF EXISTS "Usuarios autenticados pueden ver cotizaciones" ON purchase_quotations;
-CREATE POLICY "Usuarios autenticados pueden ver cotizaciones" ON purchase_quotations
-  FOR SELECT USING (auth.uid() IS NOT NULL);
+-- 4. ELIMINAR TODAS LAS POLÍTICAS EXISTENTES (limpiar antes de recrear)
+DO $$ 
+DECLARE 
+  r RECORD;
+BEGIN
+  -- Eliminar políticas de purchase_quotations
+  FOR r IN (SELECT policyname FROM pg_policies WHERE tablename = 'purchase_quotations') LOOP
+    EXECUTE 'DROP POLICY IF EXISTS "' || r.policyname || '" ON purchase_quotations';
+  END LOOP;
+  
+  -- Eliminar políticas de purchase_quotation_items
+  FOR r IN (SELECT policyname FROM pg_policies WHERE tablename = 'purchase_quotation_items') LOOP
+    EXECUTE 'DROP POLICY IF EXISTS "' || r.policyname || '" ON purchase_quotation_items';
+  END LOOP;
+END $$;
 
-DROP POLICY IF EXISTS "Usuarios autenticados pueden crear cotizaciones" ON purchase_quotations;
-CREATE POLICY "Usuarios autenticados pueden crear cotizaciones" ON purchase_quotations
-  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+-- 5. CREAR POLÍTICAS SIMPLES (Acceso total para usuarios autenticados)
+CREATE POLICY "allow_all_authenticated_quotations" ON purchase_quotations
+  FOR ALL USING (auth.uid() IS NOT NULL);
 
-DROP POLICY IF EXISTS "Usuarios autenticados pueden editar cotizaciones" ON purchase_quotations;
-CREATE POLICY "Usuarios autenticados pueden editar cotizaciones" ON purchase_quotations
-  FOR UPDATE USING (auth.uid() IS NOT NULL);
+CREATE POLICY "allow_all_authenticated_quotation_items" ON purchase_quotation_items
+  FOR ALL USING (auth.uid() IS NOT NULL);
 
-DROP POLICY IF EXISTS "Usuarios autenticados pueden eliminar cotizaciones" ON purchase_quotations;
-CREATE POLICY "Usuarios autenticados pueden eliminar cotizaciones" ON purchase_quotations
-  FOR DELETE USING (auth.uid() IS NOT NULL);
-
--- Políticas para purchase_quotation_items
-DROP POLICY IF EXISTS "Usuarios autenticados pueden ver items" ON purchase_quotation_items;
-CREATE POLICY "Usuarios autenticados pueden ver items" ON purchase_quotation_items
-  FOR SELECT USING (auth.uid() IS NOT NULL);
-
-DROP POLICY IF EXISTS "Usuarios autenticados pueden crear items" ON purchase_quotation_items;
-CREATE POLICY "Usuarios autenticados pueden crear items" ON purchase_quotation_items
-  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
-
-DROP POLICY IF EXISTS "Usuarios autenticados pueden editar items" ON purchase_quotation_items;
-CREATE POLICY "Usuarios autenticados pueden editar items" ON purchase_quotation_items
-  FOR UPDATE USING (auth.uid() IS NOT NULL);
-
-DROP POLICY IF EXISTS "Usuarios autenticados pueden eliminar items" ON purchase_quotation_items;
-CREATE POLICY "Usuarios autenticados pueden eliminar items" ON purchase_quotation_items
-  FOR DELETE USING (auth.uid() IS NOT NULL);
-
--- 5. Agregar columnas a purchase_orders si no existen
+-- 6. Agregar columnas a purchase_orders si no existen
 DO $$ 
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='purchase_orders' AND column_name='cotizacion_aprobada_id') THEN
@@ -109,9 +98,12 @@ BEGIN
   END IF;
 END $$;
 
--- 6. REFRESCAR SCHEMA CACHE
+-- 7. REFRESCAR SCHEMA CACHE
 NOTIFY pgrst, 'reload schema';
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- ✅ LISTO! Recarga la página (Ctrl+Shift+R) y prueba de nuevo
+-- ✅ EJECUTADO! Ahora:
+-- 1. Cierra este SQL Editor
+-- 2. Recarga tu app: Ctrl+Shift+R
+-- 3. Intenta guardar cotizaciones de nuevo
 -- ═══════════════════════════════════════════════════════════════════════════════
