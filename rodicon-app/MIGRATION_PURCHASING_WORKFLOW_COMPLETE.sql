@@ -224,7 +224,7 @@ COMMENT ON VIEW quotations_comparison IS 'Vista para comparar todas las cotizaci
 CREATE OR REPLACE VIEW critical_assets_dashboard AS
 SELECT 
   a.ficha,
-  a.nombre as activo_nombre,
+  a.tipo,
   a.marca,
   a.modelo,
   a.status,
