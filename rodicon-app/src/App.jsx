@@ -127,12 +127,13 @@ export default function App() {
   const [reportsPanelOpen, setReportsPanelOpen] = useState(false);
   const [eppAlmacenOpen, setEppAlmacenOpen] = useState(false);
 
-  const canWorkshop = can(['ADMIN', 'ADMIN_GLOBAL', 'TALLER', 'GERENTE']);
-  const canPurchasing = can(['ADMIN', 'ADMIN_GLOBAL', 'COMPRAS', 'GERENTE']);
+  const canWorkshop = can(['ADMIN', 'ADMIN_GLOBAL', 'TALLER', 'GERENTE', 'GERENTE_TALLER']);
+  const canPurchasing = can(['ADMIN', 'ADMIN_GLOBAL', 'COMPRAS', 'GERENTE', 'GERENTE_TALLER']);
   const canHse = can(['ADMIN', 'ADMIN_GLOBAL', 'HSE', 'GERENTE']);
   const canAdmin = can(['ADMIN', 'ADMIN_GLOBAL']);
-  const canReports = can(['ADMIN', 'ADMIN_GLOBAL', 'GERENTE']);
-  const canEpp = can(['ADMIN', 'ADMIN_GLOBAL', 'HSE', 'GERENTE']);
+  const canReports = can(['ADMIN', 'ADMIN_GLOBAL', 'GERENTE', 'GERENTE_TALLER']);
+  const canEpp = can(['ADMIN', 'ADMIN_GLOBAL', 'HSE', 'GERENTE', 'GERENTE_TALLER']);
+  const canApprovePurchases = can(['ADMIN', 'ADMIN_GLOBAL', 'GERENTE_TALLER']); // Solo GERENTE_TALLER aprueba cotizaciones
 
   // --- NOTIFICACIONES ---
   const { 
@@ -185,13 +186,13 @@ export default function App() {
 
   const handleOpenModal = (modalType, data = null) => {
     const roleMap = {
-      PREVENTIVE_MTO: ['ADMIN', 'TALLER'],
-      CORRECTIVE_LOG: ['ADMIN', 'TALLER'],
-      UPDATE_WORKSHOP: ['ADMIN', 'TALLER'],
-      MTO_DETAIL: ['ADMIN', 'TALLER'],
+      PREVENTIVE_MTO: ['ADMIN', 'TALLER', 'GERENTE_TALLER'],
+      CORRECTIVE_LOG: ['ADMIN', 'TALLER', 'GERENTE_TALLER'],
+      UPDATE_WORKSHOP: ['ADMIN', 'TALLER', 'GERENTE_TALLER'],
+      MTO_DETAIL: ['ADMIN', 'TALLER', 'GERENTE_TALLER'],
       SAFETY_FORM: ['ADMIN', 'HSE'],
-      REQ: ['ADMIN', 'COMPRAS'],
-      CLOSE_ORDER: ['ADMIN', 'TALLER'],
+      REQ: ['ADMIN', 'COMPRAS', 'GERENTE_TALLER'],
+      CLOSE_ORDER: ['ADMIN', 'TALLER', 'GERENTE_TALLER'],
       COMMENT: ['ADMIN', 'COMPRAS'],
     };
 
@@ -206,8 +207,8 @@ export default function App() {
 
   const handleMenuClick = (overlay) => {
     const roleMap = {
-      WORKSHOP: ['ADMIN', 'TALLER'],
-      PURCHASING: ['ADMIN', 'COMPRAS'],
+      WORKSHOP: ['ADMIN', 'TALLER', 'GERENTE_TALLER'],
+      PURCHASING: ['ADMIN', 'COMPRAS', 'GERENTE_TALLER'],
       SAFETY: ['ADMIN', 'HSE'],
       HSE_INSPECTIONS: ['ADMIN', 'HSE'],
       TEMPLATE_BUILDER: ['ADMIN', 'HSE'],
@@ -366,6 +367,7 @@ export default function App() {
             onClose={() => setActiveOverlay(null)}
             onDownloadPdf={generatePurchaseOrderPdf}
             canManage={canPurchasing}
+            canApprove={canApprovePurchases}
           />
         </ErrorBoundary>
       )}

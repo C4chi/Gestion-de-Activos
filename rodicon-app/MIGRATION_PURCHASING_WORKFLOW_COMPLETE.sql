@@ -5,6 +5,30 @@
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- ROLES Y PERMISOS DEL WORKFLOW
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 
+-- TALLER: Crea requisiciones, define estado operacional (DISPONIBLE/NO_DISPONIBLE)
+-- COMPRAS: Cotiza con proveedores (mínimo 1 obligatoria, 3 recomendadas), ordena, recibe
+-- GERENTE_TALLER: Aprueba cotizaciones (ÚNICO ROL AUTORIZADO), crea requisiciones
+-- GERENTE: Acceso ver módulos pero NO aprueba cotizaciones
+-- ADMIN/ADMIN_GLOBAL: Acceso completo
+-- 
+-- FLUJO COMPLETO:
+-- 1. TALLER crea requisición → Marca estado operacional (DISPONIBLE_ESPERA o NO_DISPONIBLE_ESPERA)
+-- 2. COMPRAS cotiza → Ingresa mínimo 1, recomendadas 3 cotizaciones → EN_COTIZACION
+-- 3. Sistema cambia a PENDIENTE_APROBACION automáticamente
+-- 4. GERENTE_TALLER compara y aprueba cotización → APROBADO
+-- 5. COMPRAS ordena al proveedor → ORDENADO (crea compromiso financiero)
+-- 6. COMPRAS recibe (parcial/total) → PARCIAL/RECIBIDO (registra costos solo de lo recibido)
+-- 
+-- ESTADO OPERACIONAL (nuevos campos):
+-- - estado_operacional: 'DISPONIBLE_ESPERA' (puede operar) o 'NO_DISPONIBLE_ESPERA' (detenido/urgente)
+-- - Si NO_DISPONIBLE → requiere_urgencia = TRUE automático (trigger)
+-- - fecha_activo_detenido registra cuándo se detuvo
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- 1. ACTUALIZAR ESTADOS DE PURCHASE_ORDERS
 -- ─────────────────────────────────────────────────────────────────────────────
 

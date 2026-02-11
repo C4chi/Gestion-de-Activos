@@ -22,7 +22,7 @@ import toast from 'react-hot-toast';
  * - Integración con hook usePurchasingWorkflow
  * - PDF generation
  */
-export const PurchasingManagement = ({ onClose, onDownloadPdf, canManage = true }) => {
+export const PurchasingManagement = ({ onClose, onDownloadPdf, canManage = true, canApprove = false }) => {
   const { fetchPurchaseOrders, updatePurchaseStatus, isLoading, error } = usePurchasingWorkflow();
   const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [statistics, setStatistics] = useState(null);
@@ -107,6 +107,11 @@ export const PurchasingManagement = ({ onClose, onDownloadPdf, canManage = true 
       // Abrir modal de cotizaciones múltiples
       setMultiQuotationsModalOpen(true);
     } else if (newStatus === 'APROBAR' || order.estado === 'PENDIENTE_APROBACION') {
+      // Verificar permiso de aprobación (solo GERENTE_TALLER)
+      if (!canApprove) {
+        toast.error('Solo el Gerente de Taller puede aprobar cotizaciones');
+        return;
+      }
       // Abrir comparador para gerencia
       setComparatorModalOpen(true);
     } else if (newStatus === 'ORDENAR' || (order.estado === 'APROBADO' && newStatus === 'ORDENADO')) {
@@ -491,6 +496,7 @@ export const PurchasingManagement = ({ onClose, onDownloadPdf, canManage = true 
           setSelectedOrder(null);
         }}
         purchaseOrder={selectedOrder}
+        canApprove={canApprove}
         onApprove={async () => {
           setComparatorModalOpen(false);
           setSelectedOrder(null);

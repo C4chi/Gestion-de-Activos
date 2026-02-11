@@ -6,8 +6,9 @@ import { toast } from 'react-hot-toast';
 /**
  * Modal: Comparador de Cotizaciones (Gerencia)
  * Permite comparar lado a lado todas las cotizaciones y aprobar una
+ * Solo GERENTE_TALLER puede aprobar
  */
-export const QuotationComparatorModal = ({ isOpen, onClose, purchaseOrder, onApprove }) => {
+export const QuotationComparatorModal = ({ isOpen, onClose, purchaseOrder, canApprove = false, onApprove }) => {
   const [cotizaciones, setCotizaciones] = useState([]);
   const [selectedQuotation, setSelectedQuotation] = useState(null);
   const [comentario, setComentario] = useState('');
@@ -73,6 +74,11 @@ export const QuotationComparatorModal = ({ isOpen, onClose, purchaseOrder, onApp
   const handleApprove = async () => {
     if (!selectedQuotation) {
       toast.error('Debes seleccionar una cotización');
+      return;
+    }
+
+    if (!canApprove) {
+      toast.error('⚠️ Solo el Gerente de Taller puede aprobar cotizaciones');
       return;
     }
 
@@ -425,8 +431,9 @@ export const QuotationComparatorModal = ({ isOpen, onClose, purchaseOrder, onApp
             </button>
             <button
               onClick={handleApprove}
-              disabled={!selectedQuotation || saving}
+              disabled={!selectedQuotation || saving || !canApprove}
               className="px-6 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition font-bold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg flex items-center gap-2"
+              title={!canApprove ? 'Solo el Gerente de Taller puede aprobar' : ''}
             >
               {saving ? (
                 <>Aprobando...</>

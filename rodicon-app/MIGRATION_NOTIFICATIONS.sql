@@ -165,6 +165,26 @@ BEGIN
     FROM app_users
     WHERE nombre = NEW.solicitante
     LIMIT 1;
+    
+    -- Si cambió a PENDIENTE_APROBACION, notificar a GERENTE_TALLER
+    IF NEW.estado = 'PENDIENTE_APROBACION' THEN
+      INSERT INTO notifications (usuario_id, tipo, titulo, contenido, entidad_id, entidad_tipo, metadata)
+      SELECT 
+        id,
+        'COMPRAS',
+        '⚠️ Cotización pendiente de aprobación',
+        'Compra #' || NEW.numero_requisicion || ' requiere aprobación' || 
+          CASE WHEN NEW.requiere_urgencia THEN ' - 🚨 URGENTE (Activo detenido)' ELSE '' END,
+        NEW.id::text,
+        'compra',
+        jsonb_build_object(
+          'estado', NEW.estado, 
+          'urgente', NEW.requiere_urgencia,
+          'estado_operacional', NEW.estado_operacional
+        )
+      FROM app_users
+      WHERE rol = 'GERENTE_TALLER' OR rol = 'ADMIN';
+    END IF;
   END IF;
   
   RETURN NEW;
