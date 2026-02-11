@@ -25,7 +25,7 @@ export const OperationalStatusModal = ({ isOpen, onClose, onConfirm, assetInfo }
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="bg-gradient-to-r from-orange-500 to-red-600 text-white p-5">
           <div className="flex items-center gap-3">
@@ -39,8 +39,8 @@ export const OperationalStatusModal = ({ isOpen, onClose, onConfirm, assetInfo }
           </div>
         </div>
 
-        {/* Body */}
-        <div className="p-6 space-y-6">
+        {/* Body - Con scroll */}
+        <div className="p-6 space-y-6 overflow-y-auto flex-1">
           {/* Información del Activo */}
           {assetInfo && (
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
@@ -227,8 +227,8 @@ export const OperationalStatusModal = ({ isOpen, onClose, onConfirm, assetInfo }
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
+        {/* Footer - Fijo en la parte inferior */}
+        <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t flex-shrink-0">
           <button
             onClick={onClose}
             className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium"
