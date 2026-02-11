@@ -8,8 +8,7 @@ export const RequisitionModal = ({ asset, onClose, onSubmit }) => {
     req: '', 
     project: '', 
     priority: 'Media', 
-    solicitadoPor: '',
-    moneda: 'DOP' // NUEVO: Tipo de moneda
+    solicitadoPor: ''
   });
   const [currentItem, setCurrentItem] = useState({ code: '', desc: '', qty: 1 });
 
@@ -37,7 +36,22 @@ export const RequisitionModal = ({ asset, onClose, onSubmit }) => {
       toast.error("Debe añadir al menos un ítem a la solicitud.");
       return;
     }
-    await onSubmit(reqForm, reqItems);
+    
+    // Mostrar modal de estado operacional ANTES de crear la requisición
+    setShowOperationalModal(true);
+  };
+
+  const handleOperationalStatusConfirm = async (statusData) => {
+    // Guardar datos operacionales
+    setOperationalData(statusData);
+    setShowOperationalModal(false);
+    
+    // Crear la requisición con los datos operacionales
+    await onSubmit({
+      ...reqForm,
+      ...statusData // Incluir estado_operacional, requiere_urgencia, notas_operacionales
+    }, reqItems);
+    
     toast.success("Solicitud Creada");
     onClose();
   };
@@ -56,18 +70,6 @@ export const RequisitionModal = ({ asset, onClose, onSubmit }) => {
               <option>Media</option>
               <option>Alta</option>
             </select>
-            <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Moneda</label>
-              <select 
-                name="moneda" 
-                value={reqForm.moneda} 
-                onChange={handleFormChange} 
-                className="w-full border p-2 rounded text-sm bg-white"
-              >
-                <option value="DOP">🇩🇴 Pesos Dominicanos (DOP)</option>
-                <option value="USD">🇺🇸 Dólares Estadounidenses (USD)</option>
-              </select>
-            </div>
           </div>
 
           <div className="bg-gray-50 p-3 rounded-lg border">
@@ -91,6 +93,14 @@ export const RequisitionModal = ({ asset, onClose, onSubmit }) => {
           <button onClick={onClose} className="w-full text-gray-500 py-2 text-sm">Cancelar</button>
         </div>
       </div>
+
+      {/* Modal de Estado Operacional */}
+      <OperationalStatusModal
+        isOpen={showOperationalModal}
+        onClose={() => setShowOperationalModal(false)}
+        onConfirm={handleOperationalStatusConfirm}
+        assetInfo={asset}
+      />
     </div>
   );
 };

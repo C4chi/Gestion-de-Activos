@@ -12,8 +12,7 @@ export const RequisitionMultiAssetModal = ({ onClose, onSubmit }) => {
     project: '',
     priority: 'Media',
     solicitadoPor: '',
-    tipoCompra: 'GENERAL', // GENERAL o ACTIVO_ESPECIFICO
-    moneda: 'DOP' // NUEVO: Tipo de moneda
+    tipoCompra: 'GENERAL' // GENERAL o ACTIVO_ESPECIFICO
   });
 
   // Líneas de compra - cada una con su propio activo
@@ -208,19 +207,6 @@ export const RequisitionMultiAssetModal = ({ onClose, onSubmit }) => {
                     <span className="text-sm">🎯 Vinculada a Activos (obligatorio seleccionar por línea)</span>
                   </label>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Moneda</label>
-                <select
-                  name="moneda"
-                  value={reqForm.moneda}
-                  onChange={handleFormChange}
-                  className="w-full border p-3 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="DOP">🇩🇴 Pesos Dominicanos (DOP)</option>
-                  <option value="USD">🇺🇸 Dólares Estadounidenses (USD)</option>
-                </select>
               </div>
             </div>
           </div>

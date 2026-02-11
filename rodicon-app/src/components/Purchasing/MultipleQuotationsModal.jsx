@@ -95,10 +95,17 @@ export const MultipleQuotationsModal = ({ isOpen, onClose, purchaseOrder, onComp
   };
 
   const handleRemoveCotizacion = (index) => {
-    if (cotizaciones.length <= 3) {
-      toast.error('Debes mantener mínimo 3 cotizaciones');
+    // La primera cotización es OBLIGATORIA, no se puede eliminar
+    if (index === 0) {
+      toast.error('La primera cotización es obligatoria y no se puede eliminar');
       return;
     }
+    
+    if (cotizaciones.length <= 1) {
+      toast.error('Debes mantener al menos 1 cotización');
+      return;
+    }
+    
     setCotizaciones(cotizaciones.filter((_, i) => i !== index));
   };
 
@@ -124,16 +131,39 @@ export const MultipleQuotationsModal = ({ isOpen, onClose, purchaseOrder, onComp
   };
 
   const handleSubmit = async () => {
-    // Validaciones
-    if (cotizaciones.length < 3) {
-      toast.error('Debes ingresar mínimo 3 cotizaciones');
+    // Validación: al menos 1 cotización (la primera es obligatoria)
+    if (cotizaciones.length < 1) {
+      toast.error('Debes ingresar al menos 1 cotización');
       return;
     }
 
-    const incomplete = cotizaciones.filter(cot => !cot.proveedor || !cot.numero_cotizacion);
-    if (incomplete.length > 0) {
-      toast.error('Todas las cotizaciones deben tener proveedor y número de cotización');
+    // Validar que la primera cotización esté completa (obligatoria)
+    const primera = cotizaciones[0];
+    if (!primera.proveedor || !primera.numero_cotizacion) {
+      toast.error('La primera cotización debe tener proveedor y número de cotización');
       return;
+    }
+
+    // Validar cotizaciones adicionales (solo si tienen datos parciales)
+    const adicionales = cotizaciones.slice(1);
+    const incompletas = adiciona válida
+      for (const cot of cotizacionesValida_cotizacion) || (!cot.proveedor && cot.numero_cotizacion)
+    );
+    
+    if (incompletas.length > 0) {
+      toast.error('Las cotizaciones adicionales deben tener proveedor y número de cotización, o estar vacías para omitirlas');
+      return;
+    }
+
+    // Filtrar cotizaciones válidas (primera + adicionales completas)
+    const cotizacionesValidas = cotizaciones.filter((cot, idx) => {
+      if (idx === 0) return true; // Primera siempre se incluye
+      return cot.proveedor && cot.numero_cotizacion; // Adicionales solo si están completas
+    });
+
+    if (cotizacionesValidas.length < 3) {
+      toast.error('Se recomienda mínimo 3 cotizaciones para mejor comparación');
+      // Continuar de todos modos, solo advertencia
     }
 
     setSaving(true);
@@ -189,7 +219,7 @@ export const MultipleQuotationsModal = ({ isOpen, onClose, purchaseOrder, onComp
 
       if (updateError) throw updateError;
 
-      toast.success(`${cotizaciones.length} cotizaciones guardadas. Enviado a Gerencia para aprobación.`);
+      toast.success(`${cotizacionesValidas.length} cotización(es) guardada(s). Enviado a Gerencia para aprobación.`);
       onComplete?.();
       onClose();
     } catch (error) {
@@ -214,7 +244,7 @@ export const MultipleQuotationsModal = ({ isOpen, onClose, purchaseOrder, onComp
                 Gestión de Cotizaciones
               </h2>
               <p className="text-sm text-blue-100 mt-1">
-                Orden: {purchaseOrder?.numero_requisicion} | Mínimo 3 cotizaciones requeridas
+                Orden: {purchaseOrder?.numero_requisicion} | Mínimo 1 cotización obligatoria, 3 recomendadas
               </p>
               {purchaseOrder?.requiere_urgencia && (
                 <div className="mt-2 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold inline-block">
@@ -237,13 +267,23 @@ export const MultipleQuotationsModal = ({ isOpen, onClose, purchaseOrder, onComp
                 {/* Header de Cotización */}
                 <div className="bg-gradient-to-r from-blue-50 to-blue-100 px-4 py-3 border-b border-blue-200">
                   <div className="flex justify-between items-center">
-                    <h3 className="font-bold text-blue-900 text-lg">
+                    <h3 className="font-bold text-blue-900 text-lg flex items-center gap-2">
                       📋 Cotización #{cotIndex + 1}
+                      {cotIndex === 0 && (
+                        <span className="text-xs bg-red-500 text-white px-2 py-1 rounded-full">OBLIGATORIA</span>
+                      )}
+                      {cotIndex >= 1 && cotIndex <= 2 && (
+                        <span className="text-xs bg-orange-500 text-white px-2 py-1 rounded-full">RECOMENDADA</span>
+                      )}
+                      {cotIndex > 2 && (
+                        <span className="text-xs bg-green-500 text-white px-2 py-1 rounded-full">ADICIONAL</span>
+                      )}
                     </h3>
-                    {cotizaciones.length > 3 && (
+                    {cotIndex !== 0 && (
                       <button
                         onClick={() => handleRemoveCotizacion(cotIndex)}
                         className="text-red-600 hover:bg-red-100 p-2 rounded-lg transition"
+                        title="Eliminar cotización"
                       >
                         <Trash2 className="w-5 h-5" />
                       </button>
@@ -431,19 +471,13 @@ export const MultipleQuotationsModal = ({ isOpen, onClose, purchaseOrder, onComp
           {/* Agregar Cotización */}
           <button
             onClick={handleAddCotizacion}
-            className="w-full mt-4 py-3 border-2 border-dashed border-blue-300 rounded-xl text-blue-600 hover:bg-blue-50 transition font-semibold flex items-center justify-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            Agregar Cotización Adicional
-          </button>
-        </div>
-
-        {/* Footer */}
-        <div className="bg-gray-50 px-6 py-4 border-t flex justify-between items-center">
-          <div className="text-sm text-gray-600">
-            {cotizaciones.length < 3 ? (
+            className="w-full mt-4 1 ? (
               <span className="text-red-600 font-semibold">
-                ⚠️ Faltan {3 - cotizaciones.length} cotización(es)
+                ⚠️ Falta cotización obligatoria
+              </span>
+            ) : cotizaciones.length < 3 ? (
+              <span className="text-orange-600 font-semibold">
+                ⚠️ Se recomienda agregar {3 - cotizaciones.length} cotización(es) más para mejor comparación
               </span>
             ) : (
               <span className="text-green-600 font-semibold">
@@ -451,6 +485,16 @@ export const MultipleQuotationsModal = ({ isOpen, onClose, purchaseOrder, onComp
               </span>
             )}
           </div>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="px-5 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={saving || cotizaciones.length < 1
           <div className="flex gap-3">
             <button
               onClick={onClose}

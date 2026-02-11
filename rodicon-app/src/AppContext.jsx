@@ -319,7 +319,7 @@ export const AppProvider = ({ children }) => {
     try {
       const uid = `REQ-${reqForm.req}-${Date.now().toString().slice(-4)}`;
       
-      // 1. Insertar la orden de compra
+      // 1. Insertar la orden de compra CON ESTADO OPERACIONAL
       const { data: orderData, error: orderError } = await supabase
         .from('purchase_orders')
         .insert([{
@@ -330,7 +330,10 @@ export const AppProvider = ({ children }) => {
           prioridad: reqForm.priority,
           estado: 'PENDIENTE',
           tipo_compra: 'ACTIVO_ESPECIFICO',
-          moneda: reqForm.moneda || 'DOP', // NUEVO: campo de moneda
+          estado_operacional: reqForm.estado_operacional || 'DISPONIBLE_ESPERA', // NUEVO
+          fecha_activo_detenido: reqForm.fecha_detencion || null, // NUEVO
+          requiere_urgencia: reqForm.requiere_urgencia || false, // NUEVO
+          comentario_recepcion: reqForm.notas_operacionales || null, // NUEVO: usar para notas iniciales
           created_by: user.id || null
         }])
         .select();
@@ -399,7 +402,6 @@ export const AppProvider = ({ children }) => {
           prioridad: priority,
           estado: 'PENDIENTE',
           tipo_compra: tipoCompra,
-          moneda: moneda || 'DOP', // NUEVO: campo de moneda
           created_by: user.id || null
         }])
         .select();
