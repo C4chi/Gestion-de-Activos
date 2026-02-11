@@ -146,8 +146,8 @@ export const MultipleQuotationsModal = ({ isOpen, onClose, purchaseOrder, onComp
 
     // Validar cotizaciones adicionales (solo si tienen datos parciales)
     const adicionales = cotizaciones.slice(1);
-    const incompletas = adiciona válida
-      for (const cot of cotizacionesValida_cotizacion) || (!cot.proveedor && cot.numero_cotizacion)
+    const incompletas = adicionales.filter(cot =>
+      (cot.proveedor && !cot.numero_cotizacion) || (!cot.proveedor && cot.numero_cotizacion)
     );
     
     if (incompletas.length > 0) {
@@ -471,7 +471,17 @@ export const MultipleQuotationsModal = ({ isOpen, onClose, purchaseOrder, onComp
           {/* Agregar Cotización */}
           <button
             onClick={handleAddCotizacion}
-            className="w-full mt-4 1 ? (
+            className="w-full mt-4 py-3 border-2 border-dashed border-blue-300 rounded-xl text-blue-600 hover:bg-blue-50 transition font-semibold flex items-center justify-center gap-2"
+          >
+            <Plus className="w-5 h-5" />
+            Agregar Cotización Adicional
+          </button>
+        </div>
+
+        {/* Footer */}
+        <div className="bg-gray-50 px-6 py-4 border-t flex justify-between items-center">
+          <div className="text-sm text-gray-600">
+            {cotizaciones.length < 1 ? (
               <span className="text-red-600 font-semibold">
                 ⚠️ Falta cotización obligatoria
               </span>
@@ -494,17 +504,7 @@ export const MultipleQuotationsModal = ({ isOpen, onClose, purchaseOrder, onComp
             </button>
             <button
               onClick={handleSubmit}
-              disabled={saving || cotizaciones.length < 1
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="px-5 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={saving || cotizaciones.length < 3}
+              disabled={saving || cotizaciones.length < 1}
               className="px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition font-bold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
             >
               {saving ? 'Guardando...' : '✅ Enviar a Gerencia para Aprobación'}
