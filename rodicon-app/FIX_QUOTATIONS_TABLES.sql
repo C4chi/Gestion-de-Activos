@@ -55,34 +55,11 @@ CREATE TABLE IF NOT EXISTS purchase_quotation_items (
 CREATE INDEX IF NOT EXISTS idx_quotation_items_quotation ON purchase_quotation_items(quotation_id);
 CREATE INDEX IF NOT EXISTS idx_quotation_items_purchase_item ON purchase_quotation_items(purchase_item_id);
 
--- 3. HABILITAR RLS (Row Level Security)
-ALTER TABLE purchase_quotations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE purchase_quotation_items ENABLE ROW LEVEL SECURITY;
+-- 3. DESHABILITAR RLS (Tu sistema usa app_users con PIN, no Supabase Auth)
+ALTER TABLE purchase_quotations DISABLE ROW LEVEL SECURITY;
+ALTER TABLE purchase_quotation_items DISABLE ROW LEVEL SECURITY;
 
--- 4. ELIMINAR TODAS LAS POLÍTICAS EXISTENTES (limpiar antes de recrear)
-DO $$ 
-DECLARE 
-  r RECORD;
-BEGIN
-  -- Eliminar políticas de purchase_quotations
-  FOR r IN (SELECT policyname FROM pg_policies WHERE tablename = 'purchase_quotations') LOOP
-    EXECUTE 'DROP POLICY IF EXISTS "' || r.policyname || '" ON purchase_quotations';
-  END LOOP;
-  
-  -- Eliminar políticas de purchase_quotation_items
-  FOR r IN (SELECT policyname FROM pg_policies WHERE tablename = 'purchase_quotation_items') LOOP
-    EXECUTE 'DROP POLICY IF EXISTS "' || r.policyname || '" ON purchase_quotation_items';
-  END LOOP;
-END $$;
-
--- 5. CREAR POLÍTICAS SIMPLES (Acceso total para usuarios autenticados)
-CREATE POLICY "allow_all_authenticated_quotations" ON purchase_quotations
-  FOR ALL USING (auth.uid() IS NOT NULL);
-
-CREATE POLICY "allow_all_authenticated_quotation_items" ON purchase_quotation_items
-  FOR ALL USING (auth.uid() IS NOT NULL);
-
--- 6. Agregar columnas a purchase_orders si no existen
+-- 4. Agregar columnas a purchase_orders si no existen
 DO $$ 
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='purchase_orders' AND column_name='cotizacion_aprobada_id') THEN
@@ -98,12 +75,13 @@ BEGIN
   END IF;
 END $$;
 
--- 7. REFRESCAR SCHEMA CACHE
+-- 5. REFRESCAR SCHEMA CACHE
 NOTIFY pgrst, 'reload schema';
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- ✅ EJECUTADO! Ahora:
--- 1. Cierra este SQL Editor
--- 2. Recarga tu app: Ctrl+Shift+R
--- 3. Intenta guardar cotizaciones de nuevo
+-- ✅ EJECUTADO! 
+-- NOTA: RLS deshabilitado porque usas autenticación custom (app_users + PIN)
+-- Si quieres RLS, necesitas migrar a Supabase Auth o implementar service_role
+-- 
+-- AHORA: Recarga tu app (Ctrl+Shift+R) y prueba de nuevo
 -- ═══════════════════════════════════════════════════════════════════════════════
