@@ -156,14 +156,19 @@ export const UserAdminPanel = ({ onClose }) => {
                 onChange={(e) => setForm({ ...form, rol: e.target.value })}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
-                <option value="LECTOR">LECTOR</option>
-                <option value="TALLER">TALLER</option>
-                <option value="COMPRAS">COMPRAS</option>
-                <option value="HSE">HSE</option>
-                <option value="GERENTE">GERENTE</option>
-                <option value="ADMIN">ADMIN</option>
-                {isAdminGlobal && <option value="ADMIN_GLOBAL">ADMIN_GLOBAL</option>}
+                <option value="LECTOR">LECTOR - Solo lectura</option>
+                <option value="TALLER">TALLER - Crea requisiciones, registra mantenimiento</option>
+                <option value="COMPRAS">COMPRAS - Cotiza, ordena, recibe</option>
+                <option value="HSE">HSE - Seguridad y salud</option>
+                <option value="GERENTE">GERENTE - Ver módulos (sin aprobar)</option>
+                <option value="GERENTE_TALLER">GERENTE_TALLER - Aprueba cotizaciones ⭐</option>
+                <option value="ADMIN">ADMIN - Administrador local</option>
+                {isAdminGlobal && <option value="ADMIN_GLOBAL">ADMIN_GLOBAL - Super administrador</option>}
               </select>
+              <p className="text-xs text-gray-500 mt-1">
+                {form.rol === 'GERENTE_TALLER' && '⭐ Único rol que puede aprobar cotizaciones de compras'}
+                {form.rol === 'GERENTE' && 'ℹ️ Solo puede ver, no aprobar cotizaciones'}
+              </p>
             </div>
 
             <button
