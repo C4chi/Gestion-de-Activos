@@ -139,7 +139,7 @@ export const usePurchasingWorkflow = () => {
           console.warn('Audit log error:', auditError);
         }
 
-        return { success: true, newStatus: finalStatus, previousStatus: poData.estado };
+        return { success: true, newStatus: newStatus, previousStatus: poData.estado };
       } catch (err) {
         setError(err.message);
         throw err;
