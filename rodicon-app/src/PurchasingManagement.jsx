@@ -6,7 +6,7 @@ import { CommentModal } from './components/Purchasing/CommentModal';
 import { QuotationModal } from './components/Purchasing/QuotationModal';
 import { PurchaseOrderHistory } from './components/Purchasing/PurchaseOrderHistory';
 import { PurchaseStatistics } from './components/Purchasing/PurchaseStatistics';
-import { MultipleQuotationsModal } from './components/Purchasing/MultipleQuotationsModal';
+import { ItemQuotationsManager } from './components/Purchasing/ItemQuotationsManager';
 import { QuotationComparatorModal } from './components/Purchasing/QuotationComparatorModal';
 import { PartialReceptionModal } from './components/Purchasing/PartialReceptionModal';
 import { usePurchasingWorkflow } from './hooks/usePurchasingWorkflow';
@@ -38,7 +38,7 @@ export const PurchasingManagement = ({ onClose, onDownloadPdf, canManage = true,
   const [editingItems, setEditingItems] = useState({});
   
   // Nuevos modales del workflow
-  const [multiQuotationsModalOpen, setMultiQuotationsModalOpen] = useState(false);
+  const [itemQuotationsModalOpen, setItemQuotationsModalOpen] = useState(false);
   const [comparatorModalOpen, setComparatorModalOpen] = useState(false);
   const [receptionModalOpen, setReceptionModalOpen] = useState(false);
 
@@ -97,15 +97,15 @@ export const PurchasingManagement = ({ onClose, onDownloadPdf, canManage = true,
     setSelectedAction(newStatus);
 
     // Nuevo workflow:
-    // PENDIENTE → EN_COTIZACION (al abrir MultipleQuotationsModal)
+    // PENDIENTE → EN_COTIZACION (al abrir ItemQuotationsManager)
     // EN_COTIZACION → PENDIENTE_APROBACION (automático al enviar cotizaciones)
     // PENDIENTE_APROBACION → APROBADO (con QuotationComparatorModal)
     // APROBADO → ORDENADO (directo)
     // ORDENADO → PARCIAL/RECIBIDO (con PartialReceptionModal)
 
     if (newStatus === 'COTIZAR' || order.estado === 'PENDIENTE') {
-      // Abrir modal de cotizaciones múltiples
-      setMultiQuotationsModalOpen(true);
+      // Abrir modal de cotizaciones por ítem
+      setItemQuotationsModalOpen(true);
     } else if (newStatus === 'APROBAR' || order.estado === 'PENDIENTE_APROBACION') {
       // Verificar permiso de aprobación (solo GERENTE_TALLER)
       if (!canApprove) {
@@ -470,16 +470,16 @@ export const PurchasingManagement = ({ onClose, onDownloadPdf, canManage = true,
 
       {/* ========== NUEVOS MODALES DEL WORKFLOW ========== */}
 
-      {/* Modal de Cotizaciones Múltiples (Compras) */}
-      <MultipleQuotationsModal
-        isOpen={multiQuotationsModalOpen}
+      {/* Modal de Cotizaciones por Ítem (Compras) */}
+      <ItemQuotationsManager
+        isOpen={itemQuotationsModalOpen}
         onClose={() => {
-          setMultiQuotationsModalOpen(false);
+          setItemQuotationsModalOpen(false);
           setSelectedOrder(null);
         }}
         purchaseOrder={selectedOrder}
         onComplete={async () => {
-          setMultiQuotationsModalOpen(false);
+          setItemQuotationsModalOpen(false);
           setSelectedOrder(null);
           // Recargar órdenes
           const updatedOrders = await fetchPurchaseOrders();
