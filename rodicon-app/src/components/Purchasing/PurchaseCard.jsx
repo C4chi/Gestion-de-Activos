@@ -27,6 +27,9 @@ export const PurchaseCard = ({
 
   const statusConfig = {
     PENDIENTE: { bg: 'bg-yellow-50', badge: 'PENDIENTE', color: 'bg-yellow-500' },
+    EN_COTIZACION: { bg: 'bg-purple-50', badge: 'EN COTIZACIÓN', color: 'bg-purple-500' },
+    PENDIENTE_APROBACION: { bg: 'bg-amber-50', badge: 'PENDIENTE APROBACIÓN', color: 'bg-amber-500' },
+    APROBADO: { bg: 'bg-teal-50', badge: 'APROBADO', color: 'bg-teal-500' },
     ORDENADO: { bg: 'bg-blue-50', badge: 'ORDENADO', color: 'bg-blue-500' },
     PARCIAL: { bg: 'bg-orange-50', badge: 'PARCIAL', color: 'bg-orange-500' },
     RECIBIDO: { bg: 'bg-green-50', badge: 'RECIBIDO ✓', color: 'bg-green-500' },
@@ -71,14 +74,17 @@ export const PurchaseCard = ({
   const alerta = getAlerta();
 
   const nextActions = {
-    PENDIENTE: { action: 'ORDENADO', label: '➤ Marcar Ordenado' },
+    PENDIENTE: { action: 'COTIZAR', label: '💼 Cotizar (3+)', color: 'bg-purple-600 hover:bg-purple-700' },
+    EN_COTIZACION: { action: null, label: 'En proceso...', color: 'bg-gray-400' },
+    PENDIENTE_APROBACION: { action: 'APROBAR', label: '👔 Revisar y Aprobar', color: 'bg-amber-600 hover:bg-amber-700' },
+    APROBADO: { action: 'ORDENAR', label: '📦 Ordenar', color: 'bg-teal-600 hover:bg-teal-700' },
     ORDENADO: { 
-      partialAction: 'PARCIAL', 
-      partialLabel: '📦 Parcial',
-      totalAction: 'RECIBIDO',
-      totalLabel: '✅ Total'
+      action: 'RECIBIR',
+      label: '✅ Recibir',
+      color: 'bg-green-600 hover:bg-green-700'
     },
-    RECIBIDO: { action: null, label: 'Completado' },
+    PARCIAL: { action: 'RECIBIR', label: '✅ Recibir Pendientes', color: 'bg-orange-600 hover:bg-orange-700' },
+    RECIBIDO: { action: null, label: 'Completado', color: 'bg-green-500' },
   };
 
   const nextAction = nextActions[estado];
@@ -149,37 +155,18 @@ export const PurchaseCard = ({
           👁️ Ver Detalles
         </button>
 
-        {/* Estado ORDENADO: mostrar botones de Parcial y Total */}
-        {estado === 'ORDENADO' && (
-          <>
-            <button
-              onClick={() => onUpdateStatus?.(purchaseOrder, 'PARCIAL')}
-              disabled={isLoading || !canManage}
-              className="flex-1 bg-orange-500 text-white py-2 rounded font-semibold text-sm hover:bg-orange-600 disabled:opacity-50 transition"
-            >
-              {nextAction.partialLabel}
-            </button>
-            <button
-              onClick={() => onUpdateStatus?.(purchaseOrder, 'RECIBIDO')}
-              disabled={isLoading || !canManage}
-              className="flex-1 bg-green-600 text-white py-2 rounded font-semibold text-sm hover:bg-green-700 disabled:opacity-50 transition"
-            >
-              {nextAction.totalLabel}
-            </button>
-          </>
-        )}
-
-        {/* Estado PENDIENTE: marcar como ordenado */}
-        {nextAction?.action && estado === 'PENDIENTE' && (
+        {/* Mostrar botón según estado */}
+        {nextAction?.action && (
           <button
             onClick={() => onUpdateStatus?.(purchaseOrder, nextAction.action)}
             disabled={isLoading || !canManage}
-            className="flex-1 bg-green-600 text-white py-2 rounded font-semibold text-sm hover:bg-green-700 disabled:opacity-50 transition"
+            className={`flex-1 text-white py-2 rounded font-semibold text-sm disabled:opacity-50 transition ${nextAction.color || 'bg-green-600 hover:bg-green-700'}`}
           >
             {nextAction.label}
           </button>
         )}
 
+        {/* Botón de eliminar solo para completados */}
         {estado === 'RECIBIDO' && (
           <button
             onClick={() => onDelete?.(purchaseOrder)}

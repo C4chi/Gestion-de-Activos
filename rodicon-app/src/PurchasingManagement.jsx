@@ -6,6 +6,9 @@ import { CommentModal } from './components/Purchasing/CommentModal';
 import { QuotationModal } from './components/Purchasing/QuotationModal';
 import { PurchaseOrderHistory } from './components/Purchasing/PurchaseOrderHistory';
 import { PurchaseStatistics } from './components/Purchasing/PurchaseStatistics';
+import { MultipleQuotationsModal } from './components/Purchasing/MultipleQuotationsModal';
+import { QuotationComparatorModal } from './components/Purchasing/QuotationComparatorModal';
+import { PartialReceptionModal } from './components/Purchasing/PartialReceptionModal';
 import { usePurchasingWorkflow } from './hooks/usePurchasingWorkflow';
 import { supabase } from './supabaseClient';
 import { Search, FileDown, Filter, Calendar } from 'lucide-react';
@@ -33,6 +36,11 @@ export const PurchasingManagement = ({ onClose, onDownloadPdf, canManage = true 
   const [selectedAction, setSelectedAction] = useState(null);
   const [detailOrder, setDetailOrder] = useState(null);
   const [editingItems, setEditingItems] = useState({});
+  
+  // Nuevos modales del workflow
+  const [multiQuotationsModalOpen, setMultiQuotationsModalOpen] = useState(false);
+  const [comparatorModalOpen, setComparatorModalOpen] = useState(false);
+  const [receptionModalOpen, setReceptionModalOpen] = useState(false);
 
   // Cargar órdenes al montar componente
   useEffect(() => {
@@ -79,7 +87,7 @@ export const PurchasingManagement = ({ onClose, onDownloadPdf, canManage = true 
     });
   }, [purchaseOrders, search, statusFilter, dateFrom, dateTo]);
 
-  // Manejar cambio de estado
+  // Manejar cambio de estado - WORKFLOW COMPLETO
   const handleUpdateStatus = (order, newStatus) => {
     if (!canManage) {
       toast.error('No tienes permiso para esta acción');
@@ -88,14 +96,33 @@ export const PurchasingManagement = ({ onClose, onDownloadPdf, canManage = true 
     setSelectedOrder(order);
     setSelectedAction(newStatus);
 
-    if (newStatus === 'PARCIAL') {
-      // Recepción PARCIAL: abrir modal para comentario
+    // Nuevo workflow:
+    // PENDIENTE → EN_COTIZACION (al abrir MultipleQuotationsModal)
+    // EN_COTIZACION → PENDIENTE_APROBACION (automático al enviar cotizaciones)
+    // PENDIENTE_APROBACION → APROBADO (con QuotationComparatorModal)
+    // APROBADO → ORDENADO (directo)
+    // ORDENADO → PARCIAL/RECIBIDO (con PartialReceptionModal)
+
+    if (newStatus === 'COTIZAR' || order.estado === 'PENDIENTE') {
+      // Abrir modal de cotizaciones múltiples
+      setMultiQuotationsModalOpen(true);
+    } else if (newStatus === 'APROBAR' || order.estado === 'PENDIENTE_APROBACION') {
+      // Abrir comparador para gerencia
+      setComparatorModalOpen(true);
+    } else if (newStatus === 'ORDENAR' || (order.estado === 'APROBADO' && newStatus === 'ORDENADO')) {
+      // Marcar como ORDENADO directamente
+      performStatusUpdate(order.id, 'ORDENADO', '');
+    } else if (newStatus === 'RECIBIR' || newStatus === 'PARCIAL' || (order.estado === 'ORDENADO' && (newStatus === 'RECIBIDO' || newStatus === 'PARCIAL'))) {
+      // Abrir modal de recepción (maneja total y parcial)
+      setReceptionModalOpen(true);
+    } else if (newStatus === 'PARCIAL') {
+      // Recepción PARCIAL: abrir modal antiguo para comentario (mantener compatibilidad)
       setCommentModalOpen(true);
     } else if (newStatus === 'ORDENADO') {
-      // ORDENADO: abrir modal para ingresar cotizaciones
+      // ORDENADO: abrir modal antiguo para ingresar cotizaciones (mantener compatibilidad)
       setQuotationModalOpen(true);
     } else {
-      // RECIBIDO: actualizar directamente
+      // Otros estados: actualizar directamente
       performStatusUpdate(order.id, newStatus, '');
     }
   };
@@ -231,7 +258,7 @@ export const PurchasingManagement = ({ onClose, onDownloadPdf, canManage = true 
         </div>
         
         <div className="flex items-center gap-2 p-1 bg-white border border-gray-300 rounded-lg flex-wrap">
-          {['TODAS', 'PENDIENTE', 'ORDENADO', 'PARCIAL', 'RECIBIDO'].map(status => (
+          {['TODAS', 'PENDIENTE', 'EN_COTIZACION', 'PENDIENTE_APROBACION', 'APROBADO', 'ORDENADO', 'PARCIAL', 'RECIBIDO'].map(status => (
             <button
               key={status}
               onClick={() => setStatusFilter(status)}
@@ -435,6 +462,62 @@ export const PurchasingManagement = ({ onClose, onDownloadPdf, canManage = true 
           </div>
         </FullScreenModal>
       )}
+
+      {/* ========== NUEVOS MODALES DEL WORKFLOW ========== */}
+
+      {/* Modal de Cotizaciones Múltiples (Compras) */}
+      <MultipleQuotationsModal
+        isOpen={multiQuotationsModalOpen}
+        onClose={() => {
+          setMultiQuotationsModalOpen(false);
+          setSelectedOrder(null);
+        }}
+        purchaseOrder={selectedOrder}
+        onComplete={async () => {
+          setMultiQuotationsModalOpen(false);
+          setSelectedOrder(null);
+          // Recargar órdenes
+          const updatedOrders = await fetchPurchaseOrders();
+          setPurchaseOrders(updatedOrders || []);
+          toast.success('Cotizaciones enviadas a Gerencia para aprobación');
+        }}
+      />
+
+      {/* Modal Comparador de Cotizaciones (Gerencia) */}
+      <QuotationComparatorModal
+        isOpen={comparatorModalOpen}
+        onClose={() => {
+          setComparatorModalOpen(false);
+          setSelectedOrder(null);
+        }}
+        purchaseOrder={selectedOrder}
+        onApprove={async () => {
+          setComparatorModalOpen(false);
+          setSelectedOrder(null);
+          // Recargar órdenes
+          const updatedOrders = await fetchPurchaseOrders();
+          setPurchaseOrders(updatedOrders || []);
+          toast.success('Cotización aprobada - Lista para ordenar');
+        }}
+      />
+
+      {/* Modal de Recepción Parcial/Total */}
+      <PartialReceptionModal
+        isOpen={receptionModalOpen}
+        onClose={() => {
+          setReceptionModalOpen(false);
+          setSelectedOrder(null);
+        }}
+        purchaseOrder={selectedOrder}
+        onComplete={async () => {
+          setReceptionModalOpen(false);
+          setSelectedOrder(null);
+          // Recargar órdenes
+          const updatedOrders = await fetchPurchaseOrders();
+          setPurchaseOrders(updatedOrders || []);
+          toast.success('Recepción registrada exitosamente');
+        }}
+      />
     </FullScreenModal>
   );
 };
