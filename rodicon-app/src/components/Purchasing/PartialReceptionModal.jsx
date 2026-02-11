@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Package, CheckCircle, XCircle, Clock, AlertTriangle, Upload, Camera } from 'lucide-react';
+import { Package, CheckCircle, XCircle, Clock, AlertTriangle, Upload, Camera, X } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import { toast } from 'react-hot-toast';
 
