@@ -81,6 +81,27 @@ export const MaintenanceTrackerPanel = ({ asset, onUpdate }) => {
     }
   };
 
+  const handleChangeTipoMedicion = async (nuevoTipo) => {
+    try {
+      const { error } = await supabase
+        .from('assets')
+        .update({ tipo_medicion: nuevoTipo })
+        .eq('ficha', asset.ficha);
+
+      if (error) throw error;
+
+      toast.success(`✅ Tipo de medición cambiado a ${nuevoTipo === 'HOROMETRO' ? 'Horómetro' : 'Kilometraje'}`);
+      
+      // Recargar estado de mantenimiento
+      await loadMaintenanceStatus();
+      
+      // Notificar al padre para refrescar
+      if (onUpdate) onUpdate();
+    } catch (error) {
+      toast.error('Error al cambiar tipo: ' + error.message);
+    }
+  };
+
   const getEstadoBadge = (estado) => {
     switch (estado) {
       case 'VENCIDO':
@@ -133,6 +154,37 @@ export const MaintenanceTrackerPanel = ({ asset, onUpdate }) => {
       <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
         🔧 Seguimiento de Mantenimiento
       </h3>
+
+      {/* Selector de Tipo de Medición */}
+      <div className="mb-3 bg-white border border-gray-300 rounded-lg p-3">
+        <p className="text-xs font-semibold text-gray-600 mb-2 uppercase">
+          Tipo de Medición
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleChangeTipoMedicion('KILOMETRAJE')}
+            disabled={!isHorometro}
+            className={`flex-1 px-3 py-2 rounded-lg font-semibold text-sm transition flex items-center justify-center gap-2 ${
+              !isHorometro
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            🚗 Kilometraje
+          </button>
+          <button
+            onClick={() => handleChangeTipoMedicion('HOROMETRO')}
+            disabled={isHorometro}
+            className={`flex-1 px-3 py-2 rounded-lg font-semibold text-sm transition flex items-center justify-center gap-2 ${
+              isHorometro
+                ? 'bg-purple-600 text-white shadow-md'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            ⚙️ Horómetro
+          </button>
+        </div>
+      </div>
 
       {/* Medición Actual - Editable */}
       <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg p-4 mb-3 border border-purple-200">
