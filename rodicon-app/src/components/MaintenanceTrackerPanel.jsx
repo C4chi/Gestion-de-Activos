@@ -214,11 +214,11 @@ export const MaintenanceTrackerPanel = ({ asset, onUpdate }) => {
               )}
             </div>
             
-            {mtoStatus.ultimo_mto_km && (
+            {(isHorometro ? mtoStatus.ultimo_mto_horas : mtoStatus.ultimo_mto_km) && (
               <div className="flex items-center gap-2">
                 <Gauge className="w-3 h-3 text-gray-500" />
                 <span className="text-sm text-gray-700">
-                  {mtoStatus.ultimo_mto_km.toLocaleString()} {medicionLabel}
+                  {(isHorometro ? mtoStatus.ultimo_mto_horas : mtoStatus.ultimo_mto_km).toLocaleString()} {medicionLabel}
                 </span>
               </div>
             )}
@@ -250,14 +250,15 @@ export const MaintenanceTrackerPanel = ({ asset, onUpdate }) => {
           {mtoStatus?.estado_mantenimiento && getEstadoBadge(mtoStatus.estado_mantenimiento)}
         </div>
         
-        {(mtoStatus?.proximo_mto_fecha || mtoStatus?.proximo_mto_km) ? (
+        {((isHorometro ? mtoStatus?.proximo_mto_fecha_horas : mtoStatus?.proximo_mto_fecha_km) || 
+          (isHorometro ? mtoStatus?.proximo_mto_horas : mtoStatus?.proximo_mto_km)) ? (
           <div className="space-y-1">
-            {mtoStatus.proximo_mto_fecha && (
+            {(isHorometro ? mtoStatus.proximo_mto_fecha_horas : mtoStatus.proximo_mto_fecha_km) && (
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-3 h-3 text-blue-600" />
                   <span className="text-sm font-semibold text-gray-800">
-                    {formatDate(mtoStatus.proximo_mto_fecha)}
+                    {formatDate(isHorometro ? mtoStatus.proximo_mto_fecha_horas : mtoStatus.proximo_mto_fecha_km)}
                   </span>
                 </div>
                 {mtoStatus.dias_hasta_proximo_mto !== null && (
@@ -276,25 +277,25 @@ export const MaintenanceTrackerPanel = ({ asset, onUpdate }) => {
               </div>
             )}
             
-            {mtoStatus.proximo_mto_km && (
+            {(isHorometro ? mtoStatus.proximo_mto_horas : mtoStatus.proximo_mto_km) && (
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Gauge className="w-3 h-3 text-blue-600" />
                   <span className="text-sm font-semibold text-gray-800">
-                    {mtoStatus.proximo_mto_km.toLocaleString()} {medicionLabel}
+                    {(isHorometro ? mtoStatus.proximo_mto_horas : mtoStatus.proximo_mto_km).toLocaleString()} {medicionLabel}
                   </span>
                 </div>
-                {currentValue && mtoStatus.proximo_mto_km && (
+                {currentValue && (isHorometro ? mtoStatus.proximo_mto_horas : mtoStatus.proximo_mto_km) && (
                   <span className={`text-xs font-semibold ${
-                    currentValue >= mtoStatus.proximo_mto_km 
+                    currentValue >= (isHorometro ? mtoStatus.proximo_mto_horas : mtoStatus.proximo_mto_km)
                       ? 'text-red-600' 
-                      : currentValue >= mtoStatus.proximo_mto_km * 0.9 
+                      : currentValue >= (isHorometro ? mtoStatus.proximo_mto_horas : mtoStatus.proximo_mto_km) * 0.9 
                         ? 'text-yellow-600' 
                         : 'text-green-600'
                   }`}>
-                    {currentValue >= mtoStatus.proximo_mto_km 
+                    {currentValue >= (isHorometro ? mtoStatus.proximo_mto_horas : mtoStatus.proximo_mto_km)
                       ? 'EXCEDIDO'
-                      : `Faltan ${(mtoStatus.proximo_mto_km - currentValue).toLocaleString()} ${medicionLabel}`}
+                      : `Faltan ${((isHorometro ? mtoStatus.proximo_mto_horas : mtoStatus.proximo_mto_km) - currentValue).toLocaleString()} ${medicionLabel}`}
                   </span>
                 )}
               </div>

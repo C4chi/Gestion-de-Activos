@@ -239,7 +239,7 @@ export const AssetHistoryPanel = ({ asset }) => {
                         )}
                         {item.km_recorrido && (
                           <div>
-                            {item.km_recorrido.toLocaleString()} km
+                            {item.km_recorrido.toLocaleString()} {item.tipo_medicion === 'HOROMETRO' ? 'h' : 'km'}
                           </div>
                         )}
                       </div>
@@ -260,7 +260,7 @@ export const AssetHistoryPanel = ({ asset }) => {
                         <div className="flex items-center justify-between py-2 border-b border-gray-100">
                           <span className="text-gray-600">Próximo mantenimiento:</span>
                           <span className="font-semibold text-gray-800">
-                            {item.proyeccion_proxima_km.toLocaleString()} km
+                            {item.proyeccion_proxima_km.toLocaleString()} {item.tipo_medicion === 'HOROMETRO' ? 'h' : 'km'}
                           </span>
                         </div>
                       )}
@@ -269,6 +269,14 @@ export const AssetHistoryPanel = ({ asset }) => {
                           <span className="text-gray-600">Fecha proyectada:</span>
                           <span className="font-semibold text-gray-800">
                             {formatDate(item.proyeccion_proxima_mto)}
+                          </span>
+                        </div>
+                      )}
+                      {item.tipo_medicion && (
+                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                          <span className="text-gray-600">Tipo de medición:</span>
+                          <span className="text-xs font-semibold text-gray-800">
+                            {item.tipo_medicion === 'HOROMETRO' ? '⚙️ Horómetro' : '🚗 Kilometraje'}
                           </span>
                         </div>
                       )}

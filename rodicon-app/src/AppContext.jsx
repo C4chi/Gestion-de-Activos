@@ -528,6 +528,7 @@ export const AppProvider = ({ children }) => {
         costo: logData.costo ? Number(logData.costo) : 0,
         km_recorrido: logData.km ? parseInt(logData.km, 10) : null,
         proyeccion_proxima_km: logData.proyeccion_km ? Number(logData.proyeccion_km) : null,
+        tipo_medicion: logData.tipo_medicion || 'KILOMETRAJE',
         created_by: createdByNumeric,
       };
 
