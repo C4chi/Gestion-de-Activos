@@ -3,6 +3,7 @@ import { X, Camera, ShoppingCart, AlertTriangle, Wrench, Shield, Edit2, Save, XC
 import { StatusBadge } from './StatusBadge';
 import { AssetPhotoModal } from './components/AssetPhotoModal';
 import { AssetComponentsPanel } from './components/AssetComponentsPanel';
+import { MaintenanceTrackerPanel } from './components/MaintenanceTrackerPanel';
 import { supabase } from './supabaseClient';
 import toast from 'react-hot-toast';
 
@@ -307,6 +308,9 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
 
               {/* Panel de Componentes Críticos (Baterías, Llantas) */}
               <AssetComponentsPanel asset={assetData} currentUser={null} />
+
+              {/* Panel de Seguimiento de Mantenimiento */}
+              <MaintenanceTrackerPanel asset={assetData} onUpdate={onUpdate} />
 
               <div className="space-y-3 pt-4 border-t">
                   <button onClick={() => onOpenModal('CORRECTIVE_LOG')} className="w-full bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 flex justify-center gap-2 shadow-sm"><AlertTriangle className="w-4 h-4"/> Reportar Falla</button>
