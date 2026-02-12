@@ -647,6 +647,7 @@ export const AppProvider = ({ children }) => {
       }
       const payload = {
         nombre: newUser.nombre || null,
+        nombre_usuario: newUser.nombre_usuario || null,
         pin: String(newUser.pin),
         rol: newUser.rol,
       };
@@ -667,6 +668,7 @@ export const AppProvider = ({ children }) => {
       if (!userId) throw new Error('ID de usuario requerido');
       const payload = {};
       if (typeof updates.nombre !== 'undefined') payload.nombre = updates.nombre || null;
+      if (typeof updates.nombre_usuario !== 'undefined') payload.nombre_usuario = updates.nombre_usuario || null;
       if (typeof updates.pin !== 'undefined') {
         if (!updates.pin || String(updates.pin).length < 4) {
           throw new Error('PIN de 4 dígitos requerido');
