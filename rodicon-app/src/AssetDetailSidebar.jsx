@@ -4,6 +4,7 @@ import { StatusBadge } from './StatusBadge';
 import { AssetPhotoModal } from './components/AssetPhotoModal';
 import { AssetComponentsPanel } from './components/AssetComponentsPanel';
 import { MaintenanceTrackerPanel } from './components/MaintenanceTrackerPanel';
+import { AssetHistoryPanel } from './components/AssetHistoryPanel';
 import { supabase } from './supabaseClient';
 import toast from 'react-hot-toast';
 
@@ -161,6 +162,7 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
                 <button onClick={() => setActiveTab('EPP')} className={`px-4 py-2 text-sm font-bold whitespace-nowrap ${activeTab === 'EPP' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>EPP</button>
                 <button onClick={() => setActiveTab('MANTENIMIENTO')} className={`px-4 py-2 text-sm font-bold whitespace-nowrap ${activeTab === 'MANTENIMIENTO' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-500'}`}>Mantenimiento</button>
                 <button onClick={() => setActiveTab('HSE')} className={`px-4 py-2 text-sm font-bold whitespace-nowrap ${activeTab === 'HSE' ? 'border-b-2 border-orange-600 text-orange-600' : 'text-gray-500'}`}>HSE</button>
+                <button onClick={() => setActiveTab('HISTORIAL')} className={`px-4 py-2 text-sm font-bold whitespace-nowrap ${activeTab === 'HISTORIAL' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500'}`}>Historial</button>
             </div>
         </div>
 
@@ -460,6 +462,10 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
                 </div>
               )) : <p className="text-sm text-gray-400 text-center py-8">No hay EPP asignados.</p>}
             </div>
+          )}
+
+          {activeTab === 'HISTORIAL' && (
+            <AssetHistoryPanel asset={assetData} />
           )}
         </div>
       </aside>
