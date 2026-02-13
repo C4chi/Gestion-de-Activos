@@ -197,7 +197,7 @@ export const MaintenanceRequestForm = ({ onClose, onSuccess }) => {
                 .sort((a, b) => a.ficha.localeCompare(b.ficha))
                 .map(asset => (
                   <option key={asset.id} value={asset.id}>
-                    {asset.ficha} - {asset.nombre}
+                    {asset.ficha} - {asset.marca} {asset.modelo}
                   </option>
                 ))}
             </select>
