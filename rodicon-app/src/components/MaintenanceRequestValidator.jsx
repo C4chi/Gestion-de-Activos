@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
  * Panel para validar solicitudes de mantenimiento desde áreas
  * SUPERVISOR/ADMIN aprueba → Genera OT automática
  */
-export const MaintenanceRequestValidator = () => {
+const MaintenanceRequestValidator = () => {
   const { user, fetchAllData } = useAppContext();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -408,3 +408,5 @@ export const MaintenanceRequestValidator = () => {
     </div>
   );
 };
+
+export default MaintenanceRequestValidator;

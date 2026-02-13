@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
  * Formulario mobile-friendly para que operadores reporten problemas en equipos
  * Punto B del diagrama: ÁREAS → Detección problemática → Solicitud de trabajo
  */
-export const MaintenanceRequestForm = ({ onClose, onSuccess }) => {
+const MaintenanceRequestForm = ({ onClose, onSuccess }) => {
   const { user, assets } = useAppContext();
   
   const [formData, setFormData] = useState({
@@ -383,3 +383,5 @@ export const MaintenanceRequestForm = ({ onClose, onSuccess }) => {
     </div>
   );
 };
+
+export default MaintenanceRequestForm;

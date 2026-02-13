@@ -31,8 +31,8 @@ const PreventiveMaintenancePanel = React.lazy(() => import('./components/Prevent
 const MetricsPanel = React.lazy(() => import('./components/MetricsPanel'));
 
 // Módulo de Solicitudes de Mantenimiento - Lazy Load
-const MaintenanceRequestForm = React.lazy(() => import('./components/MaintenanceRequestForm').then(m => ({ default: m.MaintenanceRequestForm })));
-const MaintenanceRequestValidator = React.lazy(() => import('./components/MaintenanceRequestValidator').then(m => ({ default: m.MaintenanceRequestValidator })));
+const MaintenanceRequestForm = React.lazy(() => import('./components/MaintenanceRequestForm'));
+const MaintenanceRequestValidator = React.lazy(() => import('./components/MaintenanceRequestValidator'));
 
 // Sistema HSE Dinámico - Lazy Load
 const InspectionsDashboard = React.lazy(() => import('./components/HSE/InspectionsDashboard'));
