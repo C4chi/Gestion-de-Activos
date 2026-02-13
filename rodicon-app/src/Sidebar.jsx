@@ -2,7 +2,8 @@ import React from 'react';
 import { 
   Wrench, ShieldAlert, ShoppingCart, Activity, 
   Menu, LogOut, RefreshCw, Plus, Settings, Users,
-  CheckCircle, Calendar, ClipboardCheck, BarChart3, Package
+  CheckCircle, Calendar, ClipboardCheck, BarChart3, Package,
+  AlertTriangle, CheckSquare
 } from 'lucide-react';
 import { NotificationToggle } from './components/NotificationToggle';
 
@@ -43,6 +44,11 @@ export const Sidebar = ({ collapsed, onToggle, onMenuClick, onNewAsset, onRefres
       <nav className="mt-6 flex flex-col gap-1 px-2">
         <SidebarBtn icon={<Wrench/>} label="Taller" color="purple" collapsed={collapsed} onClick={() => onMenuClick('WORKSHOP')} disabled={!canWorkshop}/>
         <SidebarBtn icon={<Calendar/>} label="Mto Preventivo" color="green" collapsed={collapsed} onClick={() => onMenuClick('PREVENTIVE_MTO')} disabled={!canWorkshop}/>
+        
+        {/* Solicitudes de Mantenimiento */}
+        <SidebarBtn icon={<AlertTriangle/>} label="Reportar Problema" color="orange" collapsed={collapsed} onClick={() => onMenuClick('REQUEST_MAINTENANCE')}/>
+        <SidebarBtn icon={<CheckSquare/>} label="Validar Solicitudes" color="orange" collapsed={collapsed} onClick={() => onMenuClick('VALIDATE_REQUESTS')} disabled={!canWorkshop}/>
+        
         <SidebarBtn icon={<ShieldAlert/>} label="HSE (Seguridad)" color="orange" collapsed={collapsed} onClick={() => onMenuClick('SAFETY')} disabled={!canHse}/>
         <SidebarBtn icon={<ClipboardCheck/>} label="Inspecciones HSE" color="blue" collapsed={collapsed} onClick={() => onMenuClick('HSE_INSPECTIONS')} disabled={!canHse}/>
         <SidebarBtn icon={<ShoppingCart/>} label="Compras" color="green" collapsed={collapsed} onClick={() => onMenuClick('PURCHASING')} disabled={!canPurchasing}/>

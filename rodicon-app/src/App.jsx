@@ -30,6 +30,10 @@ const PurchaseWorkflowPanel = React.lazy(() => import('./components/PurchaseWork
 const PreventiveMaintenancePanel = React.lazy(() => import('./components/PreventiveMaintenancePanel'));
 const MetricsPanel = React.lazy(() => import('./components/MetricsPanel'));
 
+// Módulo de Solicitudes de Mantenimiento - Lazy Load
+const MaintenanceRequestForm = React.lazy(() => import('./components/MaintenanceRequestForm').then(m => ({ default: m.MaintenanceRequestForm })));
+const MaintenanceRequestValidator = React.lazy(() => import('./components/MaintenanceRequestValidator').then(m => ({ default: m.MaintenanceRequestValidator })));
+
 // Sistema HSE Dinámico - Lazy Load
 const InspectionsDashboard = React.lazy(() => import('./components/HSE/InspectionsDashboard'));
 const TemplateManager = React.lazy(() => import('./components/HSE/TemplateManager'));
@@ -427,6 +431,26 @@ export default function App() {
         <FullScreenModal title="📊 Métricas y Reportes" color="blue" onClose={() => setActiveOverlay(null)}>
           <Suspense fallback={<LazyLoadFallback />}>
             <MetricsPanel />
+          </Suspense>
+        </FullScreenModal>
+      )}
+
+      {activeOverlay === 'REQUEST_MAINTENANCE' && (
+        <Suspense fallback={<LazyLoadFallback />}>
+          <MaintenanceRequestForm
+            onClose={() => setActiveOverlay(null)}
+            onSuccess={() => {
+              setActiveOverlay(null);
+              fetchAllData();
+            }}
+          />
+        </Suspense>
+      )}
+
+      {activeOverlay === 'VALIDATE_REQUESTS' && (
+        <FullScreenModal title="✅ Validar Solicitudes" color="orange" onClose={() => setActiveOverlay(null)}>
+          <Suspense fallback={<LazyLoadFallback />}>
+            <MaintenanceRequestValidator />
           </Suspense>
         </FullScreenModal>
       )}
