@@ -173,7 +173,7 @@ SELECT
   mr.solicitante_area,
   mr.evidencias,
   a.ficha,
-  a.nombre AS asset_nombre,
+  COALESCE(a.marca || ' ' || a.modelo, a.ficha) AS asset_nombre,
   a.tipo AS asset_tipo,
   EXTRACT(DAY FROM NOW() - mr.fecha_solicitud) AS dias_pendiente
 FROM maintenance_requests mr
@@ -211,7 +211,7 @@ SELECT
   mr.comentarios_validacion,
   mr.work_order_id,
   a.ficha,
-  a.nombre AS asset_nombre,
+  COALESCE(a.marca || ' ' || a.modelo, a.ficha) AS asset_nombre,
   a.tipo AS asset_tipo,
   wo.estado AS work_order_estado,
   wo.asignado_a AS work_order_asignado,
