@@ -26,6 +26,7 @@ const MaintenanceRequestForm = ({ onClose, onSuccess }) => {
   const [saving, setSaving] = useState(false);
   const [useGPS, setUseGPS] = useState(false);
   const [gpsData, setGpsData] = useState(null);
+  const [assetInput, setAssetInput] = useState('');
 
   const categorias = [
     { value: 'MECANICO', label: '🔧 Mecánico', icon: '⚙️' },
@@ -154,10 +155,35 @@ const MaintenanceRequestForm = ({ onClose, onSuccess }) => {
       if (onClose) onClose();
     } catch (error) {
       console.error('Error creating request:', error);
-      toast.error('Error al enviar solicitud: ' + error.message);
+
+      const errorCode = error?.code || error?.error?.code;
+      const errorMessage = error?.message || '';
+
+      if (errorCode === 'PGRST205' || errorMessage.includes('Could not find the table')) {
+        toast.error('No existe la tabla de solicitudes en Supabase. Ejecuta MIGRATION_MAINTENANCE_REQUESTS.sql');
+      } else {
+        toast.error('Error al enviar solicitud: ' + (errorMessage || 'Error desconocido'));
+      }
     } finally {
       setSaving(false);
     }
+  };
+
+  const visibleAssets = [...assets
+    .filter(a => a.visible)]
+    .sort((a, b) => String(a?.ficha ?? '').localeCompare(String(b?.ficha ?? '')));
+
+  const getAssetOptionLabel = (asset) => `${asset.ficha || 'Sin ficha'} - ${asset.marca} ${asset.modelo}`;
+
+  const handleAssetInputChange = (value) => {
+    setAssetInput(value);
+
+    const matchedAsset = visibleAssets.find(asset => getAssetOptionLabel(asset) === value);
+
+    setFormData(prev => ({
+      ...prev,
+      asset_id: matchedAsset ? matchedAsset.id : '',
+    }));
   };
 
   const selectedAsset = assets.find(a => a.id === formData.asset_id);
@@ -185,22 +211,20 @@ const MaintenanceRequestForm = ({ onClose, onSuccess }) => {
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Equipo / Activo <span className="text-red-500">*</span>
             </label>
-            <select
-              value={formData.asset_id}
-              onChange={(e) => setFormData({ ...formData, asset_id: e.target.value })}
+            <input
+              type="text"
+              value={assetInput}
+              onChange={(e) => handleAssetInputChange(e.target.value)}
+              list="maintenance-assets-options"
+              placeholder="Selecciona el equipo"
               className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-lg"
               required
-            >
-              <option value="">Selecciona el equipo</option>
-              {[...assets
-                .filter(a => a.visible)]
-                .sort((a, b) => String(a?.ficha ?? '').localeCompare(String(b?.ficha ?? '')))
-                .map(asset => (
-                  <option key={asset.id} value={asset.id}>
-                    {asset.ficha || 'Sin ficha'} - {asset.marca} {asset.modelo}
-                  </option>
-                ))}
-            </select>
+            />
+            <datalist id="maintenance-assets-options">
+              {visibleAssets.map(asset => (
+                <option key={asset.id} value={getAssetOptionLabel(asset)} />
+              ))}
+            </datalist>
             {selectedAsset && (
               <p className="mt-2 text-sm text-gray-600">
                 📦 <strong>{selectedAsset.tipo}</strong> | 🏷️ Marca: {selectedAsset.marca}
