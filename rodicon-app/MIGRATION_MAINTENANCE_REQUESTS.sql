@@ -236,22 +236,31 @@ CREATE OR REPLACE FUNCTION notificar_nueva_solicitud()
 RETURNS TRIGGER AS $$
 BEGIN
   -- Insertar notificación para usuarios de MANTENIMIENTO y ADMIN
-  INSERT INTO user_notifications (
-    user_id,
-    title,
-    message,
-    type,
-    reference_id,
-    reference_type,
-    created_at
+  INSERT INTO notifications (
+    usuario_id,
+    tipo,
+    titulo,
+    contenido,
+    entidad_id,
+    entidad_tipo,
+    metadata,
+    created_at,
+    updated_at
   )
   SELECT 
     u.id,
+    'TALLER',
     '🔧 Nueva Solicitud de Mantenimiento',
     NEW.solicitante_nombre || ' reportó: ' || NEW.titulo || ' (Prioridad: ' || NEW.prioridad || ')',
-    'MAINTENANCE',
     NEW.id::TEXT,
     'MAINTENANCE_REQUEST',
+    jsonb_build_object(
+      'prioridad', NEW.prioridad,
+      'categoria', NEW.categoria,
+      'solicitante_area', NEW.solicitante_area,
+      'asset_id', NEW.asset_id
+    ),
+    NOW(),
     NOW()
   FROM app_users u
   WHERE u.rol IN ('ADMIN', 'TALLER', 'SUPERVISOR') AND u.activo = TRUE;
