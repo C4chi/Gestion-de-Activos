@@ -95,8 +95,7 @@ BEGIN
     prioridad,
     estado,
     created_by,
-    fecha_creacion,
-    created_at
+    fecha_creacion
   ) VALUES (
     v_request.asset_id,
     v_request.titulo,
@@ -105,9 +104,13 @@ BEGIN
     v_request.prioridad,
     'ABIERTA',
     p_validador_id,
-    NOW(),
     NOW()
   ) RETURNING id INTO v_wo_id;
+
+  -- Marcar activo como en proceso de taller para visibilidad en monitor
+  UPDATE assets
+  SET status = 'NO DISPONIBLE'
+  WHERE id = v_request.asset_id;
   
   -- Actualizar solicitud con estado APROBADA y vincular OT
   UPDATE maintenance_requests
@@ -236,34 +239,37 @@ CREATE OR REPLACE FUNCTION notificar_nueva_solicitud()
 RETURNS TRIGGER AS $$
 BEGIN
   -- Insertar notificación para usuarios de MANTENIMIENTO y ADMIN
-  INSERT INTO notifications (
-    usuario_id,
-    tipo,
-    titulo,
-    contenido,
-    entidad_id,
-    entidad_tipo,
-    metadata,
-    created_at,
-    updated_at
-  )
-  SELECT 
-    u.id,
-    'TALLER',
-    '🔧 Nueva Solicitud de Mantenimiento',
-    NEW.solicitante_nombre || ' reportó: ' || NEW.titulo || ' (Prioridad: ' || NEW.prioridad || ')',
-    NEW.id::TEXT,
-    'MAINTENANCE_REQUEST',
-    jsonb_build_object(
-      'prioridad', NEW.prioridad,
-      'categoria', NEW.categoria,
-      'solicitante_area', NEW.solicitante_area,
-      'asset_id', NEW.asset_id
-    ),
-    NOW(),
-    NOW()
-  FROM app_users u
-  WHERE u.rol IN ('ADMIN', 'TALLER', 'SUPERVISOR') AND u.activo = TRUE;
+  -- Solo si existe la tabla notifications (evita bloquear la creación de solicitudes)
+  IF to_regclass('public.notifications') IS NOT NULL THEN
+    INSERT INTO notifications (
+      usuario_id,
+      tipo,
+      titulo,
+      contenido,
+      entidad_id,
+      entidad_tipo,
+      metadata,
+      created_at,
+      updated_at
+    )
+    SELECT 
+      u.id,
+      'TALLER',
+      '🔧 Nueva Solicitud de Mantenimiento',
+      NEW.solicitante_nombre || ' reportó: ' || NEW.titulo || ' (Prioridad: ' || NEW.prioridad || ')',
+      NEW.id::TEXT,
+      'MAINTENANCE_REQUEST',
+      jsonb_build_object(
+        'prioridad', NEW.prioridad,
+        'categoria', NEW.categoria,
+        'solicitante_area', NEW.solicitante_area,
+        'asset_id', NEW.asset_id
+      ),
+      NOW(),
+      NOW()
+    FROM app_users u
+    WHERE u.rol IN ('ADMIN', 'TALLER', 'SUPERVISOR') AND u.activo = TRUE;
+  END IF;
   
   RETURN NEW;
 END;

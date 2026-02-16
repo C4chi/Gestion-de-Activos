@@ -70,7 +70,13 @@ export const useNotifications = (userId) => {
             setUnreadCount(prev => prev + 1);
             
             // Notificación del sistema
-            toast.success(payload.new.titulo, {
+            const content = payload.new.contenido || '';
+            const shortContent = content.length > 90 ? `${content.slice(0, 90)}…` : content;
+            const toastMessage = shortContent
+              ? `${payload.new.titulo} — ${shortContent}`
+              : payload.new.titulo;
+
+            toast.success(toastMessage, {
               duration: 5000,
               icon: getIconForType(payload.new.tipo),
             });
