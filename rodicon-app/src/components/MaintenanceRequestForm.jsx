@@ -192,12 +192,12 @@ const MaintenanceRequestForm = ({ onClose, onSuccess }) => {
               required
             >
               <option value="">Selecciona el equipo</option>
-              {assets
-                .filter(a => a.visible)
-                .sort((a, b) => a.ficha.localeCompare(b.ficha))
+              {[...assets
+                .filter(a => a.visible)]
+                .sort((a, b) => String(a?.ficha ?? '').localeCompare(String(b?.ficha ?? '')))
                 .map(asset => (
                   <option key={asset.id} value={asset.id}>
-                    {asset.ficha} - {asset.marca} {asset.modelo}
+                    {asset.ficha || 'Sin ficha'} - {asset.marca} {asset.modelo}
                   </option>
                 ))}
             </select>
