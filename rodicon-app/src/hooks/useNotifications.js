@@ -7,14 +7,23 @@ import toast from 'react-hot-toast';
  * Usa Supabase Realtime para actualizaciones instantáneas
  */
 const isUuid = (v) => typeof v === 'string' && /^[0-9a-fA-F-]{32,36}$/.test(v);
+const isNumericId = (v) => {
+  if (typeof v === 'number') return Number.isFinite(v);
+  if (typeof v === 'string' && v.trim() !== '') return /^\d+$/.test(v.trim());
+  return false;
+};
 
 export const useNotifications = (userId) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // Normalizar: solo seguimos si es UUID (las tablas usan uuid en usuario_id)
-  const normalizedUserId = isUuid(userId) ? userId : null;
+  // Soportar ambos modelos de usuario_id: UUID (auth.users) o BIGINT (app_users)
+  const normalizedUserId = isUuid(userId)
+    ? userId
+    : isNumericId(userId)
+      ? Number(userId)
+      : null;
 
   // Cargar notificaciones iniciales
   useEffect(() => {
