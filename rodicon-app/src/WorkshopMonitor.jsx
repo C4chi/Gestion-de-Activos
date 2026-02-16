@@ -14,8 +14,7 @@ export const WorkshopMonitor = ({ assets, onClose, onSelectAsset, onOpenModal })
   useEffect(() => {
     const loadWorkshopDetails = async () => {
       try {
-        const workshopAssets = assets.filter(a => ['NO DISPONIBLE', 'ESPERA REPUESTO', 'MTT PREVENTIVO', 'EN TALLER', 'EN REPARACION'].includes(a.status));
-        const assetIds = workshopAssets.map(a => a.id).filter(Boolean);
+        const assetIds = assets.map(a => a.id).filter(Boolean);
 
         if (assetIds.length === 0) {
           setWorkshopDetailsByAsset({});
@@ -82,6 +81,8 @@ export const WorkshopMonitor = ({ assets, onClose, onSelectAsset, onOpenModal })
             motivoEntrada: request?.titulo || wo.titulo || wo.descripcion || '-',
             reportadoPor: request?.solicitante_nombre || creatorNameById[wo.created_by] || '-',
             mecanico: wo.asignado_a || '-',
+            hasOpenWorkOrder: true,
+            workOrderEstado: wo.estado,
           };
           return acc;
         }, {});
@@ -119,14 +120,26 @@ export const WorkshopMonitor = ({ assets, onClose, onSelectAsset, onOpenModal })
   };
 
   const filteredWorkshopAssets = useMemo(() => {
-    const workshopAssets = assets.filter(a => ['NO DISPONIBLE', 'ESPERA REPUESTO', 'MTT PREVENTIVO', 'EN TALLER', 'EN REPARACION'].includes(a.status));
+    const workshopAssets = assets.filter(a => {
+      const inWorkshopByStatus = ['NO DISPONIBLE', 'ESPERA REPUESTO', 'MTT PREVENTIVO', 'EN TALLER', 'EN REPARACION'].includes(a.status);
+      const hasOpenWorkOrder = !!workshopDetailsByAsset[a.id]?.hasOpenWorkOrder;
+      return inWorkshopByStatus || hasOpenWorkOrder;
+    });
 
     return workshopAssets.filter(asset => {
-      const matchesStatus = statusFilter === 'TODOS' || asset.status === statusFilter;
+      const inWorkshopByStatus = ['NO DISPONIBLE', 'ESPERA REPUESTO', 'MTT PREVENTIVO', 'EN TALLER', 'EN REPARACION'].includes(asset.status);
+      const hasOpenWorkOrder = !!workshopDetailsByAsset[asset.id]?.hasOpenWorkOrder;
+      const isOperativeWithOpenWO = hasOpenWorkOrder && !inWorkshopByStatus;
+
+      const matchesStatus =
+        statusFilter === 'TODOS' ||
+        asset.status === statusFilter ||
+        (statusFilter === 'OT_ABIERTA' && isOperativeWithOpenWO);
+
       const matchesSearch = debouncedSearch === '' || (asset.ficha || '').toLowerCase().includes(debouncedSearch.toLowerCase());
       return matchesStatus && matchesSearch;
     });
-  }, [assets, debouncedSearch, statusFilter]);
+  }, [assets, debouncedSearch, statusFilter, workshopDetailsByAsset]);
 
   return (
     <FullScreenModal title="🛠️ Monitor de Taller" color="purple" onClose={onClose}>
@@ -144,6 +157,7 @@ export const WorkshopMonitor = ({ assets, onClose, onSelectAsset, onOpenModal })
         </div>
         <div className="flex items-center gap-2 p-1 bg-white border border-gray-300 rounded-lg">
           <button onClick={() => setStatusFilter('TODOS')} className={`px-3 py-1 text-xs font-bold rounded-md transition ${statusFilter === 'TODOS' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-purple-100'}`}>Todos</button>
+          <button onClick={() => setStatusFilter('OT_ABIERTA')} className={`px-3 py-1 text-xs font-bold rounded-md transition ${statusFilter === 'OT_ABIERTA' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-purple-100'}`}>OT Abierta</button>
           <button onClick={() => setStatusFilter('NO DISPONIBLE')} className={`px-3 py-1 text-xs font-bold rounded-md transition ${statusFilter === 'NO DISPONIBLE' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-purple-100'}`}>No Disponible</button>
           <button onClick={() => setStatusFilter('ESPERA REPUESTO')} className={`px-3 py-1 text-xs font-bold rounded-md transition ${statusFilter === 'ESPERA REPUESTO' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-purple-100'}`}>Espera Repuesto</button>
           <button onClick={() => setStatusFilter('EN REPARACION')} className={`px-3 py-1 text-xs font-bold rounded-md transition ${statusFilter === 'EN REPARACION' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-purple-100'}`}>En Reparación</button>
@@ -165,6 +179,11 @@ export const WorkshopMonitor = ({ assets, onClose, onSelectAsset, onOpenModal })
             <div className="absolute top-4 right-4"><StatusBadge status={a.status} /></div>
             <h3 className="font-bold text-lg text-gray-800">{a.ficha}</h3>
             <p className="text-xs text-gray-500 mb-3">{a.marca} {a.modelo}</p>
+            {details.hasOpenWorkOrder && !['NO DISPONIBLE', 'ESPERA REPUESTO', 'MTT PREVENTIVO', 'EN TALLER', 'EN REPARACION'].includes(a.status) && (
+              <p className="mb-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-700">
+                🧾 OT ABIERTA (equipo operativo)
+              </p>
+            )}
             <div className="bg-gray-50 p-3 rounded text-xs space-y-1 mb-4 border border-gray-100">
               <p><strong>Mecánico:</strong> {mecanico}</p>
               <p><strong>Reportado por:</strong> {reportadoPor}</p>

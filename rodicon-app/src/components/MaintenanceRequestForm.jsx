@@ -18,6 +18,7 @@ const MaintenanceRequestForm = ({ onClose, onSuccess }) => {
     descripcion: '',
     categoria: 'MECANICO',
     prioridad: 'MEDIA',
+    equipo_operativo: false,
     solicitante_area: 'PRODUCCION',
   });
   
@@ -307,6 +308,37 @@ const MaintenanceRequestForm = ({ onClose, onSuccess }) => {
                   {prio.label}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Operatividad */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              ¿El equipo quedó operativo?
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, equipo_operativo: true })}
+                className={`px-4 py-3 rounded-lg font-semibold text-sm transition ${
+                  formData.equipo_operativo
+                    ? 'bg-green-100 text-green-700 ring-2 ring-offset-2 ring-green-300'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                ✅ Sí, sigue operativo
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, equipo_operativo: false })}
+                className={`px-4 py-3 rounded-lg font-semibold text-sm transition ${
+                  !formData.equipo_operativo
+                    ? 'bg-red-100 text-red-700 ring-2 ring-offset-2 ring-red-300'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                🛑 No, quedó detenido
+              </button>
             </div>
           </div>
 

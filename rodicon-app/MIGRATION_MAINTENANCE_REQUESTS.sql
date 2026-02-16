@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS maintenance_requests (
   descripcion TEXT,
   categoria VARCHAR(50), -- 'MECANICO', 'ELECTRICO', 'HIDRAULICO', 'NEUMATICO', 'OTRO'
   prioridad VARCHAR(20) DEFAULT 'MEDIA', -- 'BAJA', 'MEDIA', 'ALTA', 'CRITICA'
+  equipo_operativo BOOLEAN DEFAULT FALSE, -- TRUE: sigue operando | FALSE: detenido
   
   -- Estado del flujo
   estado VARCHAR(50) DEFAULT 'PENDIENTE', -- 'PENDIENTE', 'APROBADA', 'RECHAZADA'
@@ -54,6 +55,9 @@ CREATE INDEX IF NOT EXISTS idx_maint_req_solicitante ON maintenance_requests(sol
 CREATE INDEX IF NOT EXISTS idx_maint_req_estado ON maintenance_requests(estado);
 CREATE INDEX IF NOT EXISTS idx_maint_req_fecha ON maintenance_requests(fecha_solicitud DESC);
 CREATE INDEX IF NOT EXISTS idx_maint_req_wo ON maintenance_requests(work_order_id);
+
+ALTER TABLE maintenance_requests
+ADD COLUMN IF NOT EXISTS equipo_operativo BOOLEAN DEFAULT FALSE;
 
 -- Comentarios
 COMMENT ON TABLE maintenance_requests IS 'Solicitudes de mantenimiento desde áreas operativas (flujo B del diagrama)';
@@ -107,10 +111,12 @@ BEGIN
     NOW()
   ) RETURNING id INTO v_wo_id;
 
-  -- Marcar activo como en proceso de taller para visibilidad en monitor
-  UPDATE assets
-  SET status = 'NO DISPONIBLE'
-  WHERE id = v_request.asset_id;
+  -- Si el equipo quedó detenido, marcar como NO DISPONIBLE
+  IF COALESCE(v_request.equipo_operativo, FALSE) = FALSE THEN
+    UPDATE assets
+    SET status = 'NO DISPONIBLE'
+    WHERE id = v_request.asset_id;
+  END IF;
   
   -- Actualizar solicitud con estado APROBADA y vincular OT
   UPDATE maintenance_requests
@@ -171,6 +177,7 @@ SELECT
   mr.descripcion,
   mr.categoria,
   mr.prioridad,
+  mr.equipo_operativo,
   mr.fecha_solicitud,
   mr.solicitante_nombre,
   mr.solicitante_area,
@@ -204,6 +211,7 @@ SELECT
   mr.descripcion,
   mr.categoria,
   mr.prioridad,
+  mr.equipo_operativo,
   mr.estado,
   mr.fecha_solicitud,
   mr.fecha_validacion,
