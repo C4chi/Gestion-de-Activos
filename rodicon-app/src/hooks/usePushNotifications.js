@@ -86,19 +86,26 @@ export const usePushNotifications = (userId) => {
       // Guardar suscripción en Supabase
       if (userId && pushSubscription) {
         const subscriptionData = JSON.stringify(pushSubscription);
+        const endpoint = pushSubscription.endpoint || null;
         
         const { error } = await supabase
           .from('push_subscriptions')
           .upsert({
             user_id: userId,
             subscription: subscriptionData,
+            endpoint,
+            active: true,
             updated_at: new Date().toISOString(),
           }, {
             onConflict: 'user_id'
           });
 
         if (error) {
-          console.error('Error guardando suscripción:', error);
+          if (error.code === 'PGRST205' || (error.message || '').includes("Could not find the table 'public.push_subscriptions'")) {
+            console.warn('Tabla push_subscriptions no existe. Ejecuta MIGRATION_PUSH_SUBSCRIPTIONS.sql');
+          } else {
+            console.error('Error guardando suscripción:', error);
+          }
         } else {
           console.log('✅ Suscripción guardada en BD');
         }
@@ -124,10 +131,14 @@ export const usePushNotifications = (userId) => {
       
       // Remover de BD
       if (userId) {
-        await supabase
+        const { error } = await supabase
           .from('push_subscriptions')
           .delete()
           .eq('user_id', userId);
+
+        if (error && error.code !== 'PGRST205') {
+          console.error('Error removiendo suscripción en BD:', error);
+        }
       }
 
       setSubscription(null);
