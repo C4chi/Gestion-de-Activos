@@ -17,6 +17,7 @@ export const useNotifications = (userId) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [tableAvailable, setTableAvailable] = useState(true);
 
   // Soportar ambos modelos de usuario_id: UUID (auth.users) o BIGINT (app_users)
   const normalizedUserId = isUuid(userId)
@@ -42,6 +43,7 @@ export const useNotifications = (userId) => {
           .limit(50);
 
         if (error) throw error;
+        setTableAvailable(true);
         setNotifications(data || []);
         
         // Contar no leídas
@@ -49,6 +51,14 @@ export const useNotifications = (userId) => {
         setUnreadCount(unread);
         setLoading(false);
       } catch (err) {
+        if (err?.code === 'PGRST205' || (err?.message || '').includes("Could not find the table 'public.notifications'")) {
+          console.warn('Tabla notifications no existe aún en este proyecto');
+          setTableAvailable(false);
+          setNotifications([]);
+          setUnreadCount(0);
+          setLoading(false);
+          return;
+        }
         console.error('Error cargando notificaciones:', err);
         toast.error('Error al cargar notificaciones');
         setLoading(false);
@@ -60,7 +70,7 @@ export const useNotifications = (userId) => {
 
   // Escuchar cambios en tiempo real
   useEffect(() => {
-    if (!normalizedUserId) return;
+    if (!normalizedUserId || !tableAvailable) return;
 
     const channel = supabase
       .channel('notifications-changes')
@@ -106,10 +116,11 @@ export const useNotifications = (userId) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [normalizedUserId]);
+  }, [normalizedUserId, tableAvailable]);
 
   // Marcar como leída
   const markAsRead = useCallback(async (notificationId) => {
+    if (!tableAvailable) return;
     try {
       const { error } = await supabase
         .from('notifications')
@@ -122,10 +133,11 @@ export const useNotifications = (userId) => {
       console.error('Error marcando notificación como leída:', err);
       toast.error('Error actualizando notificación');
     }
-  }, [normalizedUserId]);
+  }, [normalizedUserId, tableAvailable]);
 
   // Marcar todas como leídas
   const markAllAsRead = useCallback(async () => {
+    if (!tableAvailable) return;
     try {
       const { error } = await supabase
         .from('notifications')
@@ -139,7 +151,7 @@ export const useNotifications = (userId) => {
       console.error('Error marcando todas como leídas:', err);
       toast.error('Error actualizando notificaciones');
     }
-  }, [normalizedUserId]);
+  }, [normalizedUserId, tableAvailable]);
 
   // Filtrar por tipo (HSE, COMPRAS, TALLER, etc)
   const filterByType = useCallback((type) => {
@@ -148,6 +160,7 @@ export const useNotifications = (userId) => {
 
   // Eliminar notificación
   const deleteNotification = useCallback(async (notificationId) => {
+    if (!tableAvailable) return;
     try {
       const { error } = await supabase
         .from('notifications')
@@ -161,7 +174,7 @@ export const useNotifications = (userId) => {
       console.error('Error eliminando notificación:', err);
       toast.error('Error eliminando notificación');
     }
-  }, [normalizedUserId]);
+  }, [normalizedUserId, tableAvailable]);
 
   return {
     notifications,

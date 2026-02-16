@@ -6,6 +6,11 @@ import { supabase } from '../supabaseClient';
  * Solicita permisos, suscribe al usuario y gestiona las notificaciones
  */
 export const usePushNotifications = (userId) => {
+  const vapidPublicKey =
+    import.meta.env.VITE_VAPID_PUBLIC_KEY ||
+    import.meta.env.VITE_WEB_PUSH_PUBLIC_KEY ||
+    '';
+
   const [permission, setPermission] = useState('default');
   const [subscription, setSubscription] = useState(null);
   const [supported, setSupported] = useState(false);
@@ -55,6 +60,11 @@ export const usePushNotifications = (userId) => {
       return null;
     }
 
+    if (!vapidPublicKey) {
+      console.error('No se puede suscribir: falta VITE_VAPID_PUBLIC_KEY en variables de entorno');
+      return null;
+    }
+
     try {
       const registration = await navigator.serviceWorker.ready;
 
@@ -63,13 +73,11 @@ export const usePushNotifications = (userId) => {
 
       if (!pushSubscription) {
         // Crear nueva suscripción
-        // NOTA: Necesitarás generar VAPID keys en producción
-        // const vapidPublicKey = 'TU_CLAVE_PUBLICA_VAPID';
-        // const convertedKey = urlBase64ToUint8Array(vapidPublicKey);
+        const convertedKey = urlBase64ToUint8Array(vapidPublicKey);
         
         pushSubscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          // applicationServerKey: convertedKey
+          applicationServerKey: convertedKey
         });
 
         console.log('✅ Nueva suscripción push creada');
@@ -103,7 +111,7 @@ export const usePushNotifications = (userId) => {
       console.error('Error al suscribirse:', error);
       return null;
     }
-  }, [supported, permission, userId]);
+  }, [supported, permission, userId, vapidPublicKey]);
 
   /**
    * Desuscribir de notificaciones
