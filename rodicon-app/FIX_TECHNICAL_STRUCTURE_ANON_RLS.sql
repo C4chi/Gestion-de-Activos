@@ -164,6 +164,107 @@ AS $$
   SELECT * FROM bulk_clone_template_to_assets(p_template_id, p_asset_ids);
 $$;
 
+-- 1.2) Hotfix: evitar ambigüedad de asset_id en assign_template_for_asset
+CREATE OR REPLACE FUNCTION assign_template_for_asset(
+  p_asset_id UUID
+)
+RETURNS TABLE(asset_id UUID, template_id UUID, strategy TEXT, cloned BOOLEAN)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_asset assets%ROWTYPE;
+  v_template_id UUID;
+  v_strategy TEXT;
+  v_type_key TEXT;
+  v_brand_key TEXT;
+  v_model_key TEXT;
+  v_has_nodes BOOLEAN;
+BEGIN
+  SELECT * INTO v_asset FROM assets WHERE id = p_asset_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Asset % no encontrado', p_asset_id;
+  END IF;
+
+  v_type_key := canonical_asset_type_key(COALESCE(v_asset.type, v_asset.tipo));
+  v_brand_key := COALESCE(v_asset.brand_key, normalize_text(COALESCE(v_asset.brand_raw, v_asset.marca)));
+  v_model_key := COALESCE(v_asset.model_key, normalize_model(COALESCE(v_asset.model_raw, v_asset.modelo)));
+
+  SELECT t.id, 'ESPECIFICA'
+  INTO v_template_id, v_strategy
+  FROM asset_templates t
+  WHERE t.is_active = TRUE
+    AND t.template_kind = 'ESPECIFICA'
+    AND COALESCE(t.company_id, '00000000-0000-0000-0000-000000000000'::uuid)
+        = COALESCE(v_asset.company_id, '00000000-0000-0000-0000-000000000000'::uuid)
+    AND COALESCE(t.equipment_type, t.asset_type_key) = v_type_key
+    AND COALESCE(t.brand_key, normalize_text(t.brand)) = v_brand_key
+    AND COALESCE(t.model_key, normalize_model(t.model)) = v_model_key
+  ORDER BY t.version DESC
+  LIMIT 1;
+
+  IF v_template_id IS NULL THEN
+    SELECT t.id, 'GENERICA'
+    INTO v_template_id, v_strategy
+    FROM asset_templates t
+    WHERE t.is_active = TRUE
+      AND t.template_kind = 'GENERICA'
+      AND COALESCE(t.company_id, '00000000-0000-0000-0000-000000000000'::uuid)
+          = COALESCE(v_asset.company_id, '00000000-0000-0000-0000-000000000000'::uuid)
+      AND COALESCE(t.equipment_type, t.asset_type_key) = v_type_key
+    ORDER BY t.version DESC
+    LIMIT 1;
+  END IF;
+
+  IF v_template_id IS NULL THEN
+    RETURN QUERY SELECT p_asset_id, NULL::UUID, NULL::TEXT, FALSE;
+    RETURN;
+  END IF;
+
+  UPDATE asset_template_assignments ata
+  SET
+    company_id = v_asset.company_id,
+    template_id = v_template_id,
+    strategy = v_strategy,
+    matched_brand = COALESCE(v_asset.brand_raw, v_asset.marca),
+    matched_model = COALESCE(v_asset.model_raw, v_asset.modelo),
+    matched_type = COALESCE(v_asset.type, v_asset.tipo),
+    updated_at = NOW()
+  WHERE ata.asset_id = p_asset_id;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM asset_template_assignments ata2
+    WHERE ata2.asset_id = p_asset_id
+  ) THEN
+    INSERT INTO asset_template_assignments(
+      company_id, asset_id, template_id, strategy, matched_brand, matched_model, matched_type, updated_at
+    )
+    VALUES (
+      v_asset.company_id,
+      p_asset_id,
+      v_template_id,
+      v_strategy,
+      COALESCE(v_asset.brand_raw, v_asset.marca),
+      COALESCE(v_asset.model_raw, v_asset.modelo),
+      COALESCE(v_asset.type, v_asset.tipo),
+      NOW()
+    );
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1
+    FROM asset_nodes n
+    WHERE n.asset_id = p_asset_id
+  ) INTO v_has_nodes;
+
+  IF NOT v_has_nodes THEN
+    PERFORM * FROM clone_template_to_asset(v_template_id, p_asset_id);
+  END IF;
+
+  RETURN QUERY SELECT p_asset_id, v_template_id, v_strategy, NOT v_has_nodes;
+END;
+$$;
+
 -- 2) Políticas RLS adaptadas a cliente anon
 --    Clave: usar current_company_context_id() para resolver company cuando no hay JWT.
 

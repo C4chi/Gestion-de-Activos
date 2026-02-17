@@ -1111,7 +1111,11 @@ BEGIN
     updated_at = NOW()
   WHERE ata.asset_id = p_asset_id;
 
-  IF NOT EXISTS (SELECT 1 FROM asset_template_assignments WHERE asset_id = p_asset_id) THEN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM asset_template_assignments ata2
+    WHERE ata2.asset_id = p_asset_id
+  ) THEN
     INSERT INTO asset_template_assignments(
       company_id, asset_id, template_id, strategy, matched_brand, matched_model, matched_type, updated_at
     )
@@ -1127,7 +1131,11 @@ BEGIN
     );
   END IF;
 
-  SELECT EXISTS (SELECT 1 FROM asset_nodes WHERE asset_id = p_asset_id) INTO v_has_nodes;
+  SELECT EXISTS (
+    SELECT 1
+    FROM asset_nodes n
+    WHERE n.asset_id = p_asset_id
+  ) INTO v_has_nodes;
   IF NOT v_has_nodes THEN
     PERFORM * FROM clone_template_to_asset(v_template_id, p_asset_id);
   END IF;
