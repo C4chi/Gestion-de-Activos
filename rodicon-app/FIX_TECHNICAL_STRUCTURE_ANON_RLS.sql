@@ -4,6 +4,20 @@
 -- Contexto: la app usa PIN interno (sin supabase.auth session JWT de negocio)
 -- ============================================================================
 
+-- 0) Evitar recursión RLS: current_company_context_id no debe consultar tablas con políticas
+CREATE OR REPLACE FUNCTION current_company_context_id()
+RETURNS UUID
+LANGUAGE plpgsql
+STABLE
+AS $$
+DECLARE
+  v_company UUID;
+BEGIN
+  v_company := current_company_id();
+  RETURN COALESCE(v_company, '00000000-0000-0000-0000-000000000000'::uuid);
+END;
+$$;
+
 -- 1) Grants mínimos para RPC y tablas técnicas
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 

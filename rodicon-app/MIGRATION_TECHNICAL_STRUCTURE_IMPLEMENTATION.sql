@@ -557,33 +557,6 @@ DECLARE
   v_company UUID;
 BEGIN
   v_company := current_company_id();
-  IF v_company IS NOT NULL THEN
-    RETURN v_company;
-  END IF;
-
-  SELECT company_id INTO v_company
-  FROM assets
-  WHERE company_id IS NOT NULL
-  LIMIT 1;
-
-  IF v_company IS NOT NULL THEN
-    RETURN v_company;
-  END IF;
-
-  SELECT company_id INTO v_company
-  FROM asset_templates
-  WHERE company_id IS NOT NULL
-  LIMIT 1;
-
-  IF v_company IS NOT NULL THEN
-    RETURN v_company;
-  END IF;
-
-  SELECT company_id INTO v_company
-  FROM work_orders
-  WHERE company_id IS NOT NULL
-  LIMIT 1;
-
   RETURN COALESCE(v_company, '00000000-0000-0000-0000-000000000000'::uuid);
 END;
 $$;
