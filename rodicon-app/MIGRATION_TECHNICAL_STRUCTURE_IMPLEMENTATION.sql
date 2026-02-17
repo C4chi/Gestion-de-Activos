@@ -855,6 +855,24 @@ BEGIN
     RAISE EXCEPTION 'Asset % no existe', p_asset_id;
   END IF;
 
+  IF v_company IS NULL THEN
+    SELECT company_id
+    INTO v_company
+    FROM asset_templates
+    WHERE id = p_template_id;
+  END IF;
+
+  IF v_company IS NULL THEN
+    v_company := current_company_context_id();
+  END IF;
+
+  v_company := COALESCE(v_company, '00000000-0000-0000-0000-000000000000'::uuid);
+
+  UPDATE assets
+  SET company_id = v_company
+  WHERE id = p_asset_id
+    AND company_id IS NULL;
+
   DELETE FROM asset_nodes WHERE asset_id = p_asset_id;
 
   DROP TABLE IF EXISTS tmp_node_map;

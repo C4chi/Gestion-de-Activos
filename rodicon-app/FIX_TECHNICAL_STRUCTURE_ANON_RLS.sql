@@ -34,6 +34,100 @@ GRANT EXECUTE ON FUNCTION bulk_clone_template(UUID, UUID[]) TO anon, authenticat
 GRANT EXECUTE ON FUNCTION assign_template_for_asset(UUID) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION assign_and_clone_all_assets() TO anon, authenticated;
 
+-- 1.05) Hotfix: garantizar company_id no nulo al clonar template -> asset
+CREATE OR REPLACE FUNCTION clone_template_to_asset(
+  p_template_id UUID,
+  p_asset_id UUID
+)
+RETURNS TABLE(inserted_count INTEGER)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  r RECORD;
+  v_new_id UUID;
+  v_parent_new UUID;
+  v_count INTEGER := 0;
+  v_company UUID;
+BEGIN
+  SELECT company_id INTO v_company FROM assets WHERE id = p_asset_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Asset % no existe', p_asset_id;
+  END IF;
+
+  IF v_company IS NULL THEN
+    SELECT company_id INTO v_company FROM asset_templates WHERE id = p_template_id;
+  END IF;
+
+  IF v_company IS NULL THEN
+    v_company := current_company_context_id();
+  END IF;
+
+  v_company := COALESCE(v_company, '00000000-0000-0000-0000-000000000000'::uuid);
+
+  UPDATE assets
+  SET company_id = v_company
+  WHERE id = p_asset_id
+    AND company_id IS NULL;
+
+  DELETE FROM asset_nodes WHERE asset_id = p_asset_id;
+
+  DROP TABLE IF EXISTS tmp_node_map;
+  CREATE TEMP TABLE tmp_node_map(
+    src_id UUID PRIMARY KEY,
+    dst_id UUID NOT NULL
+  ) ON COMMIT DROP;
+
+  FOR r IN
+    WITH RECURSIVE t AS (
+      SELECT n.id, n.parent_id, n.node_type, n.sort_order, n.name, n.description, n.part_number, 1 AS depth
+      FROM asset_nodes n
+      WHERE n.template_id = p_template_id
+        AND n.parent_id IS NULL
+      UNION ALL
+      SELECT c.id, c.parent_id, c.node_type, c.sort_order, c.name, c.description, c.part_number, t.depth + 1
+      FROM asset_nodes c
+      JOIN t ON c.parent_id = t.id
+      WHERE c.template_id = p_template_id
+    )
+    SELECT * FROM t ORDER BY depth, sort_order, name
+  LOOP
+    IF r.parent_id IS NULL THEN
+      v_parent_new := NULL;
+    ELSE
+      SELECT dst_id INTO v_parent_new FROM tmp_node_map WHERE src_id = r.parent_id;
+    END IF;
+
+    INSERT INTO asset_nodes(
+      company_id,
+      template_id,
+      asset_id,
+      parent_id,
+      node_type,
+      sort_order,
+      name,
+      description,
+      part_number
+    ) VALUES (
+      v_company,
+      NULL,
+      p_asset_id,
+      v_parent_new,
+      r.node_type,
+      r.sort_order,
+      r.name,
+      r.description,
+      r.part_number
+    )
+    RETURNING id INTO v_new_id;
+
+    INSERT INTO tmp_node_map(src_id, dst_id) VALUES (r.id, v_new_id);
+    v_count := v_count + 1;
+  END LOOP;
+
+  RETURN QUERY SELECT v_count;
+END;
+$$;
+
 -- 1.1) Hotfix: evitar ambigüedad "inserted_count" en clonación masiva
 CREATE OR REPLACE FUNCTION bulk_clone_template_to_assets(
   p_template_id UUID,
