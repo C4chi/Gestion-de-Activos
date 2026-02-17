@@ -61,6 +61,14 @@ const TechnicalStructurePanel = () => {
 
   const scopeReady = mode === 'ASSET' ? !!selectedAssetId : !!selectedTemplateId;
 
+  const formatDbError = (prefix, error) => {
+    if (!error) return prefix;
+    const code = error?.code ? ` [${error.code}]` : '';
+    const detail = error?.details ? ` · ${error.details}` : '';
+    const hint = error?.hint ? ` · hint: ${error.hint}` : '';
+    return `${prefix}${code}: ${error?.message || 'error desconocido'}${detail}${hint}`;
+  };
+
   const loadTemplates = async () => {
     const { data, error } = await listTemplates();
     if (error) {
@@ -151,7 +159,7 @@ const TechnicalStructurePanel = () => {
 
     const { error } = await cloneTemplateToAsset(selectedTemplateId, cloneTargetAssetId);
     if (error) {
-      toast.error('Error clonando plantilla a equipo');
+      toast.error(formatDbError('Error clonando plantilla a equipo', error));
       return;
     }
 
@@ -171,7 +179,7 @@ const TechnicalStructurePanel = () => {
 
     const { data, error } = await bulkCloneTemplateToAssets(selectedTemplateId, bulkSelectedAssets);
     if (error) {
-      toast.error('Error en clonación masiva');
+      toast.error(formatDbError('Error en clonación masiva', error));
       return;
     }
 
@@ -196,7 +204,7 @@ const TechnicalStructurePanel = () => {
 
     const { data, error } = await createTemplate(payload);
     if (error) {
-      toast.error('Error creando plantilla');
+      toast.error(formatDbError('Error creando plantilla', error));
       return;
     }
 
@@ -235,7 +243,7 @@ const TechnicalStructurePanel = () => {
     setCreating(false);
 
     if (error) {
-      toast.error('Error creando nodo: ' + error.message);
+      toast.error(formatDbError('Error creando nodo', error));
       return;
     }
 
@@ -259,7 +267,7 @@ const TechnicalStructurePanel = () => {
     });
 
     if (error) {
-      toast.error('Error actualizando nodo');
+      toast.error(formatDbError('Error actualizando nodo', error));
       return;
     }
 
@@ -278,7 +286,7 @@ const TechnicalStructurePanel = () => {
 
     const { error } = await deleteNode(selectedNode.id);
     if (error) {
-      toast.error('Error eliminando nodo');
+      toast.error(formatDbError('Error eliminando nodo', error));
       return;
     }
 
