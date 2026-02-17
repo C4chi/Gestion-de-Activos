@@ -77,7 +77,7 @@ DROP POLICY IF EXISTS asset_templates_read ON asset_templates;
 CREATE POLICY asset_templates_read ON asset_templates
 FOR SELECT
 USING (
-  auth.role() IN ('service_role', 'anon')
+  auth.role() IN ('service_role', 'anon', 'authenticated')
   OR (
     is_read_role()
     AND COALESCE(company_id, '00000000-0000-0000-0000-000000000000'::uuid)
@@ -89,7 +89,7 @@ DROP POLICY IF EXISTS asset_templates_write ON asset_templates;
 CREATE POLICY asset_templates_write ON asset_templates
 FOR ALL
 USING (
-  auth.role() IN ('service_role', 'anon')
+  auth.role() IN ('service_role', 'anon', 'authenticated')
   OR (
     is_admin_role()
     AND COALESCE(company_id, '00000000-0000-0000-0000-000000000000'::uuid)
@@ -97,7 +97,7 @@ USING (
   )
 )
 WITH CHECK (
-  auth.role() IN ('service_role', 'anon')
+  auth.role() IN ('service_role', 'anon', 'authenticated')
   OR (
     is_admin_role()
     AND COALESCE(company_id, '00000000-0000-0000-0000-000000000000'::uuid)
@@ -109,7 +109,7 @@ DROP POLICY IF EXISTS asset_nodes_read ON asset_nodes;
 CREATE POLICY asset_nodes_read ON asset_nodes
 FOR SELECT
 USING (
-  auth.role() IN ('service_role', 'anon')
+  auth.role() IN ('service_role', 'anon', 'authenticated')
   OR (
     is_read_role()
     AND COALESCE(company_id, '00000000-0000-0000-0000-000000000000'::uuid)
@@ -121,7 +121,7 @@ DROP POLICY IF EXISTS asset_nodes_write ON asset_nodes;
 CREATE POLICY asset_nodes_write ON asset_nodes
 FOR ALL
 USING (
-  auth.role() IN ('service_role', 'anon')
+  auth.role() IN ('service_role', 'anon', 'authenticated')
   OR (
     is_admin_role()
     AND COALESCE(company_id, '00000000-0000-0000-0000-000000000000'::uuid)
@@ -129,7 +129,7 @@ USING (
   )
 )
 WITH CHECK (
-  auth.role() IN ('service_role', 'anon')
+  auth.role() IN ('service_role', 'anon', 'authenticated')
   OR (
     is_admin_role()
     AND COALESCE(company_id, '00000000-0000-0000-0000-000000000000'::uuid)
@@ -141,7 +141,7 @@ DROP POLICY IF EXISTS ata_read ON asset_template_assignments;
 CREATE POLICY ata_read ON asset_template_assignments
 FOR SELECT
 USING (
-  auth.role() IN ('service_role', 'anon')
+  auth.role() IN ('service_role', 'anon', 'authenticated')
   OR (
     is_read_role()
     AND COALESCE(company_id, '00000000-0000-0000-0000-000000000000'::uuid)
@@ -153,7 +153,7 @@ DROP POLICY IF EXISTS ata_write ON asset_template_assignments;
 CREATE POLICY ata_write ON asset_template_assignments
 FOR ALL
 USING (
-  auth.role() IN ('service_role', 'anon')
+  auth.role() IN ('service_role', 'anon', 'authenticated')
   OR (
     is_admin_role()
     AND COALESCE(company_id, '00000000-0000-0000-0000-000000000000'::uuid)
@@ -161,7 +161,7 @@ USING (
   )
 )
 WITH CHECK (
-  auth.role() IN ('service_role', 'anon')
+  auth.role() IN ('service_role', 'anon', 'authenticated')
   OR (
     is_admin_role()
     AND COALESCE(company_id, '00000000-0000-0000-0000-000000000000'::uuid)
