@@ -64,7 +64,7 @@ const TechnicalStructurePanel = () => {
   const loadTemplates = async () => {
     const { data, error } = await listTemplates();
     if (error) {
-      toast.error('Error cargando plantillas');
+      toast.error(error?.message || 'Error cargando plantillas');
       return;
     }
     setTemplates(data);
@@ -99,7 +99,7 @@ const TechnicalStructurePanel = () => {
     setLoadingByParent(prev => ({ ...prev, [key]: false }));
 
     if (error) {
-      toast.error('Error cargando nodos');
+      toast.error(error?.message || 'Error cargando nodos');
       return;
     }
 
