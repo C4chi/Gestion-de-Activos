@@ -1,0 +1,78 @@
+{
+  "version": "1.0",
+  "scope": "template",
+  "template": {
+    "company_id": "00000000-0000-0000-0000-000000000000",
+    "code": "SPEC_EXCAVADORA_CATERPILLAR_320",
+    "name": "EXCAVADORA - CATERPILLAR 320 - Base",
+    "template_kind": "ESPECIFICA",
+    "asset_type_key": "EXCAVADORA",
+    "brand": "CATERPILLAR",
+    "model": "320",
+    "is_active": true,
+    "metadata": {}
+  },
+  "tree": [
+    {
+      "node_type": "system",
+      "sort_order": 10,
+      "name": "Motor",
+      "description": "Sistema principal",
+      "part_number": null,
+      "children": [
+        {
+          "node_type": "subsystem",
+          "sort_order": 10,
+          "name": "General",
+          "description": "Subsistema base",
+          "part_number": null,
+          "children": [
+            {
+              "node_type": "assembly",
+              "sort_order": 10,
+              "name": "Conjunto de inyección",
+              "description": null,
+              "part_number": null,
+              "children": [
+                {
+                  "node_type": "component",
+                  "sort_order": 10,
+                  "name": "Bomba de inyección",
+                  "description": null,
+                  "part_number": null,
+                  "children": [
+                    {
+                      "node_type": "part",
+                      "sort_order": 10,
+                      "name": "Sello",
+                      "description": null,
+                      "part_number": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "node_type": "system",
+      "sort_order": 20,
+      "name": "Hidráulico",
+      "description": "Sistema principal",
+      "part_number": null,
+      "children": [
+        {
+          "node_type": "subsystem",
+          "sort_order": 10,
+          "name": "General",
+          "description": "Subsistema base",
+          "part_number": null,
+          "children": []
+        }
+      ]
+    }
+  ]
+}

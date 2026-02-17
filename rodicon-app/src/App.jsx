@@ -29,6 +29,7 @@ import { AssetDetailSidebar } from './AssetDetailSidebar';
 const PurchaseWorkflowPanel = React.lazy(() => import('./components/PurchaseWorkflowPanel'));
 const PreventiveMaintenancePanel = React.lazy(() => import('./components/PreventiveMaintenancePanel'));
 const MetricsPanel = React.lazy(() => import('./components/MetricsPanel'));
+const TechnicalStructurePanel = React.lazy(() => import('./components/TechnicalStructurePanel'));
 
 // Módulo de Solicitudes de Mantenimiento - Lazy Load
 const MaintenanceRequestForm = React.lazy(() => import('./components/MaintenanceRequestForm'));
@@ -212,6 +213,7 @@ export default function App() {
   const handleMenuClick = (overlay) => {
     const roleMap = {
       WORKSHOP: ['ADMIN', 'TALLER', 'GERENTE_TALLER'],
+      TECHNICAL_STRUCTURE: ['ADMIN', 'TALLER', 'GERENTE_TALLER'],
       PURCHASING: ['ADMIN', 'COMPRAS', 'GERENTE_TALLER'],
       SAFETY: ['ADMIN', 'HSE'],
       HSE_INSPECTIONS: ['ADMIN', 'HSE'],
@@ -363,6 +365,18 @@ export default function App() {
             onOpenModal={(modal) => setActiveModal(modal)}
           />
         </ErrorBoundary>
+      )}
+
+      {activeOverlay === 'TECHNICAL_STRUCTURE' && (
+        <FullScreenModal
+          title="🧩 Estructura Técnica"
+          color="indigo"
+          onClose={() => setActiveOverlay(null)}
+        >
+          <Suspense fallback={<LazyLoadFallback />}>
+            <TechnicalStructurePanel />
+          </Suspense>
+        </FullScreenModal>
       )}
 
       {activeOverlay === 'PURCHASING' && (

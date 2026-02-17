@@ -48,6 +48,7 @@ export const Sidebar = ({ collapsed, onToggle, onMenuClick, onNewAsset, onRefres
         {/* Solicitudes de Mantenimiento */}
         <SidebarBtn icon={<AlertTriangle/>} label="Reportar Problema" color="orange" collapsed={collapsed} onClick={() => onMenuClick('REQUEST_MAINTENANCE')}/>
         <SidebarBtn icon={<CheckSquare/>} label="Validar Solicitudes" color="orange" collapsed={collapsed} onClick={() => onMenuClick('VALIDATE_REQUESTS')} disabled={!canWorkshop}/>
+        <SidebarBtn icon={<CheckCircle/>} label="Estructura Técnica" color="indigo" collapsed={collapsed} onClick={() => onMenuClick('TECHNICAL_STRUCTURE')} disabled={!canWorkshop}/>
         
         <SidebarBtn icon={<ShieldAlert/>} label="HSE (Seguridad)" color="orange" collapsed={collapsed} onClick={() => onMenuClick('SAFETY')} disabled={!canHse}/>
         <SidebarBtn icon={<ClipboardCheck/>} label="Inspecciones HSE" color="blue" collapsed={collapsed} onClick={() => onMenuClick('HSE_INSPECTIONS')} disabled={!canHse}/>
