@@ -145,12 +145,35 @@ export const getChildren = async ({ assetId = null, templateId = null, parentId 
 };
 
 export const cloneTemplateToAsset = async (templateId, assetId) => {
-  const { data, error } = await supabase.rpc('clone_template_to_asset', {
+  const { data, error } = await supabase.rpc('bulk_clone_template_to_assets', {
     p_template_id: templateId,
-    p_asset_id: assetId,
+    p_asset_ids: [assetId],
   });
 
-  return { data, error };
+  if (error) {
+    return { data: null, error };
+  }
+
+  const row = Array.isArray(data) ? data[0] : null;
+  if (!row) {
+    return {
+      data: null,
+      error: {
+        message: 'No se recibió respuesta de clonación',
+      },
+    };
+  }
+
+  if (row.ok === false) {
+    return {
+      data: row,
+      error: {
+        message: row.error_text || 'Error desconocido en clonación',
+      },
+    };
+  }
+
+  return { data: row, error: null };
 };
 
 export const bulkCloneTemplateToAssets = async (templateId, assetIds) => {
