@@ -34,6 +34,42 @@ GRANT EXECUTE ON FUNCTION bulk_clone_template(UUID, UUID[]) TO anon, authenticat
 GRANT EXECUTE ON FUNCTION assign_template_for_asset(UUID) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION assign_and_clone_all_assets() TO anon, authenticated;
 
+-- 1.1) Hotfix: evitar ambigüedad "inserted_count" en clonación masiva
+CREATE OR REPLACE FUNCTION bulk_clone_template_to_assets(
+  p_template_id UUID,
+  p_asset_ids UUID[]
+)
+RETURNS TABLE(asset_id UUID, inserted_count INTEGER, ok BOOLEAN, error_text TEXT)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_asset_id UUID;
+  v_count INTEGER;
+BEGIN
+  FOREACH v_asset_id IN ARRAY p_asset_ids LOOP
+    BEGIN
+      SELECT cta.inserted_count
+      INTO v_count
+      FROM clone_template_to_asset(p_template_id, v_asset_id) AS cta(inserted_count);
+
+      RETURN QUERY SELECT v_asset_id, COALESCE(v_count, 0), TRUE, NULL::TEXT;
+    EXCEPTION WHEN OTHERS THEN
+      RETURN QUERY SELECT v_asset_id, 0, FALSE, SQLERRM;
+    END;
+  END LOOP;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION bulk_clone_template(
+  p_template_id UUID,
+  p_asset_ids UUID[]
+)
+RETURNS TABLE(asset_id UUID, inserted_count INTEGER, ok BOOLEAN, error_text TEXT)
+LANGUAGE SQL
+AS $$
+  SELECT * FROM bulk_clone_template_to_assets(p_template_id, p_asset_ids);
+$$;
+
 -- 2) Políticas RLS adaptadas a cliente anon
 --    Clave: usar current_company_context_id() para resolver company cuando no hay JWT.
 

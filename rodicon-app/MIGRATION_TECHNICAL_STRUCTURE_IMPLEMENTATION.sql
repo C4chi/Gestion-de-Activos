@@ -927,8 +927,9 @@ DECLARE
 BEGIN
   FOREACH v_asset_id IN ARRAY p_asset_ids LOOP
     BEGIN
-      SELECT inserted_count INTO v_count
-      FROM clone_template_to_asset(p_template_id, v_asset_id);
+      SELECT cta.inserted_count
+      INTO v_count
+      FROM clone_template_to_asset(p_template_id, v_asset_id) AS cta(inserted_count);
 
       RETURN QUERY SELECT v_asset_id, COALESCE(v_count, 0), TRUE, NULL::TEXT;
     EXCEPTION WHEN OTHERS THEN
