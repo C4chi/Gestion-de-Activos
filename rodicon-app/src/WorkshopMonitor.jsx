@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { FullScreenModal } from './FullScreenModal'; // No changes needed here, looks correct.
 import { StatusBadge } from './StatusBadge'; // No changes needed here, looks correct.
-import { Search } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { useDebounce } from './hooks/useDebounce';
 import { supabase } from './supabaseClient';
 
@@ -10,6 +10,14 @@ export const WorkshopMonitor = ({ assets, onClose, onSelectAsset, onOpenModal })
   const debouncedSearch = useDebounce(search, 300);
   const [statusFilter, setStatusFilter] = useState('TODOS');
   const [workshopDetailsByAsset, setWorkshopDetailsByAsset] = useState({});
+  const [updatesModalOpen, setUpdatesModalOpen] = useState(false);
+  const [selectedAssetForUpdates, setSelectedAssetForUpdates] = useState(null);
+  const [updatesData, setUpdatesData] = useState({
+    loading: false,
+    comments: [],
+    purchases: [],
+    maintenances: [],
+  });
 
   useEffect(() => {
     const loadWorkshopDetails = async () => {
@@ -119,6 +127,68 @@ export const WorkshopMonitor = ({ assets, onClose, onSelectAsset, onOpenModal })
     return typeof observation === 'string' ? observation : '-'; // Fallback para strings no JSON o formatos inesperados
   };
 
+  const parseObservationHistory = (observation) => {
+    if (!observation || typeof observation !== 'string') return [];
+    return observation
+      .split('\n')
+      .map(line => line.trim())
+      .filter(Boolean)
+      .reverse();
+  };
+
+  const hasEvidence = (evidencias) => {
+    if (!evidencias) return false;
+    try {
+      const parsed = typeof evidencias === 'string' ? JSON.parse(evidencias) : evidencias;
+      return Array.isArray(parsed) && parsed.length > 0;
+    } catch {
+      return false;
+    }
+  };
+
+  const openUpdatesModal = async (asset) => {
+    setSelectedAssetForUpdates(asset);
+    setUpdatesModalOpen(true);
+    setUpdatesData(prev => ({ ...prev, loading: true }));
+
+    try {
+      const comments = parseObservationHistory(asset?.observacion_mecanica);
+
+      const { data: purchases, error: purchasesError } = await supabase
+        .from('purchase_orders')
+        .select('id, numero_requisicion, estado, fecha_solicitud, fecha_actualizacion, comentario_recepcion, prioridad')
+        .eq('ficha', asset.ficha)
+        .order('fecha_actualizacion', { ascending: false })
+        .limit(10);
+
+      if (purchasesError) throw purchasesError;
+
+      const { data: maintenances, error: maintenanceError } = await supabase
+        .from('maintenance_logs')
+        .select('id, fecha, tipo, descripcion, mecanico, created_at, evidencias')
+        .eq('ficha', asset.ficha)
+        .order('fecha', { ascending: false })
+        .limit(10);
+
+      if (maintenanceError) throw maintenanceError;
+
+      setUpdatesData({
+        loading: false,
+        comments,
+        purchases: purchases || [],
+        maintenances: maintenances || [],
+      });
+    } catch (error) {
+      console.error('Error cargando actualizaciones del activo:', error);
+      setUpdatesData({
+        loading: false,
+        comments: [],
+        purchases: [],
+        maintenances: [],
+      });
+    }
+  };
+
   const filteredWorkshopAssets = useMemo(() => {
     const workshopAssets = assets.filter(a => {
       const inWorkshopByStatus = ['NO DISPONIBLE', 'ESPERA REPUESTO', 'MTT PREVENTIVO', 'EN TALLER', 'EN REPARACION'].includes(a.status);
@@ -169,9 +239,9 @@ export const WorkshopMonitor = ({ assets, onClose, onSelectAsset, onOpenModal })
         {filteredWorkshopAssets.map(a => (
           <div
             key={a.id}
-            onClick={() => onSelectAsset?.(a)}
+            onClick={() => openUpdatesModal(a)}
             className={`bg-white rounded-xl shadow p-5 border-t-4 ${a.status === 'ESPERA REPUESTO' ? 'border-orange-500' : 'border-purple-500'} relative cursor-pointer hover:shadow-lg transition`}
-            title="Ver detalle y flujo del activo"
+            title="Ver actualizaciones en taller"
           >
             {(() => {
               const details = workshopDetailsByAsset[a.id] || {};
@@ -223,6 +293,103 @@ export const WorkshopMonitor = ({ assets, onClose, onSelectAsset, onOpenModal })
         ))}
         {filteredWorkshopAssets.length === 0 && <div className="col-span-3 text-center py-20 text-gray-400">No se encontraron vehículos con los filtros seleccionados.</div>}
       </div>
+
+      {updatesModalOpen && selectedAssetForUpdates && (
+        <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden">
+            <div className="px-5 py-4 border-b bg-gray-50 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-gray-800">📋 Flujo en Taller · {selectedAssetForUpdates.ficha}</h3>
+                <p className="text-xs text-gray-500">Actualizaciones, repuestos y mantenimientos recientes</p>
+              </div>
+              <button
+                onClick={() => setUpdatesModalOpen(false)}
+                className="p-2 hover:bg-gray-200 rounded-lg transition"
+              >
+                <X className="w-4 h-4 text-gray-600" />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto max-h-[calc(85vh-72px)] space-y-4">
+              {updatesData.loading ? (
+                <p className="text-sm text-gray-500">Cargando actualizaciones...</p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="bg-purple-50 border border-purple-100 rounded-lg p-3">
+                      <p className="text-xs text-purple-700 font-semibold">Estado</p>
+                      <p className="font-bold text-purple-900">{selectedAssetForUpdates.status || '-'}</p>
+                    </div>
+                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+                      <p className="text-xs text-blue-700 font-semibold">Mecánico</p>
+                      <p className="font-bold text-blue-900">{selectedAssetForUpdates.taller_responsable || '-'}</p>
+                    </div>
+                    <div className="bg-green-50 border border-green-100 rounded-lg p-3">
+                      <p className="text-xs text-green-700 font-semibold">Proyección Salida</p>
+                      <p className="font-bold text-green-900">{selectedAssetForUpdates.proyeccion_salida || '-'}</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border rounded-lg p-3">
+                    <p className="text-sm font-bold text-gray-800 mb-2">📝 Actualizaciones de Taller</p>
+                    {updatesData.comments.length > 0 ? (
+                      <div className="space-y-2">
+                        {updatesData.comments.slice(0, 8).map((comment, idx) => (
+                          <p key={idx} className="text-xs text-gray-700 bg-gray-50 p-2 rounded">{comment}</p>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400">Sin actualizaciones registradas.</p>
+                    )}
+                  </div>
+
+                  <div className="bg-white border rounded-lg p-3">
+                    <p className="text-sm font-bold text-gray-800 mb-2">🛒 Flujo de Repuestos</p>
+                    {updatesData.purchases.length > 0 ? (
+                      <div className="space-y-2">
+                        {updatesData.purchases.map((po) => (
+                          <div key={po.id} className="text-xs border border-gray-100 rounded p-2 bg-gray-50">
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-gray-800">{po.numero_requisicion || '—'}</span>
+                              <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-semibold">{po.estado || '—'}</span>
+                            </div>
+                            <p className="text-gray-600 mt-1">Actualizado: {po.fecha_actualizacion ? new Date(po.fecha_actualizacion).toLocaleDateString('es-ES') : '—'}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400">Sin requisiciones para este activo.</p>
+                    )}
+                  </div>
+
+                  <div className="bg-white border rounded-lg p-3">
+                    <p className="text-sm font-bold text-gray-800 mb-2">🔧 Mantenimientos Recientes</p>
+                    {updatesData.maintenances.length > 0 ? (
+                      <div className="space-y-2">
+                        {updatesData.maintenances.map((mto) => (
+                          <div key={mto.id} className="text-xs border border-gray-100 rounded p-2 bg-gray-50">
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-gray-800">{mto.tipo || 'Mantenimiento'}</span>
+                              <span className="text-gray-500">{mto.fecha ? new Date(mto.fecha).toLocaleDateString('es-ES') : '—'}</span>
+                            </div>
+                            <p className="text-gray-600 mt-1">{mto.descripcion || 'Sin descripción'}</p>
+                            <div className="flex items-center gap-2 mt-1 text-gray-500">
+                              <span>Mecánico: {mto.mecanico || '-'}</span>
+                              {hasEvidence(mto.evidencias) && <span title="Con evidencias">📸</span>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400">Sin mantenimientos recientes.</p>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </FullScreenModal>
   );
 };
