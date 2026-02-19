@@ -29,6 +29,30 @@ const MaintenanceRequestForm = ({ onClose, onSuccess }) => {
   const [gpsData, setGpsData] = useState(null);
   const [assetInput, setAssetInput] = useState('');
 
+  const findAssetFromInput = (value) => {
+    if (!value) return null;
+
+    const normalized = String(value).trim().toLowerCase();
+    if (!normalized) return null;
+
+    const exactLabelMatch = visibleAssets.find(
+      (asset) => getAssetOptionLabel(asset).toLowerCase() === normalized
+    );
+    if (exactLabelMatch) return exactLabelMatch;
+
+    const byFichaExact = visibleAssets.find(
+      (asset) => String(asset.ficha || '').trim().toLowerCase() === normalized
+    );
+    if (byFichaExact) return byFichaExact;
+
+    const byFichaStarts = visibleAssets.filter((asset) =>
+      String(asset.ficha || '').trim().toLowerCase().startsWith(normalized)
+    );
+    if (byFichaStarts.length === 1) return byFichaStarts[0];
+
+    return null;
+  };
+
   const categorias = [
     { value: 'MECANICO', label: '🔧 Mecánico', icon: '⚙️' },
     { value: 'ELECTRICO', label: '⚡ Eléctrico', icon: '💡' },
@@ -127,8 +151,22 @@ const MaintenanceRequestForm = ({ onClose, onSuccess }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.asset_id || !formData.titulo) {
-      toast.error('Completa los campos requeridos');
+    const resolvedAsset = formData.asset_id
+      ? assets.find(a => a.id === formData.asset_id)
+      : findAssetFromInput(assetInput);
+
+    if (!resolvedAsset) {
+      toast.error('Selecciona un equipo válido de la lista (puedes buscar por ficha)');
+      return;
+    }
+
+    if (!formData.titulo?.trim()) {
+      toast.error('Completa el título del problema');
+      return;
+    }
+
+    if (!user?.id) {
+      toast.error('Sesión no válida. Vuelve a ingresar con PIN');
       return;
     }
 
@@ -136,6 +174,7 @@ const MaintenanceRequestForm = ({ onClose, onSuccess }) => {
     try {
       const payload = {
         ...formData,
+        asset_id: resolvedAsset.id,
         solicitante_id: user.id,
         solicitante_nombre: user.nombre,
         evidencias: evidencias.length > 0 ? evidencias : null,
@@ -162,6 +201,8 @@ const MaintenanceRequestForm = ({ onClose, onSuccess }) => {
 
       if (errorCode === 'PGRST205' || errorMessage.includes('Could not find the table')) {
         toast.error('No existe la tabla de solicitudes en Supabase. Ejecuta MIGRATION_MAINTENANCE_REQUESTS.sql');
+      } else if (errorCode === '42501') {
+        toast.error('Sin permisos para crear la solicitud (RLS). Revisa políticas en Supabase');
       } else {
         toast.error('Error al enviar solicitud: ' + (errorMessage || 'Error desconocido'));
       }
@@ -179,7 +220,7 @@ const MaintenanceRequestForm = ({ onClose, onSuccess }) => {
   const handleAssetInputChange = (value) => {
     setAssetInput(value);
 
-    const matchedAsset = visibleAssets.find(asset => getAssetOptionLabel(asset) === value);
+    const matchedAsset = findAssetFromInput(value);
 
     setFormData(prev => ({
       ...prev,
