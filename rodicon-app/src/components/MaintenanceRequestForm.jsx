@@ -172,7 +172,7 @@ const MaintenanceRequestForm = ({ onClose, onSuccess }) => {
 
     setSaving(true);
     try {
-      const payload = {
+      const basePayload = {
         ...formData,
         asset_id: resolvedAsset.id,
         solicitante_id: user.id,
@@ -183,11 +183,35 @@ const MaintenanceRequestForm = ({ onClose, onSuccess }) => {
         fecha_solicitud: new Date().toISOString(),
       };
 
-      const { error } = await supabase
-        .from('maintenance_requests')
-        .insert([payload]);
+      let payloadToInsert = { ...basePayload };
+      let insertError = null;
 
-      if (error) throw error;
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const { error } = await supabase
+          .from('maintenance_requests')
+          .insert([payloadToInsert]);
+
+        if (!error) {
+          insertError = null;
+          break;
+        }
+
+        insertError = error;
+
+        // Compatibilidad con esquemas que no tienen todas las columnas en maintenance_requests
+        const missingColumnMatch = (error?.message || '').match(/Could not find the '([^']+)' column/);
+        const missingColumn = missingColumnMatch?.[1];
+
+        if (error?.code === 'PGRST204' && missingColumn && Object.prototype.hasOwnProperty.call(payloadToInsert, missingColumn)) {
+          const { [missingColumn]: _omitted, ...rest } = payloadToInsert;
+          payloadToInsert = rest;
+          continue;
+        }
+
+        break;
+      }
+
+      if (insertError) throw insertError;
 
       toast.success('✅ Solicitud enviada a Mantenimiento');
       
@@ -201,6 +225,8 @@ const MaintenanceRequestForm = ({ onClose, onSuccess }) => {
 
       if (errorCode === 'PGRST205' || errorMessage.includes('Could not find the table')) {
         toast.error('No existe la tabla de solicitudes en Supabase. Ejecuta MIGRATION_MAINTENANCE_REQUESTS.sql');
+      } else if (errorCode === 'PGRST204' && errorMessage.includes('Could not find the')) {
+        toast.error('Tu tabla maintenance_requests está desactualizada. Ejecuta la migración más reciente del módulo de solicitudes.');
       } else if (errorCode === '42501') {
         toast.error('Sin permisos para crear la solicitud (RLS). Revisa políticas en Supabase');
       } else {
