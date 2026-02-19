@@ -18,6 +18,7 @@ export const WorkshopMonitor = ({ assets, onClose, onSelectAsset, onOpenModal })
     purchases: [],
     maintenances: [],
   });
+  const [expandedEvidenceByMto, setExpandedEvidenceByMto] = useState({});
 
   useEffect(() => {
     const loadWorkshopDetails = async () => {
@@ -136,15 +137,25 @@ export const WorkshopMonitor = ({ assets, onClose, onSelectAsset, onOpenModal })
       .reverse();
   };
 
-  const hasEvidence = (evidencias) => {
-    if (!evidencias) return false;
+  const parseEvidenceList = (evidencias) => {
+    if (!evidencias) return [];
     try {
       const parsed = typeof evidencias === 'string' ? JSON.parse(evidencias) : evidencias;
-      return Array.isArray(parsed) && parsed.length > 0;
+      if (!Array.isArray(parsed)) return [];
+
+      return parsed
+        .map((item) => {
+          if (typeof item === 'string') return { url: item, tipo: 'image', nombre: 'Evidencia' };
+          if (item?.url) return { url: item.url, tipo: item.tipo || 'image', nombre: item.nombre || 'Evidencia' };
+          return null;
+        })
+        .filter(Boolean);
     } catch {
-      return false;
+      return [];
     }
   };
+
+  const hasEvidence = (evidencias) => parseEvidenceList(evidencias).length > 0;
 
   const openUpdatesModal = async (asset) => {
     setSelectedAssetForUpdates(asset);
@@ -178,6 +189,7 @@ export const WorkshopMonitor = ({ assets, onClose, onSelectAsset, onOpenModal })
         purchases: purchases || [],
         maintenances: maintenances || [],
       });
+      setExpandedEvidenceByMto({});
     } catch (error) {
       console.error('Error cargando actualizaciones del activo:', error);
       setUpdatesData({
@@ -186,6 +198,7 @@ export const WorkshopMonitor = ({ assets, onClose, onSelectAsset, onOpenModal })
         purchases: [],
         maintenances: [],
       });
+      setExpandedEvidenceByMto({});
     }
   };
 
@@ -377,6 +390,53 @@ export const WorkshopMonitor = ({ assets, onClose, onSelectAsset, onOpenModal })
                               <span>Mecánico: {mto.mecanico || '-'}</span>
                               {hasEvidence(mto.evidencias) && <span title="Con evidencias">📸</span>}
                             </div>
+                            <div className="flex items-center gap-2 mt-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onSelectAsset?.(selectedAssetForUpdates);
+                                  onOpenModal?.('MTO_DETAIL', mto);
+                                }}
+                                className="px-2 py-1 rounded border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 font-semibold"
+                              >
+                                Ver detalle
+                              </button>
+                              {hasEvidence(mto.evidencias) && (
+                                <button
+                                  onClick={() => {
+                                    setExpandedEvidenceByMto((prev) => ({
+                                      ...prev,
+                                      [mto.id]: !prev[mto.id],
+                                    }));
+                                  }}
+                                  className="px-2 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold"
+                                >
+                                  {expandedEvidenceByMto[mto.id] ? 'Ocultar fotos' : `Ver fotos (${parseEvidenceList(mto.evidencias).length})`}
+                                </button>
+                              )}
+                            </div>
+
+                            {expandedEvidenceByMto[mto.id] && hasEvidence(mto.evidencias) && (
+                              <div className="mt-2 grid grid-cols-2 md:grid-cols-3 gap-2">
+                                {parseEvidenceList(mto.evidencias).map((ev, idx) => (
+                                  <a
+                                    key={`${mto.id}-ev-${idx}`}
+                                    href={ev.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="block border border-gray-200 rounded overflow-hidden bg-white hover:border-blue-300 transition"
+                                  >
+                                    {ev.tipo === 'video' ? (
+                                      <div className="h-20 flex items-center justify-center text-[11px] text-gray-600 bg-gray-100">
+                                        🎥 Video
+                                      </div>
+                                    ) : (
+                                      <img src={ev.url} alt={ev.nombre || `Evidencia ${idx + 1}`} className="w-full h-20 object-cover" />
+                                    )}
+                                  </a>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

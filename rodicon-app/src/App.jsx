@@ -365,7 +365,7 @@ export default function App() {
               handleAssetSelect(asset);
               setActiveOverlay(null);
             }}
-            onOpenModal={(modal) => handleOpenModal(modal)}
+            onOpenModal={(modal, data) => handleOpenModal(modal, data)}
           />
         </ErrorBoundary>
       )}
