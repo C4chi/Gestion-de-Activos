@@ -143,7 +143,6 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
       const tipoArchivo = tipo === 'TODOS' ? 'todos' : tipo.toLowerCase();
       const correctivos = filteredLogs.filter(log => log.tipo === 'CORRECTIVO').length;
       const preventivos = filteredLogs.filter(log => log.tipo === 'PREVENTIVO').length;
-      const costoTotal = filteredLogs.reduce((acc, log) => acc + (Number(log.costo) || 0), 0);
       const logoUrl = `${window.location.origin}/logo.png`;
 
       const rowsHtml = filteredLogs.map((log) => {
@@ -156,7 +155,6 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
             <td>${escapeHtml(log.mecanico || '—')}</td>
             <td>${escapeHtml(log.km_recorrido ?? '—')} ${escapeHtml(log.tipo_medicion === 'HOROMETRO' ? 'h' : 'km')}</td>
             <td>${escapeHtml(log.proyeccion_proxima_km ?? '—')}</td>
-            <td>$${escapeHtml((Number(log.costo) || 0).toLocaleString('es-PA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}</td>
           </tr>
         `;
       }).join('');
@@ -180,7 +178,7 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
               .info-col:last-child { border-right: none; }
               .info-k { font-size: 10px; color: #6b7280; text-transform: uppercase; font-weight: 700; margin-bottom: 2px; }
               .info-v { font-size: 12px; color: #111827; font-weight: 600; margin-bottom: 8px; }
-              .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 18px; }
+              .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0 18px; }
               .card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; background: #f9fafb; }
               .card-label { font-size: 11px; text-transform: uppercase; color: #6b7280; margin-bottom: 6px; }
               .card-value { font-size: 20px; font-weight: 700; color: #111827; }
@@ -239,7 +237,6 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
               <div class="card"><div class="card-label">Total Registros</div><div class="card-value">${filteredLogs.length}</div></div>
               <div class="card"><div class="card-label">Correctivos</div><div class="card-value">${correctivos}</div></div>
               <div class="card"><div class="card-label">Preventivos</div><div class="card-value">${preventivos}</div></div>
-              <div class="card"><div class="card-label">Costo Total</div><div class="card-value">$${costoTotal.toLocaleString('es-PA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></div>
             </div>
 
             <table>
@@ -251,7 +248,6 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
                   <th>Mecánico</th>
                   <th>Medición</th>
                   <th>Próx. Medición</th>
-                  <th>Costo</th>
                 </tr>
               </thead>
               <tbody>
