@@ -144,6 +144,7 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
       const correctivos = filteredLogs.filter(log => log.tipo === 'CORRECTIVO').length;
       const preventivos = filteredLogs.filter(log => log.tipo === 'PREVENTIVO').length;
       const costoTotal = filteredLogs.reduce((acc, log) => acc + (Number(log.costo) || 0), 0);
+      const logoUrl = `${window.location.origin}/logo.png`;
 
       const rowsHtml = filteredLogs.map((log) => {
         const tipoColor = log.tipo === 'CORRECTIVO' ? '#dc2626' : '#7c3aed';
@@ -166,17 +167,25 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
             <title>Historial de Mantenimiento - ${escapeHtml(assetData?.ficha || 'Activo')}</title>
             <style>
               * { box-sizing: border-box; }
-              body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; margin: 0; padding: 24px; color: #111827; background: #ffffff; }
-              .header { border: 1px solid #e5e7eb; border-radius: 14px; padding: 18px; background: linear-gradient(135deg, #faf5ff 0%, #eef2ff 100%); }
-              .title { margin: 0; font-size: 22px; color: #4c1d95; }
-              .subtitle { margin: 8px 0 0; color: #6b7280; font-size: 13px; }
-              .meta { margin-top: 10px; display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: #374151; }
+              body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; margin: 0; padding: 24px; color: #1f2937; background: #ffffff; }
+              .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+              .brand-logo { width: 130px; height: auto; object-fit: contain; }
+              .brand-fallback { font-size: 20px; font-weight: 700; color: #1e40af; }
+              .header-right { text-align: right; }
+              .header-company { font-size: 10px; color: #4b5563; margin-bottom: 6px; }
+              .title { margin: 0; font-size: 24px; color: #1e40af; font-weight: 700; letter-spacing: 0.3px; }
+              .subtitle { margin: 4px 0 0; color: #374151; font-size: 13px; font-weight: 600; }
+              .info-grid { margin-top: 12px; border: 1px solid #d1d5db; border-radius: 8px; overflow: hidden; display: grid; grid-template-columns: repeat(3, 1fr); }
+              .info-col { padding: 10px 12px; border-right: 1px solid #e5e7eb; }
+              .info-col:last-child { border-right: none; }
+              .info-k { font-size: 10px; color: #6b7280; text-transform: uppercase; font-weight: 700; margin-bottom: 2px; }
+              .info-v { font-size: 12px; color: #111827; font-weight: 600; margin-bottom: 8px; }
               .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 18px; }
               .card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; background: #f9fafb; }
               .card-label { font-size: 11px; text-transform: uppercase; color: #6b7280; margin-bottom: 6px; }
               .card-value { font-size: 20px; font-weight: 700; color: #111827; }
               table { width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; }
-              th { background: #4c1d95; color: #ffffff; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; padding: 10px; text-align: left; }
+              th { background: #194898; color: #ffffff; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; padding: 10px; text-align: left; }
               td { padding: 10px; border-top: 1px solid #f3f4f6; font-size: 12px; vertical-align: top; }
               tr:nth-child(even) td { background: #fcfcff; }
               .badge { font-weight: 700; font-size: 11px; padding: 3px 8px; border-radius: 999px; display: inline-block; }
@@ -188,12 +197,41 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
           </head>
           <body>
             <div class="header">
-              <h1 class="title">Historial de Mantenimiento</h1>
-              <p class="subtitle">Reporte exportable en PDF para archivo histórico del activo</p>
-              <div class="meta">
-                <div><strong>Ficha:</strong> ${escapeHtml(assetData?.ficha || '—')}</div>
-                <div><strong>Filtro:</strong> ${escapeHtml(tipo)}</div>
-                <div><strong>Generado:</strong> ${escapeHtml(new Date().toLocaleString('es-ES'))}</div>
+              <div>
+                <img src="${logoUrl}" alt="RODICON" class="brand-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+                <div class="brand-fallback" style="display:none;">RODICON</div>
+              </div>
+              <div class="header-right">
+                <div class="header-company">RODICON</div>
+                <h1 class="title">HISTORIAL DE MANTENIMIENTO</h1>
+                <p class="subtitle">Departamento de Mantenimiento</p>
+              </div>
+            </div>
+
+            <div class="info-grid">
+              <div class="info-col">
+                <div class="info-k">Activo</div>
+                <div class="info-v">${escapeHtml(assetData?.ficha || '—')}</div>
+                <div class="info-k">Marca / Modelo</div>
+                <div class="info-v">${escapeHtml(`${assetData?.marca || ''} ${assetData?.modelo || ''}`.trim() || 'N/D')}</div>
+                <div class="info-k">Año / Chasis</div>
+                <div class="info-v">${escapeHtml(`${assetData?.anio || assetData?.['año'] || 'N/D'} / ${assetData?.chasis || 'N/D'}`)}</div>
+              </div>
+              <div class="info-col">
+                <div class="info-k">Fecha de Emisión</div>
+                <div class="info-v">${escapeHtml(new Date().toLocaleString('es-ES'))}</div>
+                <div class="info-k">Tipo de Reporte</div>
+                <div class="info-v">Histórico de Mantenimientos</div>
+                <div class="info-k">Filtro Aplicado</div>
+                <div class="info-v">${escapeHtml(tipo)}</div>
+              </div>
+              <div class="info-col">
+                <div class="info-k">Ubicación</div>
+                <div class="info-v">${escapeHtml(assetData?.ubicacion_actual || 'N/D')}</div>
+                <div class="info-k">Estado Activo</div>
+                <div class="info-v">${escapeHtml(assetData?.status || 'N/D')}</div>
+                <div class="info-k">Departamento</div>
+                <div class="info-v">MANTENIMIENTO</div>
               </div>
             </div>
 
