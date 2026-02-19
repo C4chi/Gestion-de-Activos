@@ -122,10 +122,14 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
     return mtoLogs.filter(log => log.tipo === tipo);
   };
 
-  const escapeCsvValue = (value) => {
+  const escapeHtml = (value) => {
     if (value === null || value === undefined) return '';
-    const stringValue = String(value).replace(/"/g, '""');
-    return `"${stringValue}"`;
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   };
 
   const downloadMaintenanceHistory = (tipo = 'TODOS') => {
@@ -136,55 +140,112 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
         return;
       }
 
-      const headers = [
-        'Ficha',
-        'Tipo',
-        'Fecha',
-        'Descripción',
-        'Mecánico',
-        'Costo',
-        'KM/Horas',
-        'Tipo Medición',
-        'Proyección Próx. KM/Horas',
-        'Proyección Próx. Fecha',
-        'Creado En',
-      ];
+      const tipoArchivo = tipo === 'TODOS' ? 'todos' : tipo.toLowerCase();
+      const correctivos = filteredLogs.filter(log => log.tipo === 'CORRECTIVO').length;
+      const preventivos = filteredLogs.filter(log => log.tipo === 'PREVENTIVO').length;
+      const costoTotal = filteredLogs.reduce((acc, log) => acc + (Number(log.costo) || 0), 0);
 
-      const rows = filteredLogs.map((log) => [
-        assetData?.ficha || log.ficha || '',
-        log.tipo || '',
-        log.fecha ? new Date(log.fecha).toLocaleDateString('es-ES') : '',
-        log.descripcion || '',
-        log.mecanico || '',
-        log.costo ?? '',
-        log.km_recorrido ?? '',
-        log.tipo_medicion || '',
-        log.proyeccion_proxima_km ?? '',
-        log.proyeccion_proxima_mto ? new Date(log.proyeccion_proxima_mto).toLocaleDateString('es-ES') : '',
-        log.created_at ? new Date(log.created_at).toLocaleString('es-ES') : '',
-      ]);
+      const rowsHtml = filteredLogs.map((log) => {
+        const tipoColor = log.tipo === 'CORRECTIVO' ? '#dc2626' : '#7c3aed';
+        return `
+          <tr>
+            <td>${escapeHtml(log.fecha ? new Date(log.fecha).toLocaleDateString('es-ES') : '—')}</td>
+            <td><span class="badge" style="background:${tipoColor}15;color:${tipoColor};">${escapeHtml(log.tipo || '—')}</span></td>
+            <td>${escapeHtml(log.descripcion || '—')}</td>
+            <td>${escapeHtml(log.mecanico || '—')}</td>
+            <td>${escapeHtml(log.km_recorrido ?? '—')} ${escapeHtml(log.tipo_medicion === 'HOROMETRO' ? 'h' : 'km')}</td>
+            <td>${escapeHtml(log.proyeccion_proxima_km ?? '—')}</td>
+            <td>$${escapeHtml((Number(log.costo) || 0).toLocaleString('es-PA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}</td>
+          </tr>
+        `;
+      }).join('');
 
-      const csvContent = [
-        headers.map(escapeCsvValue).join(','),
-        ...rows.map(row => row.map(escapeCsvValue).join(','))
-      ].join('\n');
+      const htmlContent = `
+        <html>
+          <head>
+            <title>Historial de Mantenimiento - ${escapeHtml(assetData?.ficha || 'Activo')}</title>
+            <style>
+              * { box-sizing: border-box; }
+              body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; margin: 0; padding: 24px; color: #111827; background: #ffffff; }
+              .header { border: 1px solid #e5e7eb; border-radius: 14px; padding: 18px; background: linear-gradient(135deg, #faf5ff 0%, #eef2ff 100%); }
+              .title { margin: 0; font-size: 22px; color: #4c1d95; }
+              .subtitle { margin: 8px 0 0; color: #6b7280; font-size: 13px; }
+              .meta { margin-top: 10px; display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: #374151; }
+              .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 18px; }
+              .card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; background: #f9fafb; }
+              .card-label { font-size: 11px; text-transform: uppercase; color: #6b7280; margin-bottom: 6px; }
+              .card-value { font-size: 20px; font-weight: 700; color: #111827; }
+              table { width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; }
+              th { background: #4c1d95; color: #ffffff; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; padding: 10px; text-align: left; }
+              td { padding: 10px; border-top: 1px solid #f3f4f6; font-size: 12px; vertical-align: top; }
+              tr:nth-child(even) td { background: #fcfcff; }
+              .badge { font-weight: 700; font-size: 11px; padding: 3px 8px; border-radius: 999px; display: inline-block; }
+              .footer { margin-top: 16px; font-size: 11px; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 10px; }
+              @media print {
+                body { padding: 10mm; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1 class="title">Historial de Mantenimiento</h1>
+              <p class="subtitle">Reporte exportable en PDF para archivo histórico del activo</p>
+              <div class="meta">
+                <div><strong>Ficha:</strong> ${escapeHtml(assetData?.ficha || '—')}</div>
+                <div><strong>Filtro:</strong> ${escapeHtml(tipo)}</div>
+                <div><strong>Generado:</strong> ${escapeHtml(new Date().toLocaleString('es-ES'))}</div>
+              </div>
+            </div>
+
+            <div class="cards">
+              <div class="card"><div class="card-label">Total Registros</div><div class="card-value">${filteredLogs.length}</div></div>
+              <div class="card"><div class="card-label">Correctivos</div><div class="card-value">${correctivos}</div></div>
+              <div class="card"><div class="card-label">Preventivos</div><div class="card-value">${preventivos}</div></div>
+              <div class="card"><div class="card-label">Costo Total</div><div class="card-value">$${costoTotal.toLocaleString('es-PA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Tipo</th>
+                  <th>Descripción</th>
+                  <th>Mecánico</th>
+                  <th>Medición</th>
+                  <th>Próx. Medición</th>
+                  <th>Costo</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+            </table>
+
+            <div class="footer">
+              Sistema Rodicon · Gestión de Activos
+            </div>
+          </body>
+        </html>
+      `;
+
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        toast.error('Tu navegador bloqueó la ventana emergente para generar el PDF');
+        return;
+      }
+
+      printWindow.document.open();
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+
+      printWindow.focus();
+      printWindow.print();
 
       const tipoArchivo = tipo === 'TODOS' ? 'todos' : tipo.toLowerCase();
-      const fileName = `mantenimientos_${assetData?.ficha || 'activo'}_${tipoArchivo}_${new Date().toISOString().split('T')[0]}.csv`;
-      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      toast.success(`✅ Historial ${tipoArchivo} descargado`);
+      toast.success(`✅ Historial ${tipoArchivo} listo para guardar en PDF`);
     } catch (error) {
       console.error('Error descargando historial de mantenimiento:', error);
-      toast.error('Error al descargar historial de mantenimiento');
+      toast.error('Error al generar PDF de historial de mantenimiento');
     }
   };
 
@@ -411,19 +472,19 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
                   onClick={() => downloadMaintenanceHistory('TODOS')}
                   className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 transition flex items-center gap-1"
                 >
-                  <Download className="w-3 h-3" /> Descargar Todos
+                  <Download className="w-3 h-3" /> PDF Todos
                 </button>
                 <button
                   onClick={() => downloadMaintenanceHistory('CORRECTIVO')}
                   className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 transition flex items-center gap-1"
                 >
-                  <Download className="w-3 h-3" /> Descargar Correctivo
+                  <Download className="w-3 h-3" /> PDF Correctivo
                 </button>
                 <button
                   onClick={() => downloadMaintenanceHistory('PREVENTIVO')}
                   className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition flex items-center gap-1"
                 >
-                  <Download className="w-3 h-3" /> Descargar Preventivo
+                  <Download className="w-3 h-3" /> PDF Preventivo
                 </button>
               </div>
 
