@@ -51,8 +51,20 @@ export const PartialReceptionModal = ({ isOpen, onClose, purchaseOrder, onComple
     if (purchaseOrder.estado_operacional === 'NO_DISPONIBLE_ESPERA') {
       setActualizarActivo(null); // Forzar pregunta
     } else {
-      setActualizarActivo('DISPONIBLE'); // Mantener como estaba
+      setActualizarActivo(null);
     }
+  };
+
+  const getAffectedFichas = () => {
+    const fichas = items
+      .filter(item => item.ficha_ref)
+      .map(item => item.ficha_ref);
+
+    if (purchaseOrder.ficha && purchaseOrder.ficha !== 'MULTI') {
+      fichas.push(purchaseOrder.ficha);
+    }
+
+    return [...new Set(fichas)];
   };
 
   const handleCantidadRecibidaChange = (itemId, cantidad) => {
@@ -166,20 +178,25 @@ export const PartialReceptionModal = ({ isOpen, onClose, purchaseOrder, onComple
         })
         .eq('id', purchaseOrder.id);
 
-      // 4. Actualizar estado del activo si es necesario
-      if (actualizarActivo === 'DISPONIBLE') {
-        // Obtener fichas afectadas
-        const fichas = items
-          .filter(item => item.ficha_ref)
-          .map(item => item.ficha_ref);
+      // 4. Actualizar estado del activo según tipo de recepción
+      const fichasAfectadas = getAffectedFichas();
 
-        if (purchaseOrder.ficha && purchaseOrder.ficha !== 'MULTI') {
-          fichas.push(purchaseOrder.ficha);
+      if (tipoRecepcion === 'TOTAL') {
+        for (const ficha of fichasAfectadas) {
+          await supabase
+            .from('assets')
+            .update({
+              status: 'EN REPARACION',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('ficha', ficha);
         }
-
-        const fichasUnicas = [...new Set(fichas)];
-
-        for (const ficha of fichasUnicas) {
+      } else if (
+        tipoRecepcion === 'PARCIAL' &&
+        purchaseOrder.estado_operacional === 'NO_DISPONIBLE_ESPERA' &&
+        actualizarActivo === 'DISPONIBLE'
+      ) {
+        for (const ficha of fichasAfectadas) {
           await supabase
             .from('assets')
             .update({
