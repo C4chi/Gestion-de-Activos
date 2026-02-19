@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Wrench, Battery, CircleDot, Calendar, DollarSign, User, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { Wrench, Battery, CircleDot, Calendar, DollarSign, User, FileText, ChevronDown, ChevronUp, ShoppingCart } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 /**
@@ -13,7 +13,7 @@ export const AssetHistoryPanel = ({ asset }) => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedItems, setExpandedItems] = useState(new Set());
-  const [filter, setFilter] = useState('TODOS'); // TODOS, MANTENIMIENTO, COMPONENTES
+  const [filter, setFilter] = useState('TODOS'); // TODOS, MANTENIMIENTO, COMPONENTES, COMPRAS
 
   useEffect(() => {
     if (asset?.ficha) {
@@ -41,7 +41,16 @@ export const AssetHistoryPanel = ({ asset }) => {
 
       if (compError) throw compError;
 
-      // 3. Unificar y ordenar cronológicamente
+      // 3. Cargar flujo de compras/repuestos del activo
+      const { data: purchaseData, error: purchaseError } = await supabase
+        .from('purchase_orders')
+        .select('id, numero_requisicion, estado, fecha_solicitud, fecha_actualizacion, comentario_recepcion, prioridad')
+        .eq('ficha', asset.ficha)
+        .order('fecha_actualizacion', { ascending: false });
+
+      if (purchaseError) throw purchaseError;
+
+      // 4. Unificar y ordenar cronológicamente
       const unifiedHistory = [
         ...(mtoData || []).map(item => ({
           ...item,
@@ -54,6 +63,12 @@ export const AssetHistoryPanel = ({ asset }) => {
           type: 'COMPONENTE',
           date: item.fecha_accion,
           sortDate: new Date(item.fecha_accion)
+        })),
+        ...(purchaseData || []).map(item => ({
+          ...item,
+          type: 'COMPRA',
+          date: item.fecha_actualizacion || item.fecha_solicitud,
+          sortDate: new Date(item.fecha_actualizacion || item.fecha_solicitud)
         }))
       ].sort((a, b) => b.sortDate - a.sortDate);
 
@@ -116,6 +131,7 @@ export const AssetHistoryPanel = ({ asset }) => {
     if (filter === 'TODOS') return true;
     if (filter === 'MANTENIMIENTO') return item.type === 'MANTENIMIENTO';
     if (filter === 'COMPONENTES') return item.type === 'COMPONENTE';
+    if (filter === 'COMPRAS') return item.type === 'COMPRA';
     return true;
   });
 
@@ -177,6 +193,17 @@ export const AssetHistoryPanel = ({ asset }) => {
         >
           <Battery className="w-3 h-3 inline mr-1" />
           Componentes ({history.filter(h => h.type === 'COMPONENTE').length})
+        </button>
+        <button
+          onClick={() => setFilter('COMPRAS')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+            filter === 'COMPRAS'
+              ? 'bg-purple-600 text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          <ShoppingCart className="w-3 h-3 inline mr-1" />
+          Repuestos ({history.filter(h => h.type === 'COMPRA').length})
         </button>
       </div>
 
@@ -286,6 +313,78 @@ export const AssetHistoryPanel = ({ asset }) => {
                           {new Date(item.created_at).toLocaleString('es-ES')}
                         </span>
                       </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          if (item.type === 'COMPRA') {
+            return (
+              <div key={`purchase-${item.id}`} className="bg-white rounded-lg border border-gray-200 hover:border-emerald-300 transition">
+                <button
+                  onClick={() => toggleExpand(`purchase-${item.id}`)}
+                  className="w-full text-left p-4"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-emerald-100">
+                      <ShoppingCart className="w-4 h-4 text-emerald-700" />
+                    </div>
+
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">
+                          REPUESTOS · {item.estado || 'PENDIENTE'}
+                        </span>
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <Calendar className="w-3 h-3" />
+                          {formatDate(item.fecha_actualizacion || item.fecha_solicitud)}
+                        </div>
+                      </div>
+
+                      <p className="text-sm font-semibold text-gray-800 mt-1">
+                        Requisición {item.numero_requisicion || '—'}
+                      </p>
+                    </div>
+
+                    {expandedItems.has(`purchase-${item.id}`) ? (
+                      <ChevronUp className="w-4 h-4 text-gray-400" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    )}
+                  </div>
+                </button>
+
+                {expandedItems.has(`purchase-${item.id}`) && (
+                  <div className="px-4 pb-4 pt-0 border-t border-gray-100 mt-2">
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Estado actual:</span>
+                        <span className="font-semibold text-gray-800">{item.estado || '—'}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Fecha solicitud:</span>
+                        <span className="font-semibold text-gray-800">{formatDate(item.fecha_solicitud)}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Última actualización:</span>
+                        <span className="font-semibold text-gray-800">{formatDate(item.fecha_actualizacion)}</span>
+                      </div>
+                      {item.prioridad && (
+                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                          <span className="text-gray-600">Prioridad:</span>
+                          <span className="font-semibold text-gray-800">{item.prioridad}</span>
+                        </div>
+                      )}
+                      {item.comentario_recepcion && (
+                        <div className="py-2">
+                          <span className="text-gray-600 block mb-1">Comentario recepción:</span>
+                          <p className="text-gray-800 bg-gray-50 p-2 rounded text-xs">
+                            {item.comentario_recepcion}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -433,7 +532,7 @@ export const AssetHistoryPanel = ({ asset }) => {
 
       {/* Resumen al final */}
       <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 border border-purple-200 mt-6">
-        <div className="grid grid-cols-3 gap-3 text-center">
+        <div className="grid grid-cols-4 gap-3 text-center">
           <div>
             <p className="text-2xl font-black text-purple-900">{history.length}</p>
             <p className="text-xs text-purple-600 font-semibold">Total Eventos</p>
@@ -449,6 +548,12 @@ export const AssetHistoryPanel = ({ asset }) => {
               {history.filter(h => h.type === 'COMPONENTE').length}
             </p>
             <p className="text-xs text-purple-600 font-semibold">Componentes</p>
+          </div>
+          <div>
+            <p className="text-2xl font-black text-purple-900">
+              {history.filter(h => h.type === 'COMPRA').length}
+            </p>
+            <p className="text-xs text-purple-600 font-semibold">Repuestos</p>
           </div>
         </div>
       </div>

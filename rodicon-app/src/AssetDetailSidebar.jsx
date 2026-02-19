@@ -21,6 +21,12 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
   const [eppAsignados, setEppAsignados] = useState([]);
   const [hseInspections, setHseInspections] = useState([]);
 
+  useEffect(() => {
+    if (!isEditing && asset) {
+      setAssetData(asset);
+    }
+  }, [asset, isEditing]);
+
   // Ubicaciones dinámicas desde los activos + opción de agregar nueva
   const UBICACIONES = [...new Set([...allLocations, assetData.ubicacion_actual].filter(Boolean))].sort();
 
