@@ -279,7 +279,6 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
       printWindow.focus();
       printWindow.print();
 
-      const tipoArchivo = tipo === 'TODOS' ? 'todos' : tipo.toLowerCase();
       toast.success(`✅ Historial ${tipoArchivo} listo para guardar en PDF`);
     } catch (error) {
       console.error('Error descargando historial de mantenimiento:', error);
