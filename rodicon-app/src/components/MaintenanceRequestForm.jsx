@@ -227,6 +227,8 @@ const MaintenanceRequestForm = ({ onClose, onSuccess }) => {
         toast.error('No existe la tabla de solicitudes en Supabase. Ejecuta MIGRATION_MAINTENANCE_REQUESTS.sql');
       } else if (errorCode === 'PGRST204' && errorMessage.includes('Could not find the')) {
         toast.error('Tu tabla maintenance_requests está desactualizada. Ejecuta la migración más reciente del módulo de solicitudes.');
+      } else if (errorCode === '42703' && errorMessage.includes('u.activo')) {
+        toast.error('Falta aplicar fix SQL del trigger: ejecuta FIX_MAINTENANCE_REQUESTS_TRIGGER_U_ACTIVO.sql en Supabase');
       } else if (errorCode === '42501') {
         toast.error('Sin permisos para crear la solicitud (RLS). Revisa políticas en Supabase');
       } else {
