@@ -19,6 +19,9 @@ export const WorkshopMonitor = ({ assets, onClose, onSelectAsset, onOpenModal })
     maintenances: [],
   });
   const [expandedEvidenceByMto, setExpandedEvidenceByMto] = useState({});
+  const [isEditingProjection, setIsEditingProjection] = useState(false);
+  const [projectionDraft, setProjectionDraft] = useState('');
+  const [savingProjection, setSavingProjection] = useState(false);
 
   useEffect(() => {
     const loadWorkshopDetails = async () => {
@@ -173,6 +176,8 @@ export const WorkshopMonitor = ({ assets, onClose, onSelectAsset, onOpenModal })
 
       const assetForModal = latestAsset ? { ...asset, ...latestAsset } : asset;
       setSelectedAssetForUpdates(assetForModal);
+      setProjectionDraft(assetForModal?.proyeccion_salida || '');
+      setIsEditingProjection(false);
 
       const comments = parseObservationHistory(assetForModal?.observacion_mecanica);
 
@@ -210,6 +215,36 @@ export const WorkshopMonitor = ({ assets, onClose, onSelectAsset, onOpenModal })
         maintenances: [],
       });
       setExpandedEvidenceByMto({});
+      setIsEditingProjection(false);
+    }
+  };
+
+  const handleSaveProjection = async () => {
+    if (!selectedAssetForUpdates?.id) return;
+
+    try {
+      setSavingProjection(true);
+
+      const { error } = await supabase
+        .from('assets')
+        .update({
+          proyeccion_salida: projectionDraft || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', selectedAssetForUpdates.id);
+
+      if (error) throw error;
+
+      setSelectedAssetForUpdates((prev) => ({
+        ...prev,
+        proyeccion_salida: projectionDraft || null,
+      }));
+
+      setIsEditingProjection(false);
+    } catch (error) {
+      console.error('Error guardando proyección de salida:', error);
+    } finally {
+      setSavingProjection(false);
     }
   };
 
@@ -350,7 +385,42 @@ export const WorkshopMonitor = ({ assets, onClose, onSelectAsset, onOpenModal })
                     </div>
                     <div className="bg-green-50 border border-green-100 rounded-lg p-3">
                       <p className="text-xs text-green-700 font-semibold">Proyección Salida</p>
-                      <p className="font-bold text-green-900">{selectedAssetForUpdates.proyeccion_salida || '-'}</p>
+                      <p className="font-bold text-green-900 mb-2">{selectedAssetForUpdates.proyeccion_salida || '-'}</p>
+                      {!isEditingProjection ? (
+                        <button
+                          onClick={() => setIsEditingProjection(true)}
+                          className="text-[11px] px-2 py-1 rounded border border-green-200 bg-white text-green-700 hover:bg-green-100 font-semibold"
+                        >
+                          Definir proyección manual
+                        </button>
+                      ) : (
+                        <div className="space-y-2">
+                          <input
+                            type="date"
+                            value={projectionDraft}
+                            onChange={(e) => setProjectionDraft(e.target.value)}
+                            className="w-full px-2 py-1 text-xs border border-green-200 rounded bg-white"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={handleSaveProjection}
+                              disabled={savingProjection}
+                              className="text-[11px] px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 font-semibold"
+                            >
+                              {savingProjection ? 'Guardando...' : 'Guardar'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setProjectionDraft(selectedAssetForUpdates?.proyeccion_salida || '');
+                                setIsEditingProjection(false);
+                              }}
+                              className="text-[11px] px-2 py-1 rounded border border-gray-200 bg-white text-gray-700 hover:bg-gray-100 font-semibold"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
