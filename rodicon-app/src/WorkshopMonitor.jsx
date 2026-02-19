@@ -163,12 +163,23 @@ export const WorkshopMonitor = ({ assets, onClose, onSelectAsset, onOpenModal })
     setUpdatesData(prev => ({ ...prev, loading: true }));
 
     try {
-      const comments = parseObservationHistory(asset?.observacion_mecanica);
+      const { data: latestAsset, error: latestAssetError } = await supabase
+        .from('assets')
+        .select('id, ficha, status, taller_responsable, proyeccion_salida, observacion_mecanica')
+        .eq('id', asset.id)
+        .single();
+
+      if (latestAssetError) throw latestAssetError;
+
+      const assetForModal = latestAsset ? { ...asset, ...latestAsset } : asset;
+      setSelectedAssetForUpdates(assetForModal);
+
+      const comments = parseObservationHistory(assetForModal?.observacion_mecanica);
 
       const { data: purchases, error: purchasesError } = await supabase
         .from('purchase_orders')
         .select('id, numero_requisicion, estado, fecha_solicitud, fecha_actualizacion, comentario_recepcion, prioridad')
-        .eq('ficha', asset.ficha)
+        .eq('ficha', assetForModal.ficha)
         .order('fecha_actualizacion', { ascending: false })
         .limit(10);
 
@@ -177,7 +188,7 @@ export const WorkshopMonitor = ({ assets, onClose, onSelectAsset, onOpenModal })
       const { data: maintenances, error: maintenanceError } = await supabase
         .from('maintenance_logs')
         .select('id, fecha, tipo, descripcion, mecanico, created_at, evidencias')
-        .eq('ficha', asset.ficha)
+        .eq('ficha', assetForModal.ficha)
         .order('fecha', { ascending: false })
         .limit(10);
 
