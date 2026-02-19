@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Camera, ShoppingCart, AlertTriangle, Wrench, Shield, Edit2, Save, XCircle, Package } from 'lucide-react';
+import { X, Camera, ShoppingCart, AlertTriangle, Wrench, Shield, Edit2, Save, XCircle, Package, Download } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
 import { AssetPhotoModal } from './components/AssetPhotoModal';
 import { AssetComponentsPanel } from './components/AssetComponentsPanel';
@@ -114,6 +114,78 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
   const handleCancel = () => {
     setEditData({});
     setIsEditing(false);
+  };
+
+  const getFilteredMtoLogs = (tipo = 'TODOS') => {
+    if (!mtoLogs || mtoLogs.length === 0) return [];
+    if (tipo === 'TODOS') return mtoLogs;
+    return mtoLogs.filter(log => log.tipo === tipo);
+  };
+
+  const escapeCsvValue = (value) => {
+    if (value === null || value === undefined) return '';
+    const stringValue = String(value).replace(/"/g, '""');
+    return `"${stringValue}"`;
+  };
+
+  const downloadMaintenanceHistory = (tipo = 'TODOS') => {
+    try {
+      const filteredLogs = getFilteredMtoLogs(tipo);
+      if (filteredLogs.length === 0) {
+        toast.error(`No hay mantenimientos ${tipo === 'TODOS' ? '' : tipo.toLowerCase()} para descargar`);
+        return;
+      }
+
+      const headers = [
+        'Ficha',
+        'Tipo',
+        'Fecha',
+        'Descripción',
+        'Mecánico',
+        'Costo',
+        'KM/Horas',
+        'Tipo Medición',
+        'Proyección Próx. KM/Horas',
+        'Proyección Próx. Fecha',
+        'Creado En',
+      ];
+
+      const rows = filteredLogs.map((log) => [
+        assetData?.ficha || log.ficha || '',
+        log.tipo || '',
+        log.fecha ? new Date(log.fecha).toLocaleDateString('es-ES') : '',
+        log.descripcion || '',
+        log.mecanico || '',
+        log.costo ?? '',
+        log.km_recorrido ?? '',
+        log.tipo_medicion || '',
+        log.proyeccion_proxima_km ?? '',
+        log.proyeccion_proxima_mto ? new Date(log.proyeccion_proxima_mto).toLocaleDateString('es-ES') : '',
+        log.created_at ? new Date(log.created_at).toLocaleString('es-ES') : '',
+      ]);
+
+      const csvContent = [
+        headers.map(escapeCsvValue).join(','),
+        ...rows.map(row => row.map(escapeCsvValue).join(','))
+      ].join('\n');
+
+      const tipoArchivo = tipo === 'TODOS' ? 'todos' : tipo.toLowerCase();
+      const fileName = `mantenimientos_${assetData?.ficha || 'activo'}_${tipoArchivo}_${new Date().toISOString().split('T')[0]}.csv`;
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(`✅ Historial ${tipoArchivo} descargado`);
+    } catch (error) {
+      console.error('Error descargando historial de mantenimiento:', error);
+      toast.error('Error al descargar historial de mantenimiento');
+    }
   };
 
   return (
@@ -333,6 +405,28 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
                   <button onClick={() => setMtoFilter('PREVENTIVO')} className={`px-2 py-1 font-bold ${mtoFilter === 'PREVENTIVO' ? 'bg-purple-600 text-white' : 'bg-white text-purple-600'}`}>Preventivo</button>
                 </div>
               </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => downloadMaintenanceHistory('TODOS')}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 transition flex items-center gap-1"
+                >
+                  <Download className="w-3 h-3" /> Descargar Todos
+                </button>
+                <button
+                  onClick={() => downloadMaintenanceHistory('CORRECTIVO')}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 transition flex items-center gap-1"
+                >
+                  <Download className="w-3 h-3" /> Descargar Correctivo
+                </button>
+                <button
+                  onClick={() => downloadMaintenanceHistory('PREVENTIVO')}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition flex items-center gap-1"
+                >
+                  <Download className="w-3 h-3" /> Descargar Preventivo
+                </button>
+              </div>
+
               {mtoLogs && mtoLogs.length > 0 ? mtoLogs
                 .filter(log => mtoFilter === 'TODOS' || log.tipo === mtoFilter)
                 .map(log => {

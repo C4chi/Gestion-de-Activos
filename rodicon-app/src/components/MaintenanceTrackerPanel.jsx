@@ -29,8 +29,14 @@ export const MaintenanceTrackerPanel = ({ asset, onUpdate }) => {
         .eq('ficha', asset.ficha)
         .single();
 
+      const { data: assetData } = await supabase
+        .from('assets')
+        .select('ultima_actualizacion_km, ultima_actualizacion_horometro')
+        .eq('ficha', asset.ficha)
+        .single();
+
       if (error && error.code !== 'PGRST116') throw error;
-      setMtoStatus(data || {});
+      setMtoStatus({ ...(data || {}), ...(assetData || {}) });
       
       // Inicializar valor editable
       if (data) {
@@ -55,9 +61,18 @@ export const MaintenanceTrackerPanel = ({ asset, onUpdate }) => {
     setSaving(true);
     try {
       const isHorometro = mtoStatus?.tipo_medicion === 'HOROMETRO';
+      const nowIso = new Date().toISOString();
       const updateData = isHorometro 
-        ? { horometro_actual: parseFloat(editValue) }
-        : { kilometraje_actual: parseInt(editValue) };
+        ? {
+            horometro_actual: parseFloat(editValue),
+            ultima_actualizacion_horometro: nowIso,
+            updated_at: nowIso,
+          }
+        : {
+            kilometraje_actual: parseInt(editValue, 10),
+            ultima_actualizacion_km: nowIso,
+            updated_at: nowIso,
+          };
 
       const { error } = await supabase
         .from('assets')
@@ -137,6 +152,17 @@ export const MaintenanceTrackerPanel = ({ asset, onUpdate }) => {
     });
   };
 
+  const formatDateTime = (dateStr) => {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleString('es-ES', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   if (loading) {
     return (
       <div className="border-t border-gray-200 pt-4 mt-4">
@@ -148,6 +174,9 @@ export const MaintenanceTrackerPanel = ({ asset, onUpdate }) => {
   const isHorometro = mtoStatus?.tipo_medicion === 'HOROMETRO';
   const medicionLabel = isHorometro ? 'Horas' : 'Km';
   const currentValue = isHorometro ? mtoStatus?.horometro_actual : mtoStatus?.kilometraje_actual;
+  const lastMeasurementUpdate = isHorometro
+    ? mtoStatus?.ultima_actualizacion_horometro
+    : mtoStatus?.ultima_actualizacion_km;
 
   return (
     <div className="border-t border-gray-200 pt-4 mt-4">
@@ -191,9 +220,14 @@ export const MaintenanceTrackerPanel = ({ asset, onUpdate }) => {
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <Gauge className="w-5 h-5 text-purple-600" />
-            <span className="text-sm font-semibold text-gray-700">
-              {isHorometro ? 'Horómetro' : 'Kilometraje'} Actual
-            </span>
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold text-gray-700">
+                {isHorometro ? 'Horómetro' : 'Kilometraje'} Actual
+              </span>
+              <span className="text-[11px] text-gray-500">
+                Última actualización: {formatDateTime(lastMeasurementUpdate)}
+              </span>
+            </div>
           </div>
           {!isEditing && (
             <button
