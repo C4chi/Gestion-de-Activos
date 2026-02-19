@@ -167,7 +167,12 @@ export const WorkshopMonitor = ({ assets, onClose, onSelectAsset, onOpenModal })
       {/* Grid de Activos */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredWorkshopAssets.map(a => (
-          <div key={a.id} className={`bg-white rounded-xl shadow p-5 border-t-4 ${a.status === 'ESPERA REPUESTO' ? 'border-orange-500' : 'border-purple-500'} relative`}>
+          <div
+            key={a.id}
+            onClick={() => onSelectAsset?.(a)}
+            className={`bg-white rounded-xl shadow p-5 border-t-4 ${a.status === 'ESPERA REPUESTO' ? 'border-orange-500' : 'border-purple-500'} relative cursor-pointer hover:shadow-lg transition`}
+            title="Ver detalle y flujo del activo"
+          >
             {(() => {
               const details = workshopDetailsByAsset[a.id] || {};
               const mecanico = details.mecanico || a.taller_responsable || '-';
@@ -200,14 +205,14 @@ export const WorkshopMonitor = ({ assets, onClose, onSelectAsset, onOpenModal })
             <div className="flex gap-2">
               {a.status === 'ESPERA REPUESTO' ? (
                 <>
-                  <button onClick={() => { onSelectAsset(a); onOpenModal('UPDATE_WORKSHOP'); }} className="flex-1 bg-blue-100 text-blue-700 py-2 rounded font-bold text-xs hover:bg-blue-200">Actualizar</button>
-                  <button onClick={() => { onSelectAsset(a); onOpenModal('REQ'); }} className="flex-1 bg-orange-100 text-orange-700 py-2 rounded font-bold text-xs hover:bg-orange-200">Solicitar Adicional</button>
+                  <button onClick={(e) => { e.stopPropagation(); onSelectAsset(a); onOpenModal('UPDATE_WORKSHOP'); }} className="flex-1 bg-blue-100 text-blue-700 py-2 rounded font-bold text-xs hover:bg-blue-200">Actualizar</button>
+                  <button onClick={(e) => { e.stopPropagation(); onSelectAsset(a); onOpenModal('REQ'); }} className="flex-1 bg-orange-100 text-orange-700 py-2 rounded font-bold text-xs hover:bg-orange-200">Solicitar Adicional</button>
                 </>
               ) : (
                 <>
-                  <button onClick={() => { onSelectAsset(a); onOpenModal('UPDATE_WORKSHOP'); }} className="flex-1 bg-blue-100 text-blue-700 py-2 rounded font-bold text-xs hover:bg-blue-200">Actualizar</button>
-                  <button onClick={() => { onSelectAsset(a); onOpenModal('REQ'); }} className="flex-1 bg-orange-100 text-orange-700 py-2 rounded font-bold text-xs hover:bg-orange-200">Solicitar Repuesto</button>
-                  <button onClick={() => { onSelectAsset(a); onOpenModal('CLOSE_ORDER'); }} className="flex-1 bg-green-600 text-white py-2 rounded font-bold text-xs hover:bg-green-700">Cerrar Orden</button>
+                  <button onClick={(e) => { e.stopPropagation(); onSelectAsset(a); onOpenModal('UPDATE_WORKSHOP'); }} className="flex-1 bg-blue-100 text-blue-700 py-2 rounded font-bold text-xs hover:bg-blue-200">Actualizar</button>
+                  <button onClick={(e) => { e.stopPropagation(); onSelectAsset(a); onOpenModal('REQ'); }} className="flex-1 bg-orange-100 text-orange-700 py-2 rounded font-bold text-xs hover:bg-orange-200">Solicitar Repuesto</button>
+                  <button onClick={(e) => { e.stopPropagation(); onSelectAsset(a); onOpenModal('CLOSE_ORDER'); }} className="flex-1 bg-green-600 text-white py-2 rounded font-bold text-xs hover:bg-green-700">Cerrar Orden</button>
                 </>
               )}
             </div>

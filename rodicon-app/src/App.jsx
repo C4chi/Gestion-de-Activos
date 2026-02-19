@@ -361,8 +361,11 @@ export default function App() {
           <WorkshopMonitor
             assets={assets}
             onClose={() => setActiveOverlay(null)}
-            onSelectAsset={(asset) => setSelectedAsset(asset)}
-            onOpenModal={(modal) => setActiveModal(modal)}
+            onSelectAsset={(asset) => {
+              handleAssetSelect(asset);
+              setActiveOverlay(null);
+            }}
+            onOpenModal={(modal) => handleOpenModal(modal)}
           />
         </ErrorBoundary>
       )}
