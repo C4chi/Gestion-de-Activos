@@ -3,7 +3,22 @@ import { Search, ChevronRight, MapPin } from 'lucide-react';
 import { StatusBadge } from './StatusBadge'; // No changes needed here, looks correct.
 import { DashboardCard } from './DashboardCard'; // No changes needed here, looks correct.
 
-export const InventoryView = ({ kpis, filter, setFilter, search, setSearch, filteredAssets, onAssetSelect, locations = [], locationFilter, setLocationFilter }) => {
+export const InventoryView = ({
+  kpis,
+  filter,
+  setFilter,
+  search,
+  setSearch,
+  filteredAssets,
+  onAssetSelect,
+  locations = [],
+  locationFilter,
+  setLocationFilter,
+  isAdminGlobal = false,
+  gpsOptions = [],
+  gpsFilter,
+  setGpsFilter,
+}) => {
   return (
     <main className="flex-1 flex flex-col h-full overflow-hidden relative bg-gray-50">
       <header className="bg-white border-b min-h-16 flex items-center justify-between px-4 lg:px-8 shadow-sm shrink-0 gap-4 flex-wrap py-2">
@@ -34,6 +49,20 @@ export const InventoryView = ({ kpis, filter, setFilter, search, setSearch, filt
               ))}
             </select>
           </div>
+          {isAdminGlobal && (
+            <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2 border border-transparent focus-within:border-blue-300 transition">
+              <select
+                className="bg-transparent text-sm outline-none min-w-[180px]"
+                value={gpsFilter || ''}
+                onChange={(e) => setGpsFilter?.(e.target.value)}
+              >
+                <option value="">Todos los GPS</option>
+                {gpsOptions.map((gps) => (
+                  <option key={gps} value={gps}>{gps}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </header>
 

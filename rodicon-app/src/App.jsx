@@ -120,6 +120,7 @@ export default function App() {
   const debouncedSearch = useDebounce(search, 300);
   const [filter, setFilter] = useState(savedSearch.filter);
   const [locationFilter, setLocationFilter] = useState(savedSearch.locationFilter);
+  const [gpsFilter, setGpsFilter] = useState(savedSearch.gpsFilter || '');
   const [activeOverlay, setActiveOverlay] = useState(null);
   const [activeModal, setActiveModal] = useState(user ? null : 'PIN');
   const [detailSidebarOpen, setDetailSidebarOpen] = useState(false);
@@ -136,6 +137,7 @@ export default function App() {
   const canPurchasing = can(['ADMIN', 'ADMIN_GLOBAL', 'COMPRAS', 'GERENTE', 'GERENTE_TALLER']);
   const canHse = can(['ADMIN', 'ADMIN_GLOBAL', 'HSE', 'GERENTE']);
   const canAdmin = can(['ADMIN', 'ADMIN_GLOBAL']);
+  const isAdminGlobal = can(['ADMIN_GLOBAL']);
   const canReports = can(['ADMIN', 'ADMIN_GLOBAL', 'GERENTE', 'GERENTE_TALLER']);
   const canEpp = can(['ADMIN', 'ADMIN_GLOBAL', 'HSE', 'GERENTE', 'GERENTE_TALLER']);
   const canApprovePurchases = can(['ADMIN', 'ADMIN_GLOBAL', 'GERENTE_TALLER']); // Solo GERENTE_TALLER aprueba cotizaciones
@@ -177,8 +179,14 @@ export default function App() {
 
   // Persistir filtros y preferencias cuando cambien
   useEffect(() => {
-    saveSearchState({ search, filter, locationFilter });
-  }, [search, filter, locationFilter]);
+    saveSearchState({ search, filter, locationFilter, gpsFilter });
+  }, [search, filter, locationFilter, gpsFilter]);
+
+  useEffect(() => {
+    if (!isAdminGlobal && gpsFilter) {
+      setGpsFilter('');
+    }
+  }, [isAdminGlobal, gpsFilter]);
 
   useEffect(() => {
     saveUserPreferences({ sidebarCollapsed });
@@ -233,6 +241,10 @@ export default function App() {
     return Array.from(new Set((allAssets || assets).map(a => a.ubicacion_actual).filter(Boolean))).sort();
   }, [allAssets, assets]);
 
+  const gpsOptions = useMemo(() => {
+    return Array.from(new Set((allAssets || assets).map(a => (a.gps || '').trim()).filter(Boolean))).sort();
+  }, [allAssets, assets]);
+
   const filteredAssets = useMemo(() => {
     return assets.filter(a => {
       // Excluir activos no visibles y vendidos
@@ -250,6 +262,7 @@ export default function App() {
       );
 
       if (locationFilter && a.ubicacion_actual !== locationFilter) return false;
+      if (isAdminGlobal && gpsFilter && (a.gps || '').trim() !== gpsFilter) return false;
 
       if (filter === 'NO_OP') {
         return match && ['NO DISPONIBLE', 'EN TALLER', 'ESPERA REPUESTO', 'MTT PREVENTIVO'].includes(a.status);
@@ -270,7 +283,7 @@ export default function App() {
 
       return match;
     });
-  }, [assets, debouncedSearch, filter, locationFilter]);
+  }, [assets, debouncedSearch, filter, locationFilter, gpsFilter, isAdminGlobal]);
 
   // KPIs calculados - usando allAssets en lugar de assets para cálculos correctos
   const kpis = useMemo(() => ({
@@ -350,6 +363,10 @@ export default function App() {
           locations={locations}
           locationFilter={locationFilter}
           setLocationFilter={setLocationFilter}
+          isAdminGlobal={isAdminGlobal}
+          gpsOptions={gpsOptions}
+          gpsFilter={gpsFilter}
+          setGpsFilter={setGpsFilter}
           filteredAssets={filteredAssets}
           onAssetSelect={handleAssetSelect}
         />

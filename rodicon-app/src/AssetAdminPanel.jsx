@@ -252,7 +252,7 @@ export const AssetAdminPanel = ({ onClose, isAdmin = true }) => {
                 className="flex items-center justify-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition text-sm"
               >
                 <FileText size={18} />
-                Importar Excel
+                Importar GPS (Excel)
               </button>
               <button
                 onClick={() => setShowPDFImporter(true)}

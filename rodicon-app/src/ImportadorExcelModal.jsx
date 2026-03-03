@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FullScreenModal } from './FullScreenModal';
 import { useAppContext } from './AppContext';
-import { Upload, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
+import { Upload, AlertCircle, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 
@@ -33,8 +33,14 @@ export const ImportadorExcelModal = ({ onClose }) => {
         const mapped = data
           .map((row) => {
             const ficha = String(row.ficha || row.FICHA || '').trim();
-            const status = String(row.status || row.STATUS || row.Estado || '').trim().toUpperCase();
-            const observacion = String(row.observacion || row.OBSERVACION || row.Observación || row.reporte || row.REPORTE || row.Reporte || '').trim();
+            const gps = String(
+              row.gps ||
+              row.GPS ||
+              row['Tipo GPS'] ||
+              row['TIPO GPS'] ||
+              row['tipo gps'] ||
+              ''
+            ).trim();
 
             if (!ficha) return null;
 
@@ -44,20 +50,28 @@ export const ImportadorExcelModal = ({ onClose }) => {
             if (!asset) {
               return {
                 ficha,
-                status,
-                observacion,
+                gps,
                 error: `❌ Equipo no encontrado`,
                 found: false,
+              };
+            }
+
+            if (!gps) {
+              return {
+                id: asset.id,
+                ficha,
+                gps,
+                currentGps: asset.gps || '',
+                error: '❌ GPS vacío',
+                found: true,
               };
             }
 
             return {
               id: asset.id,
               ficha,
-              status: status || asset.status,
-              observacion: observacion || asset.observaciones || '',
-              currentStatus: asset.status,
-              currentObservacion: asset.observacion_mecanica || '',
+              gps,
+              currentGps: asset.gps || '',
               error: null,
               found: true,
             };
@@ -71,7 +85,8 @@ export const ImportadorExcelModal = ({ onClose }) => {
 
         setPreviewData(mapped);
         setStep(2);
-        toast.success(`${mapped.filter(m => m.found).length} equipos listos para actualizar`);
+        const validCount = mapped.filter(m => m.found && !m.error).length;
+        toast.success(`${validCount} activos listos para actualizar GPS`);
       };
       reader.readAsBinaryString(file);
     } catch (error) {
@@ -81,9 +96,9 @@ export const ImportadorExcelModal = ({ onClose }) => {
   };
 
   const handleImport = async () => {
-    const toUpdate = previewData.filter(d => d.found);
+    const toUpdate = previewData.filter(d => d.found && !d.error);
     if (toUpdate.length === 0) {
-      toast.error('No hay equipos para actualizar');
+      toast.error('No hay activos válidos para actualizar GPS');
       return;
     }
 
@@ -94,8 +109,7 @@ export const ImportadorExcelModal = ({ onClose }) => {
       const results = await Promise.allSettled(
         toUpdate.map(item => 
           updateAsset(item.id, {
-            status: item.status,
-            observacion_mecanica: item.observacion,
+            gps: item.gps,
           })
         )
       );
@@ -108,14 +122,14 @@ export const ImportadorExcelModal = ({ onClose }) => {
       setStep(3);
       
       if (failed > 0) {
-        toast.success(`✅ ${updated} equipos actualizados, ${failed} errores`);
+        toast.success(`✅ ${updated} activos actualizados, ${failed} errores`);
       } else {
-        toast.success(`✅ ${updated} equipos actualizados correctamente`);
+        toast.success(`✅ ${updated} activos actualizados correctamente`);
       }
     } catch (error) {
       console.error('Error en importación:', error);
       setLoading(false);
-      toast.error('Error al importar equipos');
+      toast.error('Error al importar GPS');
     }
   };
 
@@ -127,14 +141,14 @@ export const ImportadorExcelModal = ({ onClose }) => {
   };
 
   return (
-    <FullScreenModal title="📤 Importador de Excel" color="blue" onClose={onClose}>
+    <FullScreenModal title="📤 Importador GPS por Excel" color="blue" onClose={onClose}>
       {step === 1 && (
         <div className="max-w-2xl mx-auto">
           <div className="bg-white border-2 border-dashed border-blue-300 rounded-xl p-12 text-center">
             <Upload className="w-16 h-16 text-blue-500 mx-auto mb-4" />
             <h3 className="text-xl font-bold text-gray-800 mb-2">Sube tu archivo Excel</h3>
             <p className="text-gray-600 mb-6">
-              El Excel debe tener 3 columnas: <strong>ficha</strong>, <strong>status</strong>, <strong>reporte</strong>
+              El Excel debe tener 2 columnas: <strong>Ficha</strong> y <strong>GPS</strong>
             </p>
             <input
               type="file"
@@ -157,21 +171,18 @@ export const ImportadorExcelModal = ({ onClose }) => {
               <table className="w-full text-sm mt-3 border-collapse">
                 <thead>
                   <tr className="bg-blue-100">
-                    <th className="border p-2 text-left">ficha</th>
-                    <th className="border p-2 text-left">status</th>
-                    <th className="border p-2 text-left">reporte</th>
+                    <th className="border p-2 text-left">Ficha</th>
+                    <th className="border p-2 text-left">GPS</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td className="border p-2">F001</td>
-                    <td className="border p-2">DISPONIBLE</td>
-                    <td className="border p-2">Revisado OK</td>
+                    <td className="border p-2">A-015</td>
+                    <td className="border p-2">Systrack</td>
                   </tr>
                   <tr>
-                    <td className="border p-2">F002</td>
-                    <td className="border p-2">EN TALLER</td>
-                    <td className="border p-2">Cambio de llantas</td>
+                    <td className="border p-2">CA-001</td>
+                    <td className="border p-2">JDLink</td>
                   </tr>
                 </tbody>
               </table>
@@ -187,10 +198,10 @@ export const ImportadorExcelModal = ({ onClose }) => {
               <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold text-gray-800">
-                  {previewData.filter(d => d.found).length} equipos serán actualizados
+                  {previewData.filter(d => d.found && !d.error).length} activos serán actualizados
                 </p>
                 <p className="text-sm text-gray-600">
-                  {previewData.filter(d => !d.found).length} equipos no fueron encontrados
+                  {previewData.filter(d => !d.found).length} activos no fueron encontrados
                 </p>
               </div>
             </div>
@@ -201,32 +212,23 @@ export const ImportadorExcelModal = ({ onClose }) => {
               <thead className="bg-gray-100 sticky top-0">
                 <tr>
                   <th className="p-3 text-left font-bold text-gray-700">Ficha</th>
-                  <th className="p-3 text-left font-bold text-gray-700">Status Actual</th>
-                  <th className="p-3 text-left font-bold text-gray-700">Nuevo Status</th>
-                  <th className="p-3 text-left font-bold text-gray-700">Observación</th>
+                  <th className="p-3 text-left font-bold text-gray-700">GPS Actual</th>
+                  <th className="p-3 text-left font-bold text-gray-700">Nuevo GPS</th>
                   <th className="p-3 text-left font-bold text-gray-700">Estado</th>
                 </tr>
               </thead>
               <tbody>
                 {previewData.map((item, idx) => (
-                  <tr key={idx} className={item.found ? 'border-b hover:bg-gray-50' : 'border-b bg-red-50'}>
+                  <tr key={idx} className={item.found && !item.error ? 'border-b hover:bg-gray-50' : 'border-b bg-red-50'}>
                     <td className="p-3 font-mono font-bold">{item.ficha}</td>
-                    <td className="p-3 text-gray-600">{item.currentStatus}</td>
+                    <td className="p-3 text-gray-600">{item.currentGps || '—'}</td>
                     <td className="p-3">
-                      <span className={`px-2 py-1 rounded text-white text-xs font-bold ${
-                        item.status === 'DISPONIBLE' ? 'bg-green-600' :
-                        item.status === 'EN TALLER' ? 'bg-yellow-600' :
-                        item.status === 'VENDIDO' ? 'bg-red-600' :
-                        'bg-gray-600'
-                      }`}>
-                        {item.status}
+                      <span className="px-2 py-1 rounded bg-blue-600 text-white text-xs font-bold">
+                        {item.gps || '—'}
                       </span>
                     </td>
-                    <td className="p-3 text-gray-600 max-w-xs truncate" title={item.observacion}>
-                      {item.observacion || '—'}
-                    </td>
                     <td className="p-3">
-                      {item.found ? (
+                      {item.found && !item.error ? (
                         <span className="flex items-center gap-1 text-green-600 font-bold">
                           <CheckCircle className="w-4 h-4" /> OK
                         </span>
@@ -250,10 +252,10 @@ export const ImportadorExcelModal = ({ onClose }) => {
             </button>
             <button
               onClick={handleImport}
-              disabled={loading || previewData.filter(d => d.found).length === 0}
+              disabled={loading || previewData.filter(d => d.found && !d.error).length === 0}
               className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition disabled:opacity-50"
             >
-              {loading ? '⏳ Importando...' : `✅ Importar ${previewData.filter(d => d.found).length} equipos`}
+              {loading ? '⏳ Importando...' : `✅ Importar ${previewData.filter(d => d.found && !d.error).length} activos`}
             </button>
           </div>
         </div>
@@ -264,7 +266,7 @@ export const ImportadorExcelModal = ({ onClose }) => {
           <CheckCircle className="w-20 h-20 text-green-600 mx-auto mb-4" />
           <h3 className="text-2xl font-bold text-gray-800 mb-2">¡Importación completada!</h3>
           <p className="text-gray-600 mb-8">
-            Los equipos han sido actualizados correctamente en la base de datos.
+            Los GPS de los activos fueron actualizados correctamente en la base de datos.
           </p>
           <button
             onClick={onClose}

@@ -94,14 +94,28 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      const previousLocation = (assetData.ubicacion_actual || '').trim();
+      const nextLocation = (editData.ubicacion_actual || '').trim();
+      const locationChanged = previousLocation !== nextLocation;
+      const nowIso = new Date().toISOString();
+
+      const updatePayload = {
+        ...editData,
+      };
+
+      if (locationChanged) {
+        updatePayload.ultima_ubicacion = previousLocation || null;
+        updatePayload.ultima_actualizacion_ubicacion = nowIso;
+      }
+
       const { error } = await supabase
         .from('assets')
-        .update(editData)
+        .update(updatePayload)
         .eq('id', assetData.id);
 
       if (error) throw error;
 
-      setAssetData({ ...assetData, ...editData });
+      setAssetData({ ...assetData, ...updatePayload });
       setIsEditing(false);
       toast.success('✅ Cambios guardados correctamente');
       
@@ -409,7 +423,18 @@ export const AssetDetailSidebar = ({ asset, mtoLogs, safetyReports, onClose, onO
                         <p className="text-xs text-gray-500">💡 Selecciona de la lista o escribe una nueva</p>
                       </div>
                     ) : (
-                      <span className="text-sm">{assetData.ubicacion_actual}</span>
+                      <div className="space-y-0.5">
+                        <span className="text-sm block">{assetData.ubicacion_actual || '—'}</span>
+                        <p className="text-[11px] text-gray-500">
+                          Última modificación:{' '}
+                          {assetData.ultima_actualizacion_ubicacion
+                            ? new Date(assetData.ultima_actualizacion_ubicacion).toLocaleString('es-PA')
+                            : '—'}
+                        </p>
+                        <p className="text-[11px] text-gray-500">
+                          Última ubicación: {assetData.ultima_ubicacion || '—'}
+                        </p>
+                      </div>
                     )}
                   </div>
 
