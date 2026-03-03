@@ -88,6 +88,7 @@ export const AssetAdminPanel = ({ onClose, isAdmin = true }) => {
         'ubicacion_actual', 'status', 'observacion_mecanica',
         'numero_requisicion', 'taller_responsable',
         'fecha_vencimiento_seguro', 'aseguradora', 'numero_poliza', 'paso_rapido',
+        'gps',
         'proyeccion_entrada', 'proyeccion_salida', 'foto_url',
         'visible'
       ];
@@ -530,6 +531,19 @@ export const AssetAdminPanel = ({ onClose, isAdmin = true }) => {
                   value={editData.paso_rapido || ''}
                   onChange={(e) => handleEditChange('paso_rapido', e.target.value)}
                   placeholder="Ej: Paso A-1"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  📡 GPS
+                </label>
+                <input
+                  type="text"
+                  value={editData.gps || ''}
+                  onChange={(e) => handleEditChange('gps', e.target.value)}
+                  placeholder="Ej: Systrack, JDLink, My cat"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
