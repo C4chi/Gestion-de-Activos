@@ -63,6 +63,45 @@ const evaluateConditionalRule = (rule, value) => {
 };
 
 /**
+ * Obtiene acciones de follow-up activas para un item según su valor actual
+ */
+const getFollowUpActions = (item, currentValue) => {
+  if (!item?.conditional?.enabled || !Array.isArray(item.conditional.rules)) return null;
+
+  const actions = {
+    questions: [],
+    requireNote: false,
+    requireFiles: false
+  };
+
+  item.conditional.rules.forEach((rule, ruleIndex) => {
+    if (!evaluateConditionalRule(rule, currentValue)) return;
+
+    if (rule.actions?.includes('show_questions')) {
+      const questionText = (rule.questionText || '').trim();
+      actions.questions.push({
+        id: `${item.id}_question_${ruleIndex}`,
+        text: questionText || 'Pregunta adicional'
+      });
+    }
+
+    if (rule.actions?.includes('require_note')) {
+      actions.requireNote = true;
+    }
+
+    if (rule.actions?.includes('require_files')) {
+      actions.requireFiles = true;
+    }
+  });
+
+  if (actions.questions.length === 0 && !actions.requireNote && !actions.requireFiles) {
+    return null;
+  }
+
+  return actions;
+};
+
+/**
  * Hook para manejar el estado del formulario dinámico
  */
 const useFormState = (initialSchema, initialAnswers = {}) => {
@@ -117,32 +156,8 @@ const useFormState = (initialSchema, initialAnswers = {}) => {
           }
         }
         
-        // Soporte para nuevo formato (conditional.enabled con rules)
-        if (item.conditional?.enabled && item.conditional?.rules) {
-          const rules = Array.isArray(item.conditional.rules) ? item.conditional.rules : [item.conditional.rules];
-          
-          // Evaluar todas las reglas (por ahora AND lógico)
-          const allRulesSatisfied = rules.every(rule => evaluateConditionalRule(rule, value));
-          
-          if (allRulesSatisfied) {
-            newVisible.add(item.id);
-            
-            // Ejecutar acciones si las reglas se cumplen
-            rules.forEach(rule => {
-              if (rule.actions?.includes('require_note')) {
-                // Marcar campo como requerido si tiene la acción
-                item.required = true;
-              }
-            });
-          } else {
-            newVisible.delete(item.id);
-            setAnswers(prev => {
-              const updated = { ...prev };
-              delete updated[item.id];
-              return updated;
-            });
-          }
-        }
+        // Nota: conditional.enabled/rules se usa para follow-up del mismo item,
+        // no para mostrar/ocultar el item principal.
       });
     });
 
@@ -259,6 +274,7 @@ const useFormState = (initialSchema, initialAnswers = {}) => {
         // Validar campos follow-up si el item es visible y tiene respuesta que activa acciones
         if (visibleItems.has(item.id) && answers[item.id]) {
           const followUpActions = getFollowUpActions(item, answers[item.id].value);
+          if (!followUpActions) return;
 
           // Validar preguntas follow-up
           if (followUpActions.questions.length > 0) {
@@ -432,48 +448,6 @@ export default function FormRenderer({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Obtener acciones de seguimiento (preguntas, notas, archivos) basadas en reglas condicionales
-  const getFollowUpActions = (item) => {
-    if (!item?.conditional?.enabled || !Array.isArray(item.conditional.rules)) return null;
-
-    const currentValue = answers[item.id]?.value;
-    const actions = {
-      questions: [],
-      requireNote: false,
-      requireFiles: false
-    };
-
-    item.conditional.rules.forEach((rule, ruleIndex) => {
-      if (!evaluateConditionalRule(rule, currentValue)) return;
-
-      // Preguntas adicionales
-      if (rule.actions?.includes('show_questions')) {
-        const questionText = (rule.questionText || '').trim();
-        actions.questions.push({
-          id: `${item.id}_question_${ruleIndex}`,
-          text: questionText || 'Pregunta adicional'
-        });
-      }
-
-      // Notas requeridas
-      if (rule.actions?.includes('require_note')) {
-        actions.requireNote = true;
-      }
-
-      // Archivos multimedia requeridos
-      if (rule.actions?.includes('require_files')) {
-        actions.requireFiles = true;
-      }
-    });
-
-    // Retornar null si no hay acciones activas
-    if (actions.questions.length === 0 && !actions.requireNote && !actions.requireFiles) {
-      return null;
-    }
-
-    return actions;
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -570,7 +544,7 @@ export default function FormRenderer({
               <div className="space-y-4 pl-1">
                 {section.items?.map((item) => {
                   if (!visibleItems.has(item.id)) return null;
-                  const followUpActions = getFollowUpActions(item);
+                  const followUpActions = getFollowUpActions(item, answers[item.id]?.value);
 
                   return (
                     <FormItem
