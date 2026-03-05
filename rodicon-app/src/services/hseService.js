@@ -377,6 +377,7 @@ export const getInspections = async (filters = {}) => {
       score_percentage,
       passed,
       has_critical_issues,
+      is_synced,
       completed_at,
       created_at
     `);
@@ -435,7 +436,7 @@ export const getInspections = async (filters = {}) => {
         ? supabase.from('hse_templates').select('id, name, category').in('id', templateIds)
         : Promise.resolve({ data: [] }),
       userIds.length > 0 
-        ? supabase.from('app_users').select('id, nombre').in('id', userIds)
+        ? supabase.from('app_users').select('id, nombre, nombre_usuario').in('id', userIds)
         : Promise.resolve({ data: [] })
     ]);
 
@@ -451,7 +452,7 @@ export const getInspections = async (filters = {}) => {
     ...item,
     template_name: templatesMap[item.template_id]?.name || 'N/A',
     template_category: templatesMap[item.template_id]?.category || 'general',
-    conducted_by_name: usersMap[item.conducted_by]?.nombre || 'No especificado'
+    conducted_by_name: usersMap[item.conducted_by]?.nombre || usersMap[item.conducted_by]?.nombre_usuario || (item.conducted_by ? `Usuario ${item.conducted_by}` : 'No especificado')
   }));
 };
 

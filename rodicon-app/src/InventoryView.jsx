@@ -79,8 +79,8 @@ export const InventoryView = ({
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-6 lg:mb-8">
           <DashboardCard title="Total Activos" value={kpis.total} icon="🚙" color="blue" active={filter === 'ALL'} onClick={() => setFilter('ALL')} />
           <DashboardCard title="No Operativos" value={kpis.noOp} icon="⚠️" color="red" active={filter === 'NO_OP'} onClick={() => setFilter('NO_OP')} />
-          <DashboardCard title="Seguro (≤ 30 Días)" value={kpis.warn} icon="📅" color="yellow" active={filter === 'WARN'} onClick={() => setFilter('WARN')} />
-          <DashboardCard title="Seguros Vencidos" value={kpis.exp} icon="🚨" color="red" active={filter === 'EXP'} onClick={() => setFilter('EXP')} />
+          <DashboardCard title="En Taller" value={kpis.enTaller} icon="🔧" color="yellow" active={filter === 'EN_TALLER'} onClick={() => setFilter('EN_TALLER')} />
+          <DashboardCard title="Espera de Repuesto" value={kpis.esperaRepuesto} icon="⏳" color="red" active={filter === 'ESPERA_REPUESTO'} onClick={() => setFilter('ESPERA_REPUESTO')} />
         </div>
 
         {/* Tabla Inventario - Desktop */}

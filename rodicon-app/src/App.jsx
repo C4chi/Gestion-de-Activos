@@ -291,17 +291,12 @@ export default function App() {
         return match && ['NO DISPONIBLE', 'EN TALLER', 'ESPERA REPUESTO', 'MTT PREVENTIVO'].includes(a.status);
       }
 
-      if (filter === 'WARN') {
-        if (!a.fecha_de_vencimiento_de_seguro) return false;
-        const d = new Date(a.fecha_de_vencimiento_de_seguro);
-        const today = new Date();
-        const diff = Math.ceil((d - today) / (1000 * 60 * 60 * 24));
-        return match && diff >= 0 && diff <= 30;
+      if (filter === 'EN_TALLER') {
+        return match && a.status === 'EN TALLER';
       }
 
-      if (filter === 'EXP') {
-        if (!a.fecha_de_vencimiento_de_seguro) return false;
-        return match && new Date(a.fecha_de_vencimiento_de_seguro) < new Date();
+      if (filter === 'ESPERA_REPUESTO') {
+        return match && a.status === 'ESPERA REPUESTO';
       }
 
       return match;
@@ -312,14 +307,8 @@ export default function App() {
   const kpis = useMemo(() => ({
     total: (allAssets || assets).filter(a => (a.visible !== 0 && a.visible !== false) && a.status !== 'VENDIDO').length,
     noOp: (allAssets || assets).filter(a => (a.visible !== 0 && a.visible !== false) && a.status !== 'VENDIDO' && ['NO DISPONIBLE', 'EN TALLER', 'ESPERA REPUESTO', 'MTT PREVENTIVO'].includes(a.status)).length,
-    warn: (allAssets || assets).filter(a => {
-      if ((a.visible === 0 || a.visible === false) || a.status === 'VENDIDO' || !a.fecha_vencimiento_seguro) return false;
-      const d = new Date(a.fecha_vencimiento_seguro);
-      const today = new Date();
-      const diff = Math.ceil((d - today) / (1000 * 60 * 60 * 24));
-      return diff >= 0 && diff <= 30;
-    }).length,
-    exp: (allAssets || assets).filter(a => (a.visible !== 0 && a.visible !== false) && a.status !== 'VENDIDO' && a.fecha_vencimiento_seguro && new Date(a.fecha_vencimiento_seguro) < new Date()).length
+    enTaller: (allAssets || assets).filter(a => (a.visible !== 0 && a.visible !== false) && a.status !== 'VENDIDO' && a.status === 'EN TALLER').length,
+    esperaRepuesto: (allAssets || assets).filter(a => (a.visible !== 0 && a.visible !== false) && a.status !== 'VENDIDO' && a.status === 'ESPERA REPUESTO').length
   }), [assets, allAssets]);
 
   // --- RENDER ---

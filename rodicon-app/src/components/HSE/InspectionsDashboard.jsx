@@ -5,8 +5,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  ClipboardCheck, Plus, Search, Filter, Download, 
-  CheckCircle, Clock, AlertTriangle, Award, TrendingUp
+  ClipboardCheck, Plus, Search, Filter, Download, Copy,
+  CheckCircle, Clock, AlertTriangle, Award, TrendingUp, Wifi, WifiOff
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAppContext } from '../../AppContext';
@@ -31,6 +31,7 @@ export default function InspectionsDashboard() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [error, setError] = useState(null);
 
   // Filtros
@@ -61,6 +62,17 @@ export default function InspectionsDashboard() {
   useEffect(() => {
     loadData();
   }, [statusFilter, priorityFilter, templateFilter]);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const loadData = async () => {
     setLoading(true);
@@ -221,6 +233,45 @@ export default function InspectionsDashboard() {
     return true;
   });
 
+  const hasActiveFilters = Boolean(search.trim()) || statusFilter !== 'ALL' || priorityFilter !== 'ALL' || templateFilter !== 'ALL';
+
+  const clearFilters = () => {
+    setSearch('');
+    setStatusFilter('ALL');
+    setPriorityFilter('ALL');
+    setTemplateFilter('ALL');
+  };
+
+  const getInspectorName = (inspection) => {
+    if (!inspection) return 'No especificado';
+
+    const directName = inspection.conducted_by_name;
+    if (directName && directName !== 'No especificado') return directName;
+
+    if (inspection.conducted_by && user?.id && String(inspection.conducted_by) === String(user.id)) {
+      return user?.nombre || user?.nombre_usuario || 'No especificado';
+    }
+
+    return inspection.conducted_by ? `Usuario ${inspection.conducted_by}` : 'No especificado';
+  };
+
+  const getSyncStatus = (inspection) => {
+    if (inspection?.is_synced === false) {
+      return { label: 'Pendiente sync', dot: 'bg-amber-500', text: 'text-amber-700' };
+    }
+    return { label: 'Sincronizada', dot: 'bg-green-500', text: 'text-green-700' };
+  };
+
+  const copyInspectionNumber = async (inspectionNumber) => {
+    try {
+      await navigator.clipboard.writeText(inspectionNumber || '');
+      toast.success('Número de inspección copiado');
+    } catch (error) {
+      console.error('Error copying inspection number:', error);
+      toast.error('No se pudo copiar el número');
+    }
+  };
+
   return (
     <div className="min-h-full bg-gray-50">
       {error && (
@@ -242,7 +293,7 @@ export default function InspectionsDashboard() {
       )}
       
       {/* Header */}
-      <header className="bg-white border-b rounded-lg">
+      <header className="bg-white/95 backdrop-blur-sm border-b rounded-lg sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 lg:py-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -255,6 +306,10 @@ export default function InspectionsDashboard() {
               </div>
             </div>
             <div className="flex gap-2 w-full sm:w-auto flex-col sm:flex-row">
+              <div className={`hidden sm:flex items-center justify-center px-3 rounded-lg text-xs font-semibold border ${isOnline ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+                {isOnline ? <Wifi size={14} className="mr-1" /> : <WifiOff size={14} className="mr-1" />}
+                {isOnline ? 'En línea' : 'Sin conexión'}
+              </div>
               <button
                 onClick={() => setShowTemplateBuilder(true)}
                 className="px-3 lg:px-4 py-2 lg:py-3 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 flex items-center justify-center gap-2 font-medium text-xs lg:text-sm"
@@ -308,91 +363,112 @@ export default function InspectionsDashboard() {
           />
         </div>
 
-        {/* Filtros y búsqueda */}
-        <div className="bg-white rounded-lg shadow-sm p-3 lg:p-4 mb-4 lg:mb-6 border">
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 lg:gap-4">
-            {/* Búsqueda */}
-            <div className="lg:col-span-2 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                placeholder="Buscar por #, título, ficha..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-              />
+        <div className="sticky top-[82px] sm:top-[90px] z-10 bg-gray-50 pb-3 sm:pb-4 space-y-3">
+          <div className="bg-white rounded-lg shadow-sm p-3 lg:p-4 border">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 lg:gap-4">
+              <div className="lg:col-span-2 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <input
+                  type="text"
+                  placeholder="Buscar por #, título, ficha..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              >
+                <option value="ALL">Todos los estados</option>
+                <option value="DRAFT">Borradores</option>
+                <option value="COMPLETED">Completadas</option>
+                <option value="APPROVED">Aprobadas</option>
+              </select>
+
+              <select
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
+                className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              >
+                <option value="ALL">Todas las prioridades</option>
+                <option value="BAJA">Baja</option>
+                <option value="MEDIA">Media</option>
+                <option value="ALTA">Alta</option>
+                <option value="CRITICA">Crítica</option>
+              </select>
+
+              <select
+                value={templateFilter}
+                onChange={(e) => setTemplateFilter(e.target.value)}
+                className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              >
+                <option value="ALL">Todos los tipos</option>
+                {templates.map(t => (
+                  <option key={t.id} value={t.id}>
+                    {t.icon} {t.name}
+                  </option>
+                ))}
+              </select>
             </div>
-
-            {/* Filtro de estado */}
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-            >
-              <option value="ALL">Todos los estados</option>
-              <option value="DRAFT">Borradores</option>
-              <option value="COMPLETED">Completadas</option>
-              <option value="APPROVED">Aprobadas</option>
-            </select>
-
-            {/* Filtro de prioridad */}
-            <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-            >
-              <option value="ALL">Todas las prioridades</option>
-              <option value="BAJA">Baja</option>
-              <option value="MEDIA">Media</option>
-              <option value="ALTA">Alta</option>
-              <option value="CRITICA">Crítica</option>
-            </select>
-
-            {/* Filtro de template */}
-            <select
-              value={templateFilter}
-              onChange={(e) => setTemplateFilter(e.target.value)}
-              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-            >
-              <option value="ALL">Todos los tipos</option>
-              {templates.map(t => (
-                <option key={t.id} value={t.id}>
-                  {t.icon} {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Toolbar */}
-        <div className="flex flex-wrap gap-2 justify-start sm:justify-end mb-4 lg:mb-6">
-          <button
-            onClick={() => {
-              setEditingTemplateId(null);
-              setShowTemplateBuilder(true);
-            }}
-            className="flex-1 sm:flex-none px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2 font-medium"
-          >
-            <ClipboardCheck className="w-4 h-4" />
-            Gestionar Plantillas
-          </button>
-          <button
-            onClick={handleSync}
-            disabled={syncing}
-            className="flex-1 sm:flex-none px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 flex items-center justify-center gap-2 font-medium"
-          >
-            {syncing ? (
-              <>
-                <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
-                Sincronizando...
-              </>
-            ) : (
-              <>
-                <Download size={16} />
-                Sincronizar
-              </>
+            {hasActiveFilters && (
+              <div className="mt-3 flex justify-end">
+                <button
+                  onClick={clearFilters}
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  Limpiar filtros
+                </button>
+              </div>
             )}
-          </button>
+          </div>
+
+          <div className="flex flex-wrap gap-2 justify-start sm:justify-end">
+            <button
+              onClick={() => {
+                setEditingTemplateId(null);
+                setShowTemplateBuilder(true);
+              }}
+              className="flex-1 sm:flex-none px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2 font-medium"
+            >
+              <ClipboardCheck className="w-4 h-4" />
+              Gestionar Plantillas
+            </button>
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="flex-1 sm:flex-none px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 flex items-center justify-center gap-2 font-medium"
+            >
+              {syncing ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+                  Sincronizando...
+                </>
+              ) : (
+                <>
+                  <Download size={16} />
+                  Sincronizar
+                </>
+              )}
+            </button>
+          </div>
+
+          {(hasMore || filteredInspections.length > 0) && (
+            <div className="bg-white border rounded-lg px-3 py-2 flex items-center justify-between text-sm">
+              <span className="text-gray-600">Mostrando {filteredInspections.length} inspección(es)</span>
+              {hasMore && (
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="text-blue-600 hover:text-blue-800 font-medium disabled:text-gray-400"
+                >
+                  {loadingMore ? 'Cargando...' : 'Cargar más'}
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Tabla de inspecciones */}
@@ -404,17 +480,26 @@ export default function InspectionsDashboard() {
           <div className="bg-white rounded-lg shadow-sm p-12 text-center border">
             <ClipboardCheck size={64} className="mx-auto text-gray-300 mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              No hay inspecciones
+              {hasActiveFilters ? 'No hay resultados con estos filtros' : 'No hay inspecciones'}
             </h3>
             <p className="text-gray-600 mb-6">
-              Comienza creando una nueva inspección
+              {hasActiveFilters ? 'Prueba limpiando filtros o ajustando la búsqueda' : 'Comienza creando una nueva inspección'}
             </p>
-            <button
-              onClick={() => setShowTemplateSelector(true)}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-            >
-              Crear Primera Inspección
-            </button>
+            {hasActiveFilters ? (
+              <button
+                onClick={clearFilters}
+                className="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-800 font-medium"
+              >
+                Limpiar filtros
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowTemplateSelector(true)}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+              >
+                Crear Primera Inspección
+              </button>
+            )}
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
@@ -430,7 +515,7 @@ export default function InspectionsDashboard() {
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Estado</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Puntuación</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Realizada</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Realizada por</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Fecha</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Acciones</th>
                 </tr>
               </thead>
@@ -445,7 +530,13 @@ export default function InspectionsDashboard() {
                         <p className="font-medium text-gray-900">
                           {inspection.title || 'Sin título'}
                         </p>
-                        <p className="text-sm text-gray-500">#{inspection.inspection_number}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-sm text-gray-500">#{inspection.inspection_number}</p>
+                          <span className={`inline-flex items-center gap-1 text-xs ${getSyncStatus(inspection).text}`}>
+                            <span className={`w-2 h-2 rounded-full ${getSyncStatus(inspection).dot}`} />
+                            {getSyncStatus(inspection).label}
+                          </span>
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
@@ -463,16 +554,23 @@ export default function InspectionsDashboard() {
                         </div>
                       </div>
                     </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {getInspectorName(inspection)}
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {inspection.completed_at
                         ? new Date(inspection.completed_at).toLocaleDateString('es-ES')
                         : new Date(inspection.created_at).toLocaleDateString('es-ES')}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
-                      {inspection.conducted_by_name || 'No especificado'}
-                    </td>
                     <td className="px-6 py-4">
                       <div className="flex gap-2">
+                        <button
+                          onClick={() => copyInspectionNumber(inspection.inspection_number)}
+                          className="px-3 py-1 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
+                          title="Copiar número"
+                        >
+                          <Copy size={14} />
+                        </button>
                         {inspection.status === 'DRAFT' ? (
                           <button
                             onClick={() => handleCreateInspection(inspection.template_id || selectedTemplate?.id)}
@@ -504,7 +602,13 @@ export default function InspectionsDashboard() {
                       <p className="font-semibold text-gray-900 leading-snug">
                         {inspection.title || 'Sin título'}
                       </p>
-                      <p className="text-sm text-gray-500">#{inspection.inspection_number}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-sm text-gray-500">#{inspection.inspection_number}</p>
+                        <span className={`inline-flex items-center gap-1 text-xs ${getSyncStatus(inspection).text}`}>
+                          <span className={`w-2 h-2 rounded-full ${getSyncStatus(inspection).dot}`} />
+                          {getSyncStatus(inspection).label}
+                        </span>
+                      </div>
                     </div>
                     <StatusBadgeTable status={inspection.status} priority={inspection.priority} />
                   </div>
@@ -512,22 +616,29 @@ export default function InspectionsDashboard() {
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <p className="text-gray-600">Ficha: <span className="font-medium text-gray-800">{inspection.ficha || '—'}</span></p>
                     <p className="text-gray-600">Score: <span className="font-medium text-gray-800">{inspection.score_percentage ? Math.round(inspection.score_percentage) : '—'}%</span></p>
+                    <p className="text-gray-600">Realizada: <span className="font-medium text-gray-800">{getInspectorName(inspection)}</span></p>
                     <p className="text-gray-600">Fecha: <span className="font-medium text-gray-800">{inspection.completed_at ? new Date(inspection.completed_at).toLocaleDateString('es-ES') : new Date(inspection.created_at).toLocaleDateString('es-ES')}</span></p>
-                    <p className="text-gray-600">Por: <span className="font-medium text-gray-800">{inspection.conducted_by_name || 'No especificado'}</span></p>
                   </div>
 
-                  <div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => copyInspectionNumber(inspection.inspection_number)}
+                      className="px-3 py-2 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50"
+                      title="Copiar número"
+                    >
+                      <Copy size={14} />
+                    </button>
                     {inspection.status === 'DRAFT' ? (
                       <button
                         onClick={() => handleCreateInspection(inspection.template_id || selectedTemplate?.id)}
-                        className="w-full px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+                        className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
                       >
                         Continuar
                       </button>
                     ) : (
                       <button
                         onClick={() => handleViewInspection(inspection)}
-                        className="w-full px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+                        className="flex-1 px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
                       >
                         Ver informe
                       </button>
@@ -539,11 +650,12 @@ export default function InspectionsDashboard() {
 
             {/* Botón Cargar Más */}
             {hasMore && !loading && filteredInspections.length > 0 && (
-              <div className="flex justify-center py-6 border-t">
+              <div className="flex items-center justify-between py-4 px-4 sm:px-6 border-t bg-gray-50">
+                <span className="text-sm text-gray-600">Mostrando {filteredInspections.length} inspección(es)</span>
                 <button
                   onClick={loadMore}
                   disabled={loadingMore}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {loadingMore ? (
                     <>
