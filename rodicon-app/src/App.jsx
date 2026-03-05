@@ -7,6 +7,7 @@ import { Menu } from 'lucide-react';
 // Hooks
 import { useNotifications } from './hooks/useNotifications';
 import { useDebounce } from './hooks/useDebounce';
+import { useOfflineSync } from './hooks/useOfflineSync';
 
 // Utilidades
 import { getSearchState, saveSearchState, getUserPreferences, saveUserPreferences } from './utils/storage';
@@ -150,6 +151,13 @@ export default function App() {
     markAllAsRead, 
     deleteNotification 
   } = useNotifications(user?.auth_id || user?.id);
+
+  const {
+    isConnected,
+    pendingCount,
+    syncing,
+    performSync,
+  } = useOfflineSync();
 
   // --- MANEJO DE ACCIONES PROTEGIDAS ---
   const protectedAction = (fn, allowedRoles = null) => {
@@ -329,6 +337,28 @@ export default function App() {
             onMarkAllAsRead={markAllAsRead}
             onDelete={deleteNotification}
           />
+        </div>
+      )}
+
+      {user && (!isConnected || pendingCount > 0) && (
+        <div className="fixed top-16 right-4 z-40">
+          <div className={`rounded-lg border px-3 py-2 text-xs shadow-sm ${
+            !isConnected
+              ? 'bg-amber-50 border-amber-200 text-amber-700'
+              : 'bg-blue-50 border-blue-200 text-blue-700'
+          }`}>
+            {!isConnected ? 'Sin conexión' : `${pendingCount} cambio(s) pendiente(s)`}
+            {isConnected && pendingCount > 0 && (
+              <button
+                type="button"
+                onClick={performSync}
+                disabled={syncing}
+                className="ml-2 underline font-semibold disabled:opacity-50"
+              >
+                {syncing ? 'Sincronizando...' : 'Sincronizar'}
+              </button>
+            )}
+          </div>
         </div>
       )}
 

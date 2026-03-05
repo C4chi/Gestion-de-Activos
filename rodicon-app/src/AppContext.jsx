@@ -6,6 +6,7 @@ import { useWorkshopWorkflow } from './hooks/useWorkshopWorkflow';
 import { useSafetyWorkflow } from './hooks/useSafetyWorkflow';
 import { useFormValidation } from './hooks/useFormValidation';
 import { generatePdf } from './PurchaseOrderPDF';
+import { isOnline, saveSafetyReportOffline } from './utils/offlineSync';
 
 /**
  * AppContext centraliza TODO el estado global de la app
@@ -550,6 +551,12 @@ export const AppProvider = ({ children }) => {
   const submitSafetyReport = async (reportData) => {
     if (!requireRole(['ADMIN', 'HSE'], 'crear reporte HSE')) return false;
     try {
+      if (!isOnline()) {
+        await saveSafetyReportOffline(reportData);
+        toast.success('Reporte HSE guardado sin conexión. Se sincronizará al reconectar.');
+        return true;
+      }
+
       const { error } = await supabase.from('safety_reports').insert([reportData]);
       if (error) throw error;
       toast.success('Reporte HSE creado');
@@ -570,7 +577,7 @@ export const AppProvider = ({ children }) => {
 
       const notas = safetyForm.notas || null;
 
-      const { error } = await supabase.from('safety_reports').insert([{
+      const payload = {
         ficha: safetyForm.ficha || selectedAsset.ficha,
         tipo: safetyForm.tipo || 'INCIDENTE',
         prioridad: safetyForm.prioridad || 'Media',
@@ -583,7 +590,15 @@ export const AppProvider = ({ children }) => {
         lugar: safetyForm.lugar || null,
         turno: safetyForm.turno || null,
         notas,
-      }]);
+      };
+
+      if (!isOnline()) {
+        await saveSafetyReportOffline(payload);
+        toast.success('Reporte de Seguridad guardado sin conexión. Se sincronizará al reconectar.');
+        return true;
+      }
+
+      const { error } = await supabase.from('safety_reports').insert([payload]);
 
       if (error) throw error;
       toast.success('Reporte de Seguridad registrado');

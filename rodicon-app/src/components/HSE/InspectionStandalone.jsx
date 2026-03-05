@@ -5,6 +5,7 @@ import FormRenderer from './FormRenderer';
 import { getTemplateById, createInspection, completeInspection, getInspectionById } from '../../services/hseService';
 import { supabase } from '../../supabaseClient';
 import { useAppContext } from '../../AppContext';
+import { isOnline, saveInspectionOffline } from '../../utils/offlineSync';
 
 export default function InspectionStandalone({ templateId }) {
   const { user } = useAppContext();
@@ -13,6 +14,24 @@ export default function InspectionStandalone({ templateId }) {
   const [saving, setSaving] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [completedInspection, setCompletedInspection] = useState(null);
+
+  const extractContextFromAnswers = (schema, answers) => {
+    let location = null;
+    let area = null;
+
+    schema?.sections?.forEach(section => {
+      section.items?.forEach(item => {
+        if (item.type === 'location' && answers[item.id]?.value) {
+          location = answers[item.id].label || answers[item.id].value;
+        }
+        if (item.type === 'area' && answers[item.id]?.value) {
+          area = answers[item.id].label || answers[item.id].value;
+        }
+      });
+    });
+
+    return { location, area };
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -52,21 +71,55 @@ export default function InspectionStandalone({ templateId }) {
           });
         });
       }
-      
-      const inspection = await createInspection({
+
+      const contextData = extractContextFromAnswers(template?.schema, formData.answers || {});
+
+      const createPayload = {
         template_id: template.id,
         title: template.name,
         priority: 'MEDIA',
         conducted_by: user?.id || null,
         asset_id: assetId,
-        ficha: ficha
-      });
+        ficha,
+        location: contextData.location,
+        area: contextData.area
+      };
 
-      await completeInspection(inspection.id, {
+      const completePayload = {
         ...formData,
         latitude: null,
         longitude: null
-      });
+      };
+
+      if (!isOnline()) {
+        const queued = await saveInspectionOffline({
+          createPayload,
+          completePayload
+        });
+
+        const localInspection = {
+          id: `offline-${queued.id}`,
+          inspection_number: `OFF-${String(Date.now()).slice(-6)}`,
+          title: template.name,
+          status: 'COMPLETED',
+          conducted_by_name: user?.nombre || user?.nombre_usuario || 'No especificado',
+          location: contextData.location,
+          area: contextData.area,
+          template_snapshot: template.schema,
+          answers: formData.answers || {},
+          created_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+        };
+
+        setCompletedInspection(localInspection);
+        setShowSuccessModal(true);
+        toast.success('✓ Inspección guardada sin conexión. Se sincronizará automáticamente.');
+        return;
+      }
+      
+      const inspection = await createInspection(createPayload);
+
+      await completeInspection(inspection.id, completePayload);
 
       const fullInspection = await getInspectionById(inspection.id);
       setCompletedInspection(fullInspection);

@@ -1182,7 +1182,6 @@ function PhotoUpload({ value, onChange, disabled, allowMultiple = false }) {
           <input
             type="file"
             accept="image/*,video/*"
-            capture="environment"
             multiple={allowMultiple}
             onChange={handleFileChange}
             disabled={disabled || uploading}
