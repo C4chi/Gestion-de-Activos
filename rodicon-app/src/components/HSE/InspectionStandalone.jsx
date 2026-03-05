@@ -7,7 +7,7 @@ import { supabase } from '../../supabaseClient';
 import { useAppContext } from '../../AppContext';
 import { isOnline, saveInspectionOffline } from '../../utils/offlineSync';
 
-export default function InspectionStandalone({ templateId, inspectionId = null }) {
+export default function InspectionStandalone({ templateId, inspectionId = null, fallbackUserId = null }) {
   const { user } = useAppContext();
   const [template, setTemplate] = useState(null);
   const [initialAnswers, setInitialAnswers] = useState({});
@@ -37,6 +37,11 @@ export default function InspectionStandalone({ templateId, inspectionId = null }
   };
 
   const isDraftMode = useMemo(() => Boolean(inspectionId), [inspectionId]);
+  const resolvedUserId = useMemo(() => {
+    if (user?.id) return String(user.id);
+    if (fallbackUserId) return String(fallbackUserId);
+    return null;
+  }, [user?.id, fallbackUserId]);
 
   useEffect(() => {
     const load = async () => {
@@ -52,7 +57,7 @@ export default function InspectionStandalone({ templateId, inspectionId = null }
             return;
           }
 
-          if (!user?.id || String(existingInspection.conducted_by) !== String(user.id)) {
+          if (!resolvedUserId || String(existingInspection.conducted_by) !== String(resolvedUserId)) {
             toast.error('Solo el usuario que inició el borrador puede continuarlo');
             setAccessDenied(true);
             return;
@@ -86,7 +91,7 @@ export default function InspectionStandalone({ templateId, inspectionId = null }
       }
     };
     load();
-  }, [templateId, inspectionId, user?.id]);
+  }, [templateId, inspectionId, resolvedUserId]);
 
   const handleSubmit = async (formData) => {
     if (!formData) {
@@ -96,6 +101,11 @@ export default function InspectionStandalone({ templateId, inspectionId = null }
 
     try {
       setSaving(true);
+
+      if (!resolvedUserId) {
+        toast.error('No se pudo identificar el usuario que realiza la inspección. Cierra y abre de nuevo desde el panel.');
+        return;
+      }
       
       // Extraer asset_id si hay un campo tipo 'asset' en las respuestas
       let assetId = null;
@@ -118,7 +128,7 @@ export default function InspectionStandalone({ templateId, inspectionId = null }
         ...formData,
         latitude: null,
         longitude: null,
-        conducted_by: user?.id || null
+        conducted_by: resolvedUserId || null
       };
 
       if (isDraftMode && draftInspection) {
@@ -139,7 +149,7 @@ export default function InspectionStandalone({ templateId, inspectionId = null }
         template_id: template.id,
         title: template.name,
         priority: 'MEDIA',
-        conducted_by: user?.id || null,
+        conducted_by: resolvedUserId || null,
         asset_id: assetId,
         ficha,
         location: contextData.location,

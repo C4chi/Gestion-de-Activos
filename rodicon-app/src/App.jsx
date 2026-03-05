@@ -74,6 +74,7 @@ export default function App() {
   const params = new URLSearchParams(window.location.search);
   const standaloneTemplateId = params.get('hseTemplateId');
   const standaloneInspectionId = params.get('hseInspectionId');
+  const standaloneUserId = params.get('hseUserId');
 
   // --- ESTADO Y LÓGICA DEL CONTEXTO GLOBAL (Sin prop drilling) ---
   const {
@@ -106,7 +107,7 @@ export default function App() {
     return (
       <>
         <Suspense fallback={<LazyLoadFallback />}>
-          <InspectionStandalone templateId={standaloneTemplateId} inspectionId={standaloneInspectionId} />
+          <InspectionStandalone templateId={standaloneTemplateId} inspectionId={standaloneInspectionId} fallbackUserId={standaloneUserId} />
         </Suspense>
         <Toaster position="top-right" />
       </>

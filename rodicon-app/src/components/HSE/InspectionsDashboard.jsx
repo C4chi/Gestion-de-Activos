@@ -172,6 +172,9 @@ export default function InspectionsDashboard() {
     try {
       const url = new URL(window.location.href);
       url.searchParams.set('hseTemplateId', templateId);
+      if (user?.id) {
+        url.searchParams.set('hseUserId', String(user.id));
+      }
       window.open(url.toString(), '_blank', 'noopener,noreferrer');
       setShowTemplateSelector(false);
     } catch (error) {
@@ -197,6 +200,9 @@ export default function InspectionsDashboard() {
       const url = new URL(window.location.href);
       url.searchParams.set('hseTemplateId', inspection.template_id);
       url.searchParams.set('hseInspectionId', inspection.id);
+      if (user?.id) {
+        url.searchParams.set('hseUserId', String(user.id));
+      }
       window.open(url.toString(), '_blank', 'noopener,noreferrer');
     } catch (error) {
       console.error('Error opening draft:', error);
@@ -239,14 +245,15 @@ export default function InspectionsDashboard() {
         template_id: selectedTemplate.id,
         title: selectedTemplate.name,
         priority: 'MEDIA',
-        conducted_by: 1 // TODO: Obtener del contexto
+        conducted_by: user?.id || null
       });
 
       // Completar con las respuestas
       await completeInspection(inspection.id, {
         ...formData,
         latitude: null, // TODO: Obtener geolocalización
-        longitude: null
+        longitude: null,
+        conducted_by: user?.id || null
       });
 
           toast.success('✓ Inspección completada exitosamente');
