@@ -260,7 +260,7 @@ export const saveInspectionProgress = async (id, answers) => {
 
 // Completar inspección
 export const completeInspection = async (id, finalData) => {
-  const { answers, score, passed, latitude, longitude } = finalData;
+  const { answers, score, passed, latitude, longitude, conducted_by } = finalData;
 
   // Calcular flags automáticos
   const hasPhotos = Object.values(answers).some(
@@ -284,6 +284,7 @@ export const completeInspection = async (id, finalData) => {
       has_signature: hasSignature,
       latitude,
       longitude,
+      ...(conducted_by ? { conducted_by } : {}),
       is_synced: true
     })
     .eq('id', id)

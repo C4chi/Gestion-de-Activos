@@ -1132,7 +1132,36 @@ function PhotoUpload({ value, onChange, disabled, allowMultiple = false, onUploa
       }
     } catch (error) {
       console.error('Error uploading photo:', error);
-      toast.error('No se pudo subir la foto. Revisa tu conexión e inténtalo de nuevo.');
+
+      // Fallback robusto: guardar imagen comprimida en base64 para no bloquear la inspección
+      try {
+        const toBase64 = (fileObj) => new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(fileObj);
+        });
+
+        const optimizedFiles = await Promise.all(Array.from(files).map((file) => compressImage(file)));
+        const dataUrls = await Promise.all(optimizedFiles.map((file) => toBase64(file)));
+
+        if (allowMultiple) {
+          const currentUrls = Array.isArray(value) ? value : (value ? [value] : []);
+          onChange([...currentUrls, ...dataUrls]);
+        } else {
+          onChange(dataUrls[0]);
+        }
+
+        const isRlsError = String(error?.message || '').toLowerCase().includes('row-level security');
+        if (isRlsError) {
+          toast('Sin permiso de storage: foto guardada localmente para completar la inspección.', { icon: '⚠️' });
+        } else {
+          toast('Foto guardada localmente por fallo de red/storage.', { icon: '⚠️' });
+        }
+      } catch (fallbackErr) {
+        console.error('Error fallback local photo:', fallbackErr);
+        toast.error('No se pudo guardar la foto. Intenta con una imagen más ligera.');
+      }
     } finally {
       setUploading(false);
       onUploadStateChange(false);

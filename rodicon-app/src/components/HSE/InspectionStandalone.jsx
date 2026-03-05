@@ -117,7 +117,8 @@ export default function InspectionStandalone({ templateId, inspectionId = null }
       const completePayload = {
         ...formData,
         latitude: null,
-        longitude: null
+        longitude: null,
+        conducted_by: user?.id || null
       };
 
       if (isDraftMode && draftInspection) {
@@ -305,12 +306,62 @@ export default function InspectionStandalone({ templateId, inspectionId = null }
       ? { bg: 'rgba(34,197,94,0.12)', text: '#16a34a', border: 'rgba(34,197,94,0.45)', label: 'Completada', icon: '✓' }
       : { bg: 'rgba(249,115,22,0.12)', text: '#ea580c', border: 'rgba(249,115,22,0.35)', label: 'Incompleta', icon: '⏱' };
 
+    const renderFollowUpDetails = (itemId) => {
+      if (!itemId) return '';
+
+      const questions = Object.entries(answers)
+        .filter(([key, ans]) => key.startsWith(`${itemId}_question_`) && ans?.value)
+        .sort(([a], [b]) => a.localeCompare(b));
+
+      const note = answers[`${itemId}_followup_note`]?.value;
+      const filesValue = answers[`${itemId}_followup_files`]?.value;
+      const files = Array.isArray(filesValue) ? filesValue : (filesValue ? [filesValue] : []);
+
+      if (questions.length === 0 && !note && files.length === 0) return '';
+
+      const questionsHtml = questions.map(([, ans], idx) => `
+        <div style="margin-top:8px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+          <p style="font-size:12px;color:#475569;margin:0 0 4px 0;font-weight:700;">${ans?.label || `Pregunta adicional ${idx + 1}`}</p>
+          <p style="font-size:13px;color:#0f172a;margin:0;line-height:1.5;">${ans?.value || '—'}</p>
+        </div>
+      `).join('');
+
+      const noteHtml = note ? `
+        <div style="margin-top:8px;padding:12px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;">
+          <p style="font-size:12px;color:#92400e;margin-bottom:4px;font-weight:700;">Nota de seguimiento</p>
+          <p style="font-size:14px;color:#0f172a;line-height:1.5;margin:0;">${note}</p>
+        </div>
+      ` : '';
+
+      const filesHtml = files.length > 0 ? `
+        <div style="margin-top:10px;">
+          <p style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;">Archivos de seguimiento (${files.length})</p>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
+            ${files.map((url, idx) => `
+              <div style="position:relative;">
+                <img src="${url}" style="width:100%;height:120px;object-fit:cover;border-radius:10px;border:1px solid #e2e8f0;" />
+                <span style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.7);color:white;padding:2px 6px;border-radius:4px;font-size:10px;">Archivo ${idx + 1}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : '';
+
+      return `
+        <div style="margin-top:10px;">
+          ${questionsHtml}
+          ${noteHtml}
+          ${filesHtml}
+        </div>
+      `;
+    };
+
     const renderFieldValue = (item, answer) => {
       const value = answer?.value;
 
       if (item.type === 'asset' || item.type === 'location' || item.type === 'area') {
         const label = answer?.label || value;
-        return `<div style="margin-top:6px;color:#0f172a;font-size:15px;font-weight:600;">${label || '—'}</div>`;
+        return `<div style="margin-top:6px;color:#0f172a;font-size:15px;font-weight:600;">${label || '—'}</div>${renderFollowUpDetails(item.id)}`;
       }
 
       if (item.type === 'signature') {
@@ -368,6 +419,7 @@ export default function InspectionStandalone({ templateId, inspectionId = null }
               ${answers[item.id + '_field'].value}
             </div>
           ` : ''}
+          ${renderFollowUpDetails(item.id)}
         `;
       }
 
@@ -395,16 +447,16 @@ export default function InspectionStandalone({ templateId, inspectionId = null }
       }
 
       if (item.type === 'checkbox') {
-        return `<div style="margin-top:4px;color:#059669;font-weight:700;">${value ? '✓ Sí' : '✗ No'}</div>`;
+        return `<div style="margin-top:4px;color:#059669;font-weight:700;">${value ? '✓ Sí' : '✗ No'}</div>${renderFollowUpDetails(item.id)}`;
       }
 
       if (item.type === 'text' || item.type === 'textarea' || item.type === 'number') {
         const formattedValue = formatPossibleDateTimeValue(value);
-        return `<div style="margin-top:6px;color:#0f172a;font-size:14px;line-height:1.6;">${formattedValue || '—'}</div>`;
+        return `<div style="margin-top:6px;color:#0f172a;font-size:14px;line-height:1.6;">${formattedValue || '—'}</div>${renderFollowUpDetails(item.id)}`;
       }
 
       const formattedValue = formatPossibleDateTimeValue(value);
-      return `<div style="margin-top:6px;color:#0f172a;font-size:14px;">${formattedValue ?? '—'}</div>`;
+      return `<div style="margin-top:6px;color:#0f172a;font-size:14px;">${formattedValue ?? '—'}</div>${renderFollowUpDetails(item.id)}`;
     };
 
     const buildSections = () => {
