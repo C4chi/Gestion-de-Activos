@@ -4,6 +4,7 @@ import { StatusBadge } from './StatusBadge'; // No changes needed here, looks co
 import { DashboardCard } from './DashboardCard'; // No changes needed here, looks correct.
 
 export const InventoryView = ({
+  userName,
   kpis,
   filter,
   setFilter,
@@ -67,6 +68,13 @@ export const InventoryView = ({
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 lg:p-8">
+        <div className="mb-4 lg:mb-6">
+          <h2 className="text-lg lg:text-2xl font-bold text-gray-800">
+            Bienvenido, {userName}
+          </h2>
+          <p className="text-sm text-gray-500">Panel principal de gestión</p>
+        </div>
+
         {/* Tarjetas Dashboard */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-6 lg:mb-8">
           <DashboardCard title="Total Activos" value={kpis.total} icon="🚙" color="blue" active={filter === 'ALL'} onClick={() => setFilter('ALL')} />

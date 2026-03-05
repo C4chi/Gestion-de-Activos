@@ -355,6 +355,7 @@ export default function App() {
 
       <ErrorBoundary section="Dashboard Principal">
         <InventoryView
+          userName={user?.nombre || user?.nombre_usuario || 'Usuario'}
           kpis={kpis}
           filter={filter}
           setFilter={setFilter}
