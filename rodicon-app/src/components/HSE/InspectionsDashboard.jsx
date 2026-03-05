@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ClipboardCheck, Plus, Search, Filter, Download, Copy,
-  CheckCircle, Clock, AlertTriangle, Award, TrendingUp, Wifi, WifiOff
+  CheckCircle, Clock, AlertTriangle, Award, TrendingUp, Wifi, WifiOff, Trash2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAppContext } from '../../AppContext';
@@ -20,6 +20,7 @@ import {
   getActiveTemplates,
   createInspection,
   completeInspection,
+  deleteInspection,
   syncPendingInspections
 } from '../../services/hseService';
 
@@ -176,6 +177,50 @@ export default function InspectionsDashboard() {
     } catch (error) {
       console.error('Error:', error);
       toast.error('No se pudo abrir la inspección');
+    }
+  };
+
+  const isDraftOwner = (inspection) => {
+    if (!inspection || inspection.status !== 'DRAFT' || !inspection.conducted_by || !user?.id) return false;
+    return String(inspection.conducted_by) === String(user.id);
+  };
+
+  const handleContinueDraft = (inspection) => {
+    if (!inspection || inspection.status !== 'DRAFT') return;
+
+    if (!isDraftOwner(inspection)) {
+      toast.error('Solo el usuario que inició el borrador puede continuarlo');
+      return;
+    }
+
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('hseTemplateId', inspection.template_id);
+      url.searchParams.set('hseInspectionId', inspection.id);
+      window.open(url.toString(), '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('Error opening draft:', error);
+      toast.error('No se pudo abrir el borrador');
+    }
+  };
+
+  const handleDeleteInspection = async (inspection) => {
+    if (!inspection?.id) return;
+
+    const confirmDelete = window.confirm(`¿Eliminar la inspección #${inspection.inspection_number || ''}? Esta acción no se puede deshacer.`);
+    if (!confirmDelete) return;
+
+    try {
+      await deleteInspection(inspection.id);
+      toast.success('Inspección eliminada correctamente');
+      if (selectedInspection?.id === inspection.id) {
+        setShowDetailModal(false);
+        setSelectedInspection(null);
+      }
+      loadData();
+    } catch (error) {
+      console.error('Error deleting inspection:', error);
+      toast.error(error?.message || 'Error al eliminar la inspección');
     }
   };
 
@@ -573,8 +618,10 @@ export default function InspectionsDashboard() {
                         </button>
                         {inspection.status === 'DRAFT' ? (
                           <button
-                            onClick={() => handleCreateInspection(inspection.template_id || selectedTemplate?.id)}
-                            className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                            onClick={() => handleContinueDraft(inspection)}
+                            disabled={!isDraftOwner(inspection)}
+                            className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                            title={!isDraftOwner(inspection) ? 'Solo el creador puede continuar este borrador' : 'Continuar borrador'}
                           >
                             Continuar
                           </button>
@@ -586,6 +633,13 @@ export default function InspectionsDashboard() {
                             Ver informe
                           </button>
                         )}
+                        <button
+                          onClick={() => handleDeleteInspection(inspection)}
+                          className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
+                          title="Eliminar inspección"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -630,8 +684,9 @@ export default function InspectionsDashboard() {
                     </button>
                     {inspection.status === 'DRAFT' ? (
                       <button
-                        onClick={() => handleCreateInspection(inspection.template_id || selectedTemplate?.id)}
-                        className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+                        onClick={() => handleContinueDraft(inspection)}
+                        disabled={!isDraftOwner(inspection)}
+                        className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
                       >
                         Continuar
                       </button>
@@ -643,6 +698,13 @@ export default function InspectionsDashboard() {
                         Ver informe
                       </button>
                     )}
+                    <button
+                      onClick={() => handleDeleteInspection(inspection)}
+                      className="px-3 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700"
+                      title="Eliminar inspección"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 </div>
               ))}

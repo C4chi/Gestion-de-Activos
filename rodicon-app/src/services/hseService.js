@@ -456,14 +456,8 @@ export const getInspections = async (filters = {}) => {
   }));
 };
 
-// Eliminar inspección (solo drafts)
+// Eliminar inspección
 export const deleteInspection = async (id) => {
-  // Verificar que esté en DRAFT
-  const inspection = await getInspectionById(id);
-  if (inspection.status !== 'DRAFT') {
-    throw new Error('Solo se pueden eliminar borradores');
-  }
-
   const { error } = await supabase
     .from('hse_inspections')
     .delete()

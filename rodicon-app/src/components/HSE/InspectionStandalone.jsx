@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ClipboardCheck, CheckCircle, Download, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import FormRenderer from './FormRenderer';
@@ -7,9 +7,12 @@ import { supabase } from '../../supabaseClient';
 import { useAppContext } from '../../AppContext';
 import { isOnline, saveInspectionOffline } from '../../utils/offlineSync';
 
-export default function InspectionStandalone({ templateId }) {
+export default function InspectionStandalone({ templateId, inspectionId = null }) {
   const { user } = useAppContext();
   const [template, setTemplate] = useState(null);
+  const [initialAnswers, setInitialAnswers] = useState({});
+  const [draftInspection, setDraftInspection] = useState(null);
+  const [accessDenied, setAccessDenied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -33,11 +36,48 @@ export default function InspectionStandalone({ templateId }) {
     return { location, area };
   };
 
+  const isDraftMode = useMemo(() => Boolean(inspectionId), [inspectionId]);
+
   useEffect(() => {
     const load = async () => {
       try {
+        setAccessDenied(false);
+
+        if (inspectionId) {
+          const existingInspection = await getInspectionById(inspectionId);
+
+          if (!existingInspection || existingInspection.status !== 'DRAFT') {
+            toast.error('El borrador no está disponible para continuar');
+            setAccessDenied(true);
+            return;
+          }
+
+          if (!user?.id || String(existingInspection.conducted_by) !== String(user.id)) {
+            toast.error('Solo el usuario que inició el borrador puede continuarlo');
+            setAccessDenied(true);
+            return;
+          }
+
+          const draftTemplate = existingInspection.template_snapshot
+            ? {
+                id: existingInspection.template_id || templateId,
+                name: existingInspection.title || 'Inspección HSE',
+                description: '',
+                schema: existingInspection.template_snapshot,
+                scoring_enabled: existingInspection.template_snapshot?.scoring?.enabled ?? true
+              }
+            : await getTemplateById(existingInspection.template_id || templateId);
+
+          setTemplate(draftTemplate);
+          setInitialAnswers(existingInspection.answers || {});
+          setDraftInspection(existingInspection);
+          return;
+        }
+
         const tpl = await getTemplateById(templateId);
         setTemplate(tpl);
+        setInitialAnswers({});
+        setDraftInspection(null);
       } catch (error) {
         console.error('Error loading template', error);
         toast.error('No se pudo cargar la plantilla');
@@ -46,7 +86,7 @@ export default function InspectionStandalone({ templateId }) {
       }
     };
     load();
-  }, [templateId]);
+  }, [templateId, inspectionId, user?.id]);
 
   const handleSubmit = async (formData) => {
     if (!formData) {
@@ -74,6 +114,26 @@ export default function InspectionStandalone({ templateId }) {
 
       const contextData = extractContextFromAnswers(template?.schema, formData.answers || {});
 
+      const completePayload = {
+        ...formData,
+        latitude: null,
+        longitude: null
+      };
+
+      if (isDraftMode && draftInspection) {
+        if (!isOnline()) {
+          toast.error('Debes tener conexión para continuar un borrador existente');
+          return;
+        }
+
+        await completeInspection(draftInspection.id, completePayload);
+        const fullInspection = await getInspectionById(draftInspection.id);
+        setCompletedInspection(fullInspection);
+        setShowSuccessModal(true);
+        toast.success('✓ Borrador completado exitosamente');
+        return;
+      }
+
       const createPayload = {
         template_id: template.id,
         title: template.name,
@@ -83,12 +143,6 @@ export default function InspectionStandalone({ templateId }) {
         ficha,
         location: contextData.location,
         area: contextData.area
-      };
-
-      const completePayload = {
-        ...formData,
-        latitude: null,
-        longitude: null
       };
 
       if (!isOnline()) {
@@ -616,6 +670,23 @@ export default function InspectionStandalone({ templateId }) {
   }
 
   if (!template) {
+    if (accessDenied) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+          <div className="bg-white border border-red-200 rounded-xl p-6 text-center max-w-md w-full">
+            <p className="text-red-700 font-semibold">No tienes permisos para continuar este borrador.</p>
+            <button
+              type="button"
+              onClick={() => window.close()}
+              className="mt-4 px-4 py-2 border rounded-lg text-sm hover:bg-gray-50"
+            >
+              Cerrar ventana
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <p className="text-gray-600">No se encontró la plantilla.</p>
@@ -630,7 +701,7 @@ export default function InspectionStandalone({ templateId }) {
           <div className="flex items-center gap-2 text-gray-800">
             <ClipboardCheck className="text-blue-600" />
             <div>
-              <p className="text-xs text-gray-500">Nueva inspección</p>
+              <p className="text-xs text-gray-500">{isDraftMode ? 'Continuación de borrador' : 'Nueva inspección'}</p>
               <h1 className="text-lg font-semibold">{template.name}</h1>
               {template.description && (
                 <p className="text-xs text-gray-500">{template.description}</p>
@@ -654,6 +725,7 @@ export default function InspectionStandalone({ templateId }) {
         <div className="bg-white shadow-sm rounded-xl p-4 sm:p-6">
           <FormRenderer
             template={template}
+            initialAnswers={initialAnswers}
             onSubmit={handleSubmit}
             mode="edit"
             showScore={template.scoring_enabled}

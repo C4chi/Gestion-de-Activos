@@ -73,6 +73,7 @@ const LazyLoadFallback = () => (
 export default function App() {
   const params = new URLSearchParams(window.location.search);
   const standaloneTemplateId = params.get('hseTemplateId');
+  const standaloneInspectionId = params.get('hseInspectionId');
 
   // --- ESTADO Y LÓGICA DEL CONTEXTO GLOBAL (Sin prop drilling) ---
   const {
@@ -105,7 +106,7 @@ export default function App() {
     return (
       <>
         <Suspense fallback={<LazyLoadFallback />}>
-          <InspectionStandalone templateId={standaloneTemplateId} />
+          <InspectionStandalone templateId={standaloneTemplateId} inspectionId={standaloneInspectionId} />
         </Suspense>
         <Toaster position="top-right" />
       </>

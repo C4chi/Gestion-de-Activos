@@ -363,6 +363,7 @@ export default function FormRenderer({
   const [assetOptions, setAssetOptions] = useState([]);
   const [locationOptions, setLocationOptions] = useState([]);
   const [currentSectionIdx, setCurrentSectionIdx] = useState(0);
+  const [activeUploads, setActiveUploads] = useState(0);
 
   const { answers, errors, score, visibleItems, updateAnswer, validate, validateSection } = useFormState(
     schema,
@@ -450,6 +451,11 @@ export default function FormRenderer({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (activeUploads > 0) {
+      toast.error('Espera a que terminen de subir las fotos antes de completar');
+      return;
+    }
 
     if (!validate()) {
       toast.error('Completa todos los campos obligatorios');
@@ -558,6 +564,9 @@ export default function FormRenderer({
                       answers={answers}
                       updateAnswer={updateAnswer}
                       followUpActions={followUpActions}
+                      onUploadStateChange={(isUploading) => {
+                        setActiveUploads((prev) => Math.max(0, prev + (isUploading ? 1 : -1)));
+                      }}
                       disabled={mode === 'view' || isSubmitting}
                     />
                   );
@@ -574,7 +583,7 @@ export default function FormRenderer({
               type="button"
               onClick={() => onSubmit(null)}
               className="px-4 py-2 border rounded-lg hover:bg-gray-50"
-              disabled={isSubmitting}
+                disabled={isSubmitting || activeUploads > 0}
             >
               Cancelar
             </button>
@@ -585,7 +594,7 @@ export default function FormRenderer({
                   type="button"
                   onClick={() => goToSection(currentSectionIdx - 1)}
                   className="px-3 sm:px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm sm:text-base flex-1 sm:flex-none"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || activeUploads > 0}
                 >
                   Anterior
                 </button>
@@ -596,7 +605,7 @@ export default function FormRenderer({
                   type="button"
                   onClick={handleNextSection}
                   className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm sm:text-base flex-1 sm:flex-none"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || activeUploads > 0}
                 >
                   Siguiente
                 </button>
@@ -604,12 +613,17 @@ export default function FormRenderer({
                 <button
                   type="submit"
                   className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-1.5 text-sm sm:text-base flex-1 sm:flex-none min-w-0"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || activeUploads > 0}
                 >
                   {isSubmitting ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       <span className="truncate">Guardando...</span>
+                    </>
+                  ) : activeUploads > 0 ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span className="truncate">Subiendo fotos...</span>
                     </>
                   ) : (
                     <>
@@ -630,7 +644,7 @@ export default function FormRenderer({
 /**
  * Componente para renderizar un item individual
  */
-function FormItem({ item, value, error, onChange, disabled, assetOptions = [], locationOptions = [], answers = {}, updateAnswer, followUpActions = null }) {
+function FormItem({ item, value, error, onChange, disabled, assetOptions = [], locationOptions = [], answers = {}, updateAnswer, followUpActions = null, onUploadStateChange = () => {} }) {
   const renderInput = () => {
     switch (item.type) {
       case 'text':
@@ -746,6 +760,7 @@ function FormItem({ item, value, error, onChange, disabled, assetOptions = [], l
                     <PhotoUpload 
                       value={answers[`${item.id}_photo`]?.value}
                       onChange={(val) => updateAnswer(`${item.id}_photo`, val, { type: 'photo' })}
+                      onUploadStateChange={onUploadStateChange}
                       disabled={disabled}
                       allowMultiple={selectedOption.allowMultiple !== false}
                     />
@@ -912,7 +927,7 @@ function FormItem({ item, value, error, onChange, disabled, assetOptions = [], l
         );
 
       case 'photo':
-        return <PhotoUpload value={value} onChange={onChange} disabled={disabled} allowMultiple={item.allowMultiple !== false} />;
+        return <PhotoUpload value={value} onChange={onChange} onUploadStateChange={onUploadStateChange} disabled={disabled} allowMultiple={item.allowMultiple !== false} />;
 
       case 'signature':
         return <SignatureCapture value={value} onChange={onChange} disabled={disabled} />;
@@ -1017,6 +1032,7 @@ function FormItem({ item, value, error, onChange, disabled, assetOptions = [], l
               <PhotoUpload
                 value={answers[`${item.id}_followup_files`]?.value}
                 onChange={(val) => updateAnswer(`${item.id}_followup_files`, val, { type: 'photo', label: 'Archivos multimedia' })}
+                onUploadStateChange={onUploadStateChange}
                 disabled={disabled}
                 allowMultiple={true}
               />
@@ -1039,24 +1055,61 @@ function FormItem({ item, value, error, onChange, disabled, assetOptions = [], l
 /**
  * Componente para subir fotos
  */
-function PhotoUpload({ value, onChange, disabled, allowMultiple = false }) {
+function PhotoUpload({ value, onChange, disabled, allowMultiple = false, onUploadStateChange = () => {} }) {
   const [uploading, setUploading] = useState(false);
+
+  const compressImage = async (file) => {
+    if (!file?.type?.startsWith('image/')) return file;
+
+    const img = await new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = URL.createObjectURL(file);
+    });
+
+    const maxWidth = 1600;
+    const maxHeight = 1600;
+    const ratio = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
+    const targetWidth = Math.round(img.width * ratio);
+    const targetHeight = Math.round(img.height * ratio);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+    const blob = await new Promise((resolve) => {
+      canvas.toBlob(resolve, 'image/jpeg', 0.75);
+    });
+
+    if (!blob) return file;
+
+    return new File([blob], `${file.name.replace(/\.[^.]+$/, '')}.jpg`, {
+      type: 'image/jpeg',
+      lastModified: Date.now()
+    });
+  };
 
   const handleFileChange = async (e) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     setUploading(true);
+    onUploadStateChange(true);
     try {
       const uploadPromises = Array.from(files).map(async (file) => {
+        const optimizedFile = await compressImage(file);
         const fileExt = file.name.split('.').pop();
         const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-        const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}`;
+        const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName.replace(/\.[^.]+$/, '')}.${optimizedFile.type === 'image/jpeg' ? 'jpg' : fileExt}`;
         const filePath = `public/hse-inspections/${fileName}`;
 
         const { error } = await supabase.storage
           .from('uploads')
-          .upload(filePath, file, { contentType: file.type, upsert: false });
+          .upload(filePath, optimizedFile, { contentType: optimizedFile.type, upsert: false });
 
         if (error) throw error;
 
@@ -1079,32 +1132,11 @@ function PhotoUpload({ value, onChange, disabled, allowMultiple = false }) {
       }
     } catch (error) {
       console.error('Error uploading photo:', error);
-
-      // Fallback: si RLS bloquea el upload, guardamos base64 local para no romper flujo
-      try {
-        const toBase64 = (fileObj) => new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(fileObj);
-        });
-
-        const dataUrlsPromises = Array.from(files).map(file => toBase64(file));
-        const dataUrls = await Promise.all(dataUrlsPromises);
-        
-        if (allowMultiple) {
-          const currentUrls = Array.isArray(value) ? value : (value ? [value] : []);
-          onChange([...currentUrls, ...dataUrls]);
-        } else {
-          onChange(dataUrls[0]);
-        }
-        toast.success('Guardado local (sin subir). Revisa permisos del bucket uploads.');
-      } catch (fallbackErr) {
-        console.error('Error fallback base64:', fallbackErr);
-        toast.error('No se pudo guardar la foto. Revisa permisos del bucket uploads.');
-      }
+      toast.error('No se pudo subir la foto. Revisa tu conexión e inténtalo de nuevo.');
     } finally {
       setUploading(false);
+      onUploadStateChange(false);
+      e.target.value = '';
     }
   };
 
@@ -1181,7 +1213,7 @@ function PhotoUpload({ value, onChange, disabled, allowMultiple = false }) {
           )}
           <input
             type="file"
-            accept="image/*,video/*"
+            accept="image/*"
             multiple={allowMultiple}
             onChange={handleFileChange}
             disabled={disabled || uploading}
