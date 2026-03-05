@@ -201,9 +201,9 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
       if (item.type === 'signature') {
         if (value?.startsWith?.('text:')) {
           const signatureName = value.replace('text:', '');
-          return `<div style="margin-top:8px;padding:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;min-height:140px;display:flex;align-items:center;page-break-inside:avoid;break-inside:avoid;"><p style="font-size:28px;font-style:italic;color:#0f172a;font-family:cursive;margin:0;">${signatureName}</p></div>`;
+          return `<div style="margin-top:8px;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;min-height:90px;display:flex;align-items:center;"><p style="font-size:26px;font-style:italic;color:#0f172a;font-family:cursive;margin:0;">${signatureName}</p></div>`;
         } else if (value) {
-          return `<div style="margin-top:8px;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#ffffff;min-height:220px;display:flex;align-items:center;justify-content:center;page-break-inside:avoid;break-inside:avoid;"><img src="${value}" style="width:100%;max-width:520px;height:200px;object-fit:contain;" /></div>`;
+          return `<div style="margin-top:8px;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#ffffff;min-height:120px;display:flex;align-items:center;justify-content:center;"><img src="${value}" style="max-width:100%;max-height:130px;width:auto;height:auto;object-fit:contain;" /></div>`;
         }
         return '<div style="margin-top:4px;color:#9ca3af;">Sin firma</div>';
       }
@@ -228,16 +228,16 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
         if (photos.length === 0) return '<div style="margin-top:4px;color:#9ca3af;">Sin fotos</div>';
         
         if (photos.length === 1) {
-          return `<div style="margin-top:8px;"><img src="${photos[0]}" style="max-width:100%;height:auto;border-radius:10px;border:1px solid #e2e8f0;" /></div>`;
+          return `<div style="margin-top:8px;"><img src="${photos[0]}" style="width:100%;max-height:280px;object-fit:cover;border-radius:10px;border:1px solid #e2e8f0;" /></div>`;
         }
         
         return `
           <div style="margin-top:8px;">
             <p style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;">${photos.length} fotos</p>
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;">
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
               ${photos.map((url, idx) => `
                 <div style="position:relative;">
-                  <img src="${url}" style="width:100%;height:150px;object-fit:cover;border-radius:10px;border:1px solid #e2e8f0;" />
+                  <img src="${url}" style="width:100%;height:130px;object-fit:cover;border-radius:10px;border:1px solid #e2e8f0;" />
                   <span style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.7);color:white;padding:2px 6px;border-radius:4px;font-size:10px;">Foto ${idx + 1}</span>
                 </div>
               `).join('')}
@@ -262,7 +262,7 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
     const buildSections = () => {
       if (!tpl.sections) return '';
       return tpl.sections.map((section, sectionIdx) => `
-        <div class="section-card" style="page-break-inside:avoid;break-inside:avoid;">
+        <div class="section-card">
           <div class="section-header">
             <h3 class="section-title">${section.title || `Sección ${sectionIdx + 1}`}</h3>
             ${section.description ? `<p class="section-desc">${section.description}</p>` : ''}
@@ -271,7 +271,7 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
             ${(section.items || []).map(item => {
               const answer = answers[item.id];
               return `
-                <div class="field-item" style="page-break-inside:avoid;break-inside:avoid;">
+                <div class="field-item">
                   <div class="field-label">
                     ${(item.label || '').trim() || 'Pregunta'}
                     ${item.required ? '<span class="required-mark">*</span>' : ''}
@@ -298,18 +298,19 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
             * { margin:0; padding:0; box-sizing:border-box; }
             body {
               font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-              background: #e5e7eb;
+              background: white;
               color: #0f172a;
               padding: 0;
             }
             .page-container {
-              max-width: 880px;
-              margin: 24px auto;
+              width: 100%;
+              max-width: 794px;
+              margin: 0 auto;
               background: white;
               border: 1px solid #e2e8f0;
-              border-radius: 16px;
+              border-radius: 0;
               overflow: hidden;
-              box-shadow: 0 18px 60px rgba(15,23,42,0.14);
+              box-shadow: none;
             }
             .header-band {
               background: #0f172a;
@@ -361,16 +362,14 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
               letter-spacing: 0.02em;
               text-transform: uppercase;
             }
-            .content-area { padding: 28px 32px; background: #f8fafc; }
+            .content-area { padding: 20px 24px; background: #f8fafc; }
             .section-card {
               background: white;
               border: 1px solid #e2e8f0;
               border-radius: 14px;
-              margin-bottom: 18px;
+              margin-bottom: 12px;
               overflow: hidden;
               box-shadow: 0 8px 24px rgba(15,23,42,0.06);
-              page-break-inside: avoid;
-              break-inside: avoid;
             }
             .section-header {
               background: #f8fafc;
@@ -380,17 +379,13 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
             .section-title { font-size: 16px; font-weight: 700; color: #0f172a; margin: 0; letter-spacing: -0.01em; }
             .section-desc { font-size: 13px; color: #64748b; margin-top: 4px; }
             .section-body {
-              padding: 20px 20px;
+              padding: 14px 16px;
               display: grid;
-              gap: 18px;
-              page-break-inside: avoid;
-              break-inside: avoid;
+              gap: 14px;
             }
             .field-item {
-              padding-bottom: 16px;
+              padding-bottom: 12px;
               border-bottom: 1px solid #f1f5f9;
-              page-break-inside: avoid;
-              break-inside: avoid;
             }
             .field-item:last-child { border-bottom: none; padding-bottom: 0; }
             .field-label {
@@ -489,11 +484,12 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
             window.onload = function() {
               const element = document.querySelector('.page-container');
               const opt = {
-                margin: 0,
+                margin: [6, 6, 6, 6],
                 filename: '${inspection.inspection_number || 'inspeccion'}.pdf',
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak: { mode: ['css', 'legacy'] }
               };
               html2pdf().set(opt).from(element).save().then(() => {
                 setTimeout(() => window.close(), 1000);
@@ -516,7 +512,7 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
 
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+      <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-lg p-6">
           <p className="text-gray-600">Cargando...</p>
         </div>
@@ -526,7 +522,7 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
 
   if (!inspection) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+      <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-lg p-6">
           <p className="text-red-600">Inspección no encontrada</p>
         </div>
@@ -535,16 +531,16 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-white">Detalles de Inspección</h2>
+    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-0 sm:p-4">
+      <div className="bg-white w-full h-[100dvh] sm:h-auto sm:rounded-xl max-w-4xl max-h-[100dvh] sm:max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 sm:px-6 py-4 flex items-center justify-between">
+          <h2 className="text-lg sm:text-xl font-bold text-white">Detalles de Inspección</h2>
           <button onClick={onClose} className="text-white hover:bg-blue-700 p-2 rounded">
             <X size={24} />
           </button>
         </div>
 
-        <div className="border-b border-gray-200 bg-white flex">
+        <div className="border-b border-gray-200 bg-white flex overflow-x-auto">
           <TabButton active={activeTab === 'form'} onClick={() => setActiveTab('form')} label="Formulario" />
           <TabButton active={activeTab === 'actions'} onClick={() => setActiveTab('actions')} label="Acciones" />
           <TabButton active={activeTab === 'info'} onClick={() => setActiveTab('info')} label="Información" />
@@ -552,13 +548,13 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
 
         <div className="flex-1 overflow-y-auto bg-gray-50">
           {activeTab === 'form' && (
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <InspectionSections inspection={inspection} />
             </div>
           )}
 
           {activeTab === 'actions' && (
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {correctiveActions.length === 0 ? (
                 <div className="text-center py-12">
                   <CheckCircle size={64} className="mx-auto text-gray-300 mb-4" />
@@ -575,20 +571,20 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
           )}
 
           {activeTab === 'info' && (
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <InspectionInfo inspection={inspection} />
             </div>
           )}
         </div>
 
-        <div className="bg-white border-t border-gray-200 px-6 py-4 flex gap-3 justify-end">
-          <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+        <div className="bg-white border-t border-gray-200 px-4 sm:px-6 py-4 flex flex-col sm:flex-row gap-3 justify-end">
+          <button onClick={handleExport} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
             <Download size={18} /> Descargar PDF
           </button>
-          <button onClick={handleDelete} className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+          <button onClick={handleDelete} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
             <Trash2 size={18} /> Eliminar
           </button>
-          <button onClick={onClose} className="px-4 py-2 bg-gray-300 text-gray-900 rounded-lg hover:bg-gray-400">
+          <button onClick={onClose} className="w-full sm:w-auto px-4 py-2 bg-gray-300 text-gray-900 rounded-lg hover:bg-gray-400">
             Cerrar
           </button>
         </div>
@@ -599,7 +595,7 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
 
 function TabButton({ active, onClick, label }) {
   return (
-    <button onClick={onClick} className={`px-4 py-2 font-medium border-b-2 transition ${active ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900'}`}>
+    <button onClick={onClick} className={`px-4 py-3 whitespace-nowrap font-medium border-b-2 transition ${active ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900'}`}>
       {label}
     </button>
   );

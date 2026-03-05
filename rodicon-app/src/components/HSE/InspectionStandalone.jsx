@@ -262,9 +262,9 @@ export default function InspectionStandalone({ templateId }) {
       if (item.type === 'signature') {
         if (value?.startsWith?.('text:')) {
           const signatureName = value.replace('text:', '');
-          return `<div style="margin-top:8px;padding:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;min-height:140px;display:flex;align-items:center;page-break-inside:avoid;break-inside:avoid;"><p style="font-size:28px;font-style:italic;color:#0f172a;font-family:cursive;margin:0;">${signatureName}</p></div>`;
+          return `<div style="margin-top:8px;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;min-height:90px;display:flex;align-items:center;"><p style="font-size:26px;font-style:italic;color:#0f172a;font-family:cursive;margin:0;">${signatureName}</p></div>`;
         } else if (value) {
-          return `<div style="margin-top:8px;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#ffffff;min-height:220px;display:flex;align-items:center;justify-content:center;page-break-inside:avoid;break-inside:avoid;"><img src="${value}" style="width:100%;max-width:520px;height:200px;object-fit:contain;" /></div>`;
+          return `<div style="margin-top:8px;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#ffffff;min-height:120px;display:flex;align-items:center;justify-content:center;"><img src="${value}" style="max-width:100%;max-height:130px;width:auto;height:auto;object-fit:contain;" /></div>`;
         }
         return '<div style="margin-top:4px;color:#9ca3af;">Sin firma</div>';
       }
@@ -287,10 +287,10 @@ export default function InspectionStandalone({ templateId }) {
         const photoHTML = photos.length > 0 ? `
           <div style="margin-top:12px;">
             <p style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;">Evidencia (${photos.length} foto${photos.length > 1 ? 's' : ''})</p>
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;">
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
               ${photos.map((url, idx) => `
                 <div style="position:relative;">
-                  <img src="${url}" style="width:100%;height:150px;object-fit:cover;border-radius:10px;border:1px solid #e2e8f0;" />
+                  <img src="${url}" style="width:100%;height:130px;object-fit:cover;border-radius:10px;border:1px solid #e2e8f0;" />
                   <span style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.7);color:white;padding:2px 6px;border-radius:4px;font-size:10px;">Foto ${idx + 1}</span>
                 </div>
               `).join('')}
@@ -322,16 +322,16 @@ export default function InspectionStandalone({ templateId }) {
         if (photos.length === 0) return '<div style="margin-top:4px;color:#9ca3af;">Sin fotos</div>';
         
         if (photos.length === 1) {
-          return `<div style="margin-top:8px;"><img src="${photos[0]}" style="max-width:100%;height:auto;border-radius:10px;border:1px solid #e2e8f0;" /></div>`;
+          return `<div style="margin-top:8px;"><img src="${photos[0]}" style="width:100%;max-height:280px;object-fit:cover;border-radius:10px;border:1px solid #e2e8f0;" /></div>`;
         }
         
         return `
           <div style="margin-top:8px;">
             <p style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;">${photos.length} fotos</p>
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;">
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
               ${photos.map((url, idx) => `
                 <div style="position:relative;">
-                  <img src="${url}" style="width:100%;height:150px;object-fit:cover;border-radius:10px;border:1px solid #e2e8f0;" />
+                  <img src="${url}" style="width:100%;height:130px;object-fit:cover;border-radius:10px;border:1px solid #e2e8f0;" />
                   <span style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.7);color:white;padding:2px 6px;border-radius:4px;font-size:10px;">Foto ${idx + 1}</span>
                 </div>
               `).join('')}
@@ -356,7 +356,7 @@ export default function InspectionStandalone({ templateId }) {
     const buildSections = () => {
       if (!tpl.sections) return '';
       return tpl.sections.map((section, sectionIdx) => `
-        <div class="section-card" style="page-break-inside:avoid;break-inside:avoid;">
+        <div class="section-card">
           <div class="section-header">
             <h3 class="section-title">${section.title || `Sección ${sectionIdx + 1}`}</h3>
             ${section.description ? `<p class="section-desc">${section.description}</p>` : ''}
@@ -365,7 +365,7 @@ export default function InspectionStandalone({ templateId }) {
             ${(section.items || []).map(item => {
               const answer = answers[item.id];
               return `
-                <div class="field-item" style="page-break-inside:avoid;break-inside:avoid;">
+                <div class="field-item">
                   <div class="field-label">
                     ${(item.label || '').trim() || 'Pregunta'}
                     ${item.required ? '<span class="required-mark">*</span>' : ''}
@@ -392,18 +392,19 @@ export default function InspectionStandalone({ templateId }) {
             * { margin:0; padding:0; box-sizing:border-box; }
             body {
               font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-              background: #e5e7eb;
+              background: white;
               color: #0f172a;
               padding: 0;
             }
             .page-container {
-              max-width: 880px;
-              margin: 24px auto;
+              width: 100%;
+              max-width: 794px;
+              margin: 0 auto;
               background: white;
               border: 1px solid #e2e8f0;
-              border-radius: 16px;
+              border-radius: 0;
               overflow: hidden;
-              box-shadow: 0 18px 60px rgba(15,23,42,0.14);
+              box-shadow: none;
             }
             .header-band {
               background: #0f172a;
@@ -455,16 +456,14 @@ export default function InspectionStandalone({ templateId }) {
               letter-spacing: 0.02em;
               text-transform: uppercase;
             }
-            .content-area { padding: 28px 32px; background: #f8fafc; }
+            .content-area { padding: 20px 24px; background: #f8fafc; }
             .section-card {
               background: white;
               border: 1px solid #e2e8f0;
               border-radius: 14px;
-              margin-bottom: 18px;
+              margin-bottom: 12px;
               overflow: hidden;
               box-shadow: 0 8px 24px rgba(15,23,42,0.06);
-              page-break-inside: avoid;
-              break-inside: avoid;
             }
             .section-header {
               background: #f8fafc;
@@ -474,17 +473,13 @@ export default function InspectionStandalone({ templateId }) {
             .section-title { font-size: 16px; font-weight: 700; color: #0f172a; margin: 0; letter-spacing: -0.01em; }
             .section-desc { font-size: 13px; color: #64748b; margin-top: 4px; }
             .section-body {
-              padding: 20px 20px;
+              padding: 14px 16px;
               display: grid;
-              gap: 18px;
-              page-break-inside: avoid;
-              break-inside: avoid;
+              gap: 14px;
             }
             .field-item {
-              padding-bottom: 16px;
+              padding-bottom: 12px;
               border-bottom: 1px solid #f1f5f9;
-              page-break-inside: avoid;
-              break-inside: avoid;
             }
             .field-item:last-child { border-bottom: none; padding-bottom: 0; }
             .field-label {
@@ -583,11 +578,12 @@ export default function InspectionStandalone({ templateId }) {
             window.onload = function() {
               const element = document.querySelector('.page-container');
               const opt = {
-                margin: 0,
+                margin: [6, 6, 6, 6],
                 filename: '${completedInspection.inspection_number || 'inspeccion'}.pdf',
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak: { mode: ['css', 'legacy'] }
               };
               html2pdf().set(opt).from(element).save().then(() => {
                 setTimeout(() => window.close(), 1000);

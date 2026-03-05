@@ -33,12 +33,12 @@ export const GenericFormModal = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 backdrop-blur-sm p-3 sm:p-4">
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-xl max-w-md w-full max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b p-6 flex justify-between items-center">
+        <div className="sticky top-0 bg-white border-b p-4 sm:p-6 flex justify-between items-center">
           <div>
-            <h2 className="text-xl font-bold text-gray-800">{title}</h2>
+            <h2 className="text-lg sm:text-xl font-bold text-gray-800">{title}</h2>
             {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
           </div>
           <button
@@ -50,7 +50,7 @@ export const GenericFormModal = ({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
           {fields.map((field) => (
             <div key={field.name}>
               <label className="block text-sm font-bold text-gray-700 mb-2">
@@ -129,7 +129,7 @@ export const GenericFormModal = ({
           ))}
 
           {/* Botones */}
-          <div className="flex gap-3 mt-6 pt-4 border-t">
+          <div className="flex flex-col sm:flex-row gap-3 mt-6 pt-4 border-t">
             <button
               type="button"
               onClick={() => { reset(); onClose(); }}

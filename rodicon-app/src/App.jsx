@@ -329,7 +329,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-100 font-sans overflow-hidden relative">
+    <div className="flex h-[100dvh] bg-gray-100 font-sans overflow-hidden relative">
       <Toaster position="top-right" reverseOrder={false} />
 
       {/* Botón hamburguesa móvil */}

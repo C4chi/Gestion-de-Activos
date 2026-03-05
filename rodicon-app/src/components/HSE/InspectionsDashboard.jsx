@@ -222,7 +222,7 @@ export default function InspectionsDashboard() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-full bg-gray-50">
       {error && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
@@ -242,8 +242,8 @@ export default function InspectionsDashboard() {
       )}
       
       {/* Header */}
-      <header className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-6">
+      <header className="bg-white border-b rounded-lg">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 lg:py-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="p-2 lg:p-3 bg-blue-100 rounded-lg">
@@ -273,7 +273,7 @@ export default function InspectionsDashboard() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 lg:py-8">
         {/* KPIs */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4 mb-6 lg:mb-8">
           <StatCard
@@ -365,13 +365,13 @@ export default function InspectionsDashboard() {
         </div>
 
         {/* Toolbar */}
-        <div className="flex gap-2 justify-end mb-6">
+        <div className="flex flex-wrap gap-2 justify-start sm:justify-end mb-4 lg:mb-6">
           <button
             onClick={() => {
               setEditingTemplateId(null);
               setShowTemplateBuilder(true);
             }}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 font-medium"
+            className="flex-1 sm:flex-none px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2 font-medium"
           >
             <ClipboardCheck className="w-4 h-4" />
             Gestionar Plantillas
@@ -379,7 +379,7 @@ export default function InspectionsDashboard() {
           <button
             onClick={handleSync}
             disabled={syncing}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2 font-medium"
+            className="flex-1 sm:flex-none px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 flex items-center justify-center gap-2 font-medium"
           >
             {syncing ? (
               <>
@@ -418,7 +418,8 @@ export default function InspectionsDashboard() {
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-            <table className="w-full">
+            <div className="hidden md:block overflow-x-auto">
+            <table className="w-full min-w-[980px]">
               <thead className="border-b bg-gray-50">
                 <tr>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 w-12">
@@ -493,6 +494,48 @@ export default function InspectionsDashboard() {
                 ))}
               </tbody>
             </table>
+            </div>
+
+            <div className="md:hidden divide-y">
+              {filteredInspections.map(inspection => (
+                <div key={inspection.id} className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-gray-900 leading-snug">
+                        {inspection.title || 'Sin título'}
+                      </p>
+                      <p className="text-sm text-gray-500">#{inspection.inspection_number}</p>
+                    </div>
+                    <StatusBadgeTable status={inspection.status} priority={inspection.priority} />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <p className="text-gray-600">Ficha: <span className="font-medium text-gray-800">{inspection.ficha || '—'}</span></p>
+                    <p className="text-gray-600">Score: <span className="font-medium text-gray-800">{inspection.score_percentage ? Math.round(inspection.score_percentage) : '—'}%</span></p>
+                    <p className="text-gray-600">Fecha: <span className="font-medium text-gray-800">{inspection.completed_at ? new Date(inspection.completed_at).toLocaleDateString('es-ES') : new Date(inspection.created_at).toLocaleDateString('es-ES')}</span></p>
+                    <p className="text-gray-600">Por: <span className="font-medium text-gray-800">{inspection.conducted_by_name || 'No especificado'}</span></p>
+                  </div>
+
+                  <div>
+                    {inspection.status === 'DRAFT' ? (
+                      <button
+                        onClick={() => handleCreateInspection(inspection.template_id || selectedTemplate?.id)}
+                        className="w-full px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+                      >
+                        Continuar
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleViewInspection(inspection)}
+                        className="w-full px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+                      >
+                        Ver informe
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
 
             {/* Botón Cargar Más */}
             {hasMore && !loading && filteredInspections.length > 0 && (
