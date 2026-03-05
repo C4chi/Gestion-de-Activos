@@ -29,19 +29,20 @@ export const Sidebar = ({ collapsed, onToggle, onMenuClick, onNewAsset, onRefres
       <div className="fixed inset-0 bg-black/50 z-20 lg:hidden" onClick={onToggle} />
     )}
     
-    <aside className={`bg-white border-r border-gray-200 flex flex-col justify-between transition-all duration-300 z-30 shadow-xl
+    <aside className={`bg-white border-r border-gray-200 flex flex-col transition-all duration-300 z-30 shadow-xl overflow-hidden
       ${collapsed ? 'w-20' : 'w-64'}
       ${collapsed ? '-translate-x-full lg:translate-x-0' : 'translate-x-0'}
       fixed lg:relative h-full
     `}>
-    <div>
-      <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100">
-        <div className="flex items-center gap-2 overflow-hidden">
-          {/* Logo removido */}
-        </div>
-        <button onClick={onToggle} className="p-1 text-gray-400 hover:bg-gray-100 rounded transition"><Menu className="w-5 h-5"/></button>
+    <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100 shrink-0">
+      <div className="flex items-center gap-2 overflow-hidden">
+        {/* Logo removido */}
       </div>
-      <nav className="mt-6 flex flex-col gap-1 px-2">
+      <button onClick={onToggle} className="p-1 text-gray-400 hover:bg-gray-100 rounded transition"><Menu className="w-5 h-5"/></button>
+    </div>
+
+    <div className="flex-1 min-h-0 overflow-y-auto">
+      <nav className="mt-4 flex flex-col gap-1 px-2 pb-3">
         <SidebarBtn icon={<Wrench/>} label="Taller" color="purple" collapsed={collapsed} onClick={() => onMenuClick('WORKSHOP')} disabled={!canWorkshop}/>
         <SidebarBtn icon={<Calendar/>} label="Mto Preventivo" color="green" collapsed={collapsed} onClick={() => onMenuClick('PREVENTIVE_MTO')} disabled={!canWorkshop}/>
         
@@ -69,7 +70,8 @@ export const Sidebar = ({ collapsed, onToggle, onMenuClick, onNewAsset, onRefres
         )}
       </nav>
     </div>
-    <div className="p-4 border-t border-gray-100 space-y-2">
+
+    <div className="p-4 border-t border-gray-100 space-y-2 shrink-0 bg-white">
       {!collapsed && userId && (
         <div className="mb-3">
           <NotificationToggle userId={userId} />

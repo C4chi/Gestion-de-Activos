@@ -111,24 +111,43 @@ export const InventoryView = ({
 
         {/* Lista Móvil */}
         <div className="lg:hidden space-y-3">
-          {filteredAssets.map(a => (
-            <div 
-              key={a.id} 
-              onClick={() => onAssetSelect(a)} 
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 active:bg-blue-50"
-            >
-              <div className="flex justify-between items-start mb-2">
-                <div className="font-bold text-blue-900 text-lg">#{a.ficha}</div>
-                <StatusBadge status={a.status} />
-              </div>
-              <div className="font-bold text-gray-700 mb-1">{a.marca} {a.modelo}</div>
-              <div className="text-xs text-gray-400 font-mono mb-2">{a.chasis || '-'}</div>
-              <div className="text-sm text-gray-600 flex items-center">
-                <MapPin className="w-3 h-3 mr-1" />
-                {a.ubicacion_actual}
-              </div>
+          {filteredAssets.length === 0 ? (
+            <div className="bg-white rounded-lg border border-gray-200 p-5 text-center">
+              <p className="text-sm font-semibold text-gray-700">No hay activos para mostrar</p>
+              <p className="text-xs text-gray-500 mt-1">Revisa búsqueda o filtros activos</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('');
+                  setLocationFilter?.('');
+                  setFilter('ALL');
+                  setGpsFilter?.('');
+                }}
+                className="mt-3 text-xs px-3 py-1.5 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Limpiar filtros
+              </button>
             </div>
-          ))}
+          ) : (
+            filteredAssets.map(a => (
+              <div 
+                key={a.id} 
+                onClick={() => onAssetSelect(a)} 
+                className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 active:bg-blue-50"
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <div className="font-bold text-blue-900 text-lg">#{a.ficha}</div>
+                  <StatusBadge status={a.status} />
+                </div>
+                <div className="font-bold text-gray-700 mb-1">{a.marca} {a.modelo}</div>
+                <div className="text-xs text-gray-400 font-mono mb-2">{a.chasis || '-'}</div>
+                <div className="text-sm text-gray-600 flex items-center">
+                  <MapPin className="w-3 h-3 mr-1" />
+                  {a.ubicacion_actual}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </main>

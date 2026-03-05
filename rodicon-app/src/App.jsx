@@ -197,6 +197,21 @@ export default function App() {
   }, [isAdminGlobal, gpsFilter]);
 
   useEffect(() => {
+    const syncSidebarForViewport = () => {
+      if (window.innerWidth < 1024) {
+        setSidebarCollapsed(true);
+      }
+    };
+
+    syncSidebarForViewport();
+    window.addEventListener('resize', syncSidebarForViewport);
+
+    return () => {
+      window.removeEventListener('resize', syncSidebarForViewport);
+    };
+  }, []);
+
+  useEffect(() => {
     saveUserPreferences({ sidebarCollapsed });
   }, [sidebarCollapsed]);
 
