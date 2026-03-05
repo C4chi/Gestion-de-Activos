@@ -7,7 +7,6 @@ import React, { useState, useEffect } from 'react';
 import { X, Download, Trash2, CheckCircle, Calendar } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { supabase } from '../../supabaseClient';
-import { useAppContext } from '../../AppContext';
 import {
   getInspectionById,
   getCorrectiveActions,
@@ -15,7 +14,6 @@ import {
 } from '../../services/hseService';
 
 export default function InspectionDetailModal({ inspectionId, onClose, onUpdate }) {
-  const { user } = useAppContext();
   const [inspection, setInspection] = useState(null);
   const [correctiveActions, setCorrectiveActions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,8 +31,25 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
         getInspectionById(inspectionId),
         getCorrectiveActions(inspectionId)
       ]);
+
+      let enrichedInspection = inspectionData;
+      if (!inspectionData?.conducted_by_name && inspectionData?.conducted_by) {
+        const { data: inspectorData } = await supabase
+          .from('app_users')
+          .select('nombre,nombre_usuario')
+          .eq('id', inspectionData.conducted_by)
+          .maybeSingle();
+
+        if (inspectorData) {
+          enrichedInspection = {
+            ...inspectionData,
+            conducted_by_name: inspectorData.nombre || inspectorData.nombre_usuario || 'No especificado'
+          };
+        }
+      }
+
       console.log('Inspection loaded:', inspectionData);
-      setInspection(inspectionData);
+      setInspection(enrichedInspection);
       setCorrectiveActions(actionsData || []);
     } catch (error) {
       console.error('Error loading inspection:', error);
@@ -130,7 +145,46 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
       });
     }
 
-    const performedBy = inspection.conducted_by_name || user?.nombre || user?.nombre_usuario || 'No especificado';
+    const performedBy = inspection.conducted_by_name || 'No especificado';
+
+    const formatDate = (input) => {
+      if (!input) return '—';
+      const date = new Date(input);
+      if (Number.isNaN(date.getTime())) return String(input);
+      return date.toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    };
+
+    const formatDateTime = (input) => {
+      if (!input) return '—';
+      const date = new Date(input);
+      if (Number.isNaN(date.getTime())) return String(input);
+      const datePart = formatDate(date);
+      const timePart = date.toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+      return `${datePart} ${timePart}`;
+    };
+
+    const formatPossibleDateTimeValue = (input) => {
+      if (typeof input !== 'string') return input;
+      const trimmed = input.trim();
+
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(trimmed)) {
+        return formatDateTime(trimmed);
+      }
+
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        return formatDate(trimmed);
+      }
+
+      return input;
+    };
 
     const statusStyles = inspection.status === 'COMPLETED'
       ? { bg: 'rgba(34,197,94,0.12)', text: '#16a34a', border: 'rgba(34,197,94,0.45)', label: 'Completada', icon: '✓' }
@@ -147,9 +201,9 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
       if (item.type === 'signature') {
         if (value?.startsWith?.('text:')) {
           const signatureName = value.replace('text:', '');
-          return `<div style="margin-top:8px;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;"><p style="font-size:22px;font-style:italic;color:#0f172a;font-family:cursive;margin:0;">${signatureName}</p></div>`;
+          return `<div style="margin-top:8px;padding:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;min-height:140px;display:flex;align-items:center;page-break-inside:avoid;break-inside:avoid;"><p style="font-size:28px;font-style:italic;color:#0f172a;font-family:cursive;margin:0;">${signatureName}</p></div>`;
         } else if (value) {
-          return `<div style="margin-top:8px;"><img src="${value}" style="max-width:280px;max-height:140px;border:1px solid #e2e8f0;border-radius:10px;" /></div>`;
+          return `<div style="margin-top:8px;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#ffffff;min-height:220px;display:flex;align-items:center;justify-content:center;page-break-inside:avoid;break-inside:avoid;"><img src="${value}" style="width:100%;max-width:520px;height:200px;object-fit:contain;" /></div>`;
         }
         return '<div style="margin-top:4px;color:#9ca3af;">Sin firma</div>';
       }
@@ -197,10 +251,12 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
       }
 
       if (item.type === 'text' || item.type === 'textarea' || item.type === 'number') {
-        return `<div style="margin-top:6px;color:#0f172a;font-size:14px;line-height:1.6;">${value || '—'}</div>`;
+        const formattedValue = formatPossibleDateTimeValue(value);
+        return `<div style="margin-top:6px;color:#0f172a;font-size:14px;line-height:1.6;">${formattedValue || '—'}</div>`;
       }
 
-      return `<div style="margin-top:6px;color:#0f172a;font-size:14px;">${value ?? '—'}</div>`;
+      const formattedValue = formatPossibleDateTimeValue(value);
+      return `<div style="margin-top:6px;color:#0f172a;font-size:14px;">${formattedValue ?? '—'}</div>`;
     };
 
     const buildSections = () => {
@@ -217,7 +273,7 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
               return `
                 <div class="field-item" style="page-break-inside:avoid;break-inside:avoid;">
                   <div class="field-label">
-                    ${item.label}
+                    ${(item.label || '').trim() || 'Pregunta'}
                     ${item.required ? '<span class="required-mark">*</span>' : ''}
                   </div>
                   <div class="field-value">
@@ -324,23 +380,23 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
             .section-title { font-size: 16px; font-weight: 700; color: #0f172a; margin: 0; letter-spacing: -0.01em; }
             .section-desc { font-size: 13px; color: #64748b; margin-top: 4px; }
             .section-body {
-              padding: 16px 18px;
+              padding: 20px 20px;
               display: grid;
-              gap: 16px;
+              gap: 18px;
               page-break-inside: avoid;
               break-inside: avoid;
             }
             .field-item {
-              padding-bottom: 14px;
+              padding-bottom: 16px;
               border-bottom: 1px solid #f1f5f9;
               page-break-inside: avoid;
               break-inside: avoid;
             }
             .field-item:last-child { border-bottom: none; padding-bottom: 0; }
             .field-label {
-              font-weight: 700;
-              color: #475569;
-              font-size: 12px;
+              font-weight: 600;
+              color: #64748b;
+              font-size: 11px;
               letter-spacing: 0.04em;
               text-transform: uppercase;
               margin-bottom: 6px;
@@ -387,7 +443,7 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
               <div class="inspection-meta">
                 <div class="meta-info">
                   <div class="meta-title">${inspection.title}</div>
-                  <div class="meta-date">📅 ${new Date(inspection.completed_at || inspection.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                  <div class="meta-date">📅 ${formatDateTime(inspection.completed_at || inspection.created_at)}</div>
                   <div class="meta-date" style="margin-top:4px;">📋 Inspección #${inspection.inspection_number}</div>
                 </div>
                 <div class="status-badge" style="background:${statusStyles.bg};color:${statusStyles.text};border:1px solid ${statusStyles.border};">
@@ -408,7 +464,7 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
                 </div>
                 <div class="footer-item">
                   <strong>📆 Fecha de generación:</strong>
-                  ${new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
+                  ${formatDate(new Date())}
                 </div>
                 ${hasLocationQuestion ? `
                 <div class="footer-item">

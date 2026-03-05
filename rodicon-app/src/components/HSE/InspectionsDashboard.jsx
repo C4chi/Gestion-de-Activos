@@ -429,6 +429,7 @@ export default function InspectionsDashboard() {
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Estado</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Puntuación</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Realizada</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Realizada por</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Acciones</th>
                 </tr>
               </thead>
@@ -465,6 +466,9 @@ export default function InspectionsDashboard() {
                       {inspection.completed_at
                         ? new Date(inspection.completed_at).toLocaleDateString('es-ES')
                         : new Date(inspection.created_at).toLocaleDateString('es-ES')}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {inspection.conducted_by_name || 'No especificado'}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex gap-2">
