@@ -131,10 +131,18 @@ export default function InspectionStandalone({ templateId }) {
 
     let formLocation = completedInspection.location || 'No especificada';
     let formArea = completedInspection.area || 'No especificada';
+    let hasLocationQuestion = false;
+    let hasAreaQuestion = false;
 
     if (tpl.sections) {
       tpl.sections.forEach(section => {
         section.items?.forEach(item => {
+          if (item.type === 'location') {
+            hasLocationQuestion = true;
+          }
+          if (item.type === 'area') {
+            hasAreaQuestion = true;
+          }
           if (item.type === 'location' && answers[item.id]?.value) {
             formLocation = answers[item.id].label || answers[item.id].value || formLocation;
           }
@@ -144,6 +152,8 @@ export default function InspectionStandalone({ templateId }) {
         });
       });
     }
+
+    const performedBy = completedInspection.conducted_by_name || user?.nombre || user?.nombre_usuario || 'No especificado';
 
     const statusStyles = completedInspection.status === 'COMPLETED'
       ? { bg: 'rgba(34,197,94,0.12)', text: '#16a34a', border: 'rgba(34,197,94,0.45)', label: 'Completada', icon: '✓' }
@@ -450,20 +460,24 @@ export default function InspectionStandalone({ templateId }) {
               <div class="footer-grid">
                 <div class="footer-item">
                   <strong>👤 Realizada por:</strong>
-                  ${completedInspection.conducted_by_name || 'No especificado'}
+                  ${performedBy}
                 </div>
                 <div class="footer-item">
                   <strong>📆 Fecha de generación:</strong>
                   ${new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
                 </div>
+                ${hasLocationQuestion ? `
                 <div class="footer-item">
                   <strong>📍 Ubicación:</strong>
                   ${formLocation}
                 </div>
+                ` : ''}
+                ${hasAreaQuestion ? `
                 <div class="footer-item">
                   <strong>🏢 Área:</strong>
                   ${formArea}
                 </div>
+                ` : ''}
               </div>
               <div class="page-number">
                 Documento generado automáticamente por el Sistema RODICON HSE

@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Download, Trash2, CheckCircle, Calendar } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { supabase } from '../../supabaseClient';
+import { useAppContext } from '../../AppContext';
 import {
   getInspectionById,
   getCorrectiveActions,
@@ -14,6 +15,7 @@ import {
 } from '../../services/hseService';
 
 export default function InspectionDetailModal({ inspectionId, onClose, onUpdate }) {
+  const { user } = useAppContext();
   const [inspection, setInspection] = useState(null);
   const [correctiveActions, setCorrectiveActions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -66,9 +68,17 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
 
     let formLocation = inspection.location || 'No especificada';
     let formArea = inspection.area || 'No especificada';
+    let hasLocationQuestion = false;
+    let hasAreaQuestion = false;
     if (tpl.sections) {
       tpl.sections.forEach(section => {
         section.items?.forEach(item => {
+          if (item.type === 'location') {
+            hasLocationQuestion = true;
+          }
+          if (item.type === 'area') {
+            hasAreaQuestion = true;
+          }
           if (item.type === 'location' && answers[item.id]?.value) {
             formLocation = answers[item.id].label || answers[item.id].value || formLocation;
           }
@@ -78,6 +88,8 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
         });
       });
     }
+
+    const performedBy = inspection.conducted_by_name || user?.nombre || user?.nombre_usuario || 'No especificado';
 
     const statusStyles = inspection.status === 'COMPLETED'
       ? { bg: 'rgba(34,197,94,0.12)', text: '#16a34a', border: 'rgba(34,197,94,0.45)', label: 'Completada', icon: '✓' }
@@ -321,20 +333,24 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
               <div class="footer-grid">
                 <div class="footer-item">
                   <span class="footer-label">Realizada por:</span>
-                  ${inspection.conducted_by_name || 'No especificado'}
+                  ${performedBy}
                 </div>
                 <div class="footer-item">
                   <span class="footer-label">Fecha generación:</span>
                   ${new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
                 </div>
+                ${hasLocationQuestion ? `
                 <div class="footer-item">
                   <span class="footer-label">Ubicación:</span>
                   ${formLocation}
                 </div>
+                ` : ''}
+                ${hasAreaQuestion ? `
                 <div class="footer-item">
                   <span class="footer-label">Área:</span>
                   ${formArea}
                 </div>
+                ` : ''}
               </div>
               <div class="footer-text">
                 Documento generado automáticamente por RODICON HSE
