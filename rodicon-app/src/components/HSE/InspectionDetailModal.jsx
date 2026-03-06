@@ -240,6 +240,19 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
       `;
     };
 
+    const hasFollowUpData = (itemId) => {
+      if (!itemId) return false;
+
+      const hasQuestions = Object.entries(answers).some(([key, ans]) => key.startsWith(`${itemId}_question_`) && !!ans?.value);
+      const hasNote = !!answers[`${itemId}_followup_note`]?.value;
+
+      const filesValue = answers[`${itemId}_followup_files`]?.value;
+      const files = Array.isArray(filesValue) ? filesValue : (filesValue ? [filesValue] : []);
+      const hasFiles = files.length > 0;
+
+      return hasQuestions || hasNote || hasFiles;
+    };
+
     const renderFieldValue = (item, answer) => {
       const value = answer?.value;
 
@@ -251,11 +264,11 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
       if (item.type === 'signature') {
         if (value?.startsWith?.('text:')) {
           const signatureName = value.replace('text:', '');
-          return `<div style="margin-top:8px;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;min-height:90px;display:flex;align-items:center;"><p style="font-size:26px;font-style:italic;color:#0f172a;font-family:cursive;margin:0;">${signatureName}</p></div>`;
+          return `<div style="margin-top:8px;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;min-height:90px;display:flex;align-items:center;"><p style="font-size:26px;font-style:italic;color:#0f172a;font-family:cursive;margin:0;">${signatureName}</p></div>${renderFollowUpDetails(item.id)}`;
         } else if (value) {
-          return `<div style="margin-top:8px;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#ffffff;min-height:120px;display:flex;align-items:center;justify-content:center;"><img src="${value}" style="max-width:100%;max-height:130px;width:auto;height:auto;object-fit:contain;" /></div>`;
+          return `<div style="margin-top:8px;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#ffffff;min-height:120px;display:flex;align-items:center;justify-content:center;"><img src="${value}" style="max-width:100%;max-height:130px;width:auto;height:auto;object-fit:contain;" /></div>${renderFollowUpDetails(item.id)}`;
         }
-        return '<div style="margin-top:4px;color:#9ca3af;">Sin firma</div>';
+        return `<div style="margin-top:4px;color:#9ca3af;">Sin firma</div>${renderFollowUpDetails(item.id)}`;
       }
 
       if (item.type === 'single_select') {
@@ -270,15 +283,48 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
         };
         const colors = colorMap[option?.color] || colorMap.gray;
 
-        return `<div style="display:inline-flex;align-items:center;gap:8px;padding:10px 14px;background:${colors.bg};color:${colors.text};border-radius:10px;font-weight:700;font-size:14px;margin-top:4px;border:1px solid #e2e8f0;">${value || '—'}</div>${renderFollowUpDetails(item.id)}`;
+        const photoValue = answers[item.id + '_photo']?.value;
+        const photos = Array.isArray(photoValue) ? photoValue : (photoValue ? [photoValue] : []);
+        const photoHTML = photos.length > 0 ? `
+          <div class="photo-block" style="margin-top:12px;">
+            <p style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;">Evidencia (${photos.length} foto${photos.length > 1 ? 's' : ''})</p>
+            <div class="photo-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
+              ${photos.map((url, idx) => `
+                <div class="photo-cell" style="position:relative;">
+                  <img src="${url}" style="width:100%;height:170px;object-fit:contain;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;image-rendering:auto;" />
+                  <span style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.7);color:white;padding:2px 6px;border-radius:4px;font-size:10px;">Foto ${idx + 1}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : '';
+
+        return `
+          <div style="display:inline-flex;align-items:center;gap:8px;padding:10px 14px;background:${colors.bg};color:${colors.text};border-radius:10px;font-weight:700;font-size:14px;margin-top:4px;border:1px solid #e2e8f0;">
+            ${value || '—'}
+          </div>
+          ${photoHTML}
+          ${answer && answers[item.id + '_note']?.value ? `
+            <div style="margin-top:8px;padding:12px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;">
+              <p style="font-size:12px;color:#92400e;margin-bottom:4px;font-weight:700;">Nota</p>
+              <p style="font-size:14px;color:#0f172a;line-height:1.5;margin:0;">${answers[item.id + '_note'].value}</p>
+            </div>
+          ` : ''}
+          ${answer && answers[item.id + '_field']?.value ? `
+            <div style="margin-top:6px;padding:10px;background:#f8fafc;border-radius:10px;font-size:13px;color:#0f172a;border:1px solid #e2e8f0;">
+              ${answers[item.id + '_field'].value}
+            </div>
+          ` : ''}
+          ${renderFollowUpDetails(item.id)}
+        `;
       }
 
       if (item.type === 'photo' || value?.startsWith?.('data:image') || value?.includes?.('http')) {
         const photos = Array.isArray(value) ? value : (value ? [value] : []);
-        if (photos.length === 0) return '<div style="margin-top:4px;color:#9ca3af;">Sin fotos</div>';
+        if (photos.length === 0) return `<div style="margin-top:4px;color:#9ca3af;">Sin fotos</div>${renderFollowUpDetails(item.id)}`;
         
         if (photos.length === 1) {
-          return `<div class="photo-block" style="margin-top:8px;"><img src="${photos[0]}" style="width:100%;max-height:320px;object-fit:contain;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;image-rendering:auto;" /></div>`;
+          return `<div class="photo-block" style="margin-top:8px;"><img src="${photos[0]}" style="width:100%;max-height:320px;object-fit:contain;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;image-rendering:auto;" /></div>${renderFollowUpDetails(item.id)}`;
         }
         
         return `
@@ -293,6 +339,7 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
               `).join('')}
             </div>
           </div>
+          ${renderFollowUpDetails(item.id)}
         `;
       }
 
@@ -314,6 +361,8 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
 
       const shouldRenderItem = (item, answer) => {
         const value = answer?.value;
+
+        if (hasFollowUpData(item?.id)) return true;
 
         if (item?.type === 'photo') {
           const photos = Array.isArray(value) ? value : (value ? [value] : []);

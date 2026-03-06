@@ -366,6 +366,19 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
       `;
     };
 
+    const hasFollowUpData = (itemId) => {
+      if (!itemId) return false;
+
+      const hasQuestions = Object.entries(answers).some(([key, ans]) => key.startsWith(`${itemId}_question_`) && !!ans?.value);
+      const hasNote = !!answers[`${itemId}_followup_note`]?.value;
+
+      const filesValue = answers[`${itemId}_followup_files`]?.value;
+      const files = Array.isArray(filesValue) ? filesValue : (filesValue ? [filesValue] : []);
+      const hasFiles = files.length > 0;
+
+      return hasQuestions || hasNote || hasFiles;
+    };
+
     const renderFieldValue = (item, answer) => {
       const value = answer?.value;
 
@@ -377,11 +390,11 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
       if (item.type === 'signature') {
         if (value?.startsWith?.('text:')) {
           const signatureName = value.replace('text:', '');
-          return `<div style="margin-top:8px;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;min-height:90px;display:flex;align-items:center;"><p style="font-size:26px;font-style:italic;color:#0f172a;font-family:cursive;margin:0;">${signatureName}</p></div>`;
+          return `<div style="margin-top:8px;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;min-height:90px;display:flex;align-items:center;"><p style="font-size:26px;font-style:italic;color:#0f172a;font-family:cursive;margin:0;">${signatureName}</p></div>${renderFollowUpDetails(item.id)}`;
         } else if (value) {
-          return `<div style="margin-top:8px;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#ffffff;min-height:120px;display:flex;align-items:center;justify-content:center;"><img src="${value}" style="max-width:100%;max-height:130px;width:auto;height:auto;object-fit:contain;" /></div>`;
+          return `<div style="margin-top:8px;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#ffffff;min-height:120px;display:flex;align-items:center;justify-content:center;"><img src="${value}" style="max-width:100%;max-height:130px;width:auto;height:auto;object-fit:contain;" /></div>${renderFollowUpDetails(item.id)}`;
         }
-        return '<div style="margin-top:4px;color:#9ca3af;">Sin firma</div>';
+        return `<div style="margin-top:4px;color:#9ca3af;">Sin firma</div>${renderFollowUpDetails(item.id)}`;
       }
 
       if (item.type === 'single_select') {
@@ -435,10 +448,10 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
 
       if (item.type === 'photo' || value?.startsWith?.('data:image') || value?.includes?.('http')) {
         const photos = Array.isArray(value) ? value : (value ? [value] : []);
-        if (photos.length === 0) return '<div style="margin-top:4px;color:#9ca3af;">Sin fotos</div>';
+        if (photos.length === 0) return `<div style="margin-top:4px;color:#9ca3af;">Sin fotos</div>${renderFollowUpDetails(item.id)}`;
         
         if (photos.length === 1) {
-          return `<div class="photo-block" style="margin-top:8px;"><img src="${photos[0]}" style="width:100%;max-height:320px;object-fit:contain;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;image-rendering:auto;" /></div>`;
+          return `<div class="photo-block" style="margin-top:8px;"><img src="${photos[0]}" style="width:100%;max-height:320px;object-fit:contain;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;image-rendering:auto;" /></div>${renderFollowUpDetails(item.id)}`;
         }
         
         return `
@@ -453,6 +466,7 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
               `).join('')}
             </div>
           </div>
+          ${renderFollowUpDetails(item.id)}
         `;
       }
 
@@ -474,6 +488,8 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
 
       const shouldRenderItem = (item, answer) => {
         const value = answer?.value;
+
+        if (hasFollowUpData(item?.id)) return true;
 
         if (item?.type === 'photo') {
           const photos = Array.isArray(value) ? value : (value ? [value] : []);
