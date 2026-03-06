@@ -349,7 +349,7 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
           <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
             ${files.map((url, idx) => `
               <div style="position:relative;">
-                <img src="${url}" style="width:100%;height:120px;object-fit:cover;border-radius:10px;border:1px solid #e2e8f0;" />
+                <img src="${url}" style="width:100%;height:160px;object-fit:contain;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;image-rendering:auto;" />
                 <span style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.7);color:white;padding:2px 6px;border-radius:4px;font-size:10px;">Archivo ${idx + 1}</span>
               </div>
             `).join('')}
@@ -405,7 +405,7 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
             <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
               ${photos.map((url, idx) => `
                 <div style="position:relative;">
-                  <img src="${url}" style="width:100%;height:130px;object-fit:cover;border-radius:10px;border:1px solid #e2e8f0;" />
+                  <img src="${url}" style="width:100%;height:170px;object-fit:contain;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;image-rendering:auto;" />
                   <span style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.7);color:white;padding:2px 6px;border-radius:4px;font-size:10px;">Foto ${idx + 1}</span>
                 </div>
               `).join('')}
@@ -438,7 +438,7 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
         if (photos.length === 0) return '<div style="margin-top:4px;color:#9ca3af;">Sin fotos</div>';
         
         if (photos.length === 1) {
-          return `<div style="margin-top:8px;"><img src="${photos[0]}" style="width:100%;max-height:280px;object-fit:cover;border-radius:10px;border:1px solid #e2e8f0;" /></div>`;
+          return `<div style="margin-top:8px;"><img src="${photos[0]}" style="width:100%;max-height:320px;object-fit:contain;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;image-rendering:auto;" /></div>`;
         }
         
         return `
@@ -447,7 +447,7 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
             <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
               ${photos.map((url, idx) => `
                 <div style="position:relative;">
-                  <img src="${url}" style="width:100%;height:130px;object-fit:cover;border-radius:10px;border:1px solid #e2e8f0;" />
+                  <img src="${url}" style="width:100%;height:170px;object-fit:contain;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;image-rendering:auto;" />
                   <span style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.7);color:white;padding:2px 6px;border-radius:4px;font-size:10px;">Foto ${idx + 1}</span>
                 </div>
               `).join('')}
@@ -524,9 +524,9 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
           <style>
             * { margin:0; padding:0; box-sizing:border-box; }
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+              font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
               background: white;
-              color: #0f172a;
+              color: #1f2937;
               padding: 0;
             }
             .page-container {
@@ -534,120 +534,124 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
               max-width: 794px;
               margin: 0 auto;
               background: white;
-              border: 1px solid #e2e8f0;
-              border-radius: 0;
+              border: 1px solid #d1d5db;
               overflow: hidden;
               box-shadow: none;
             }
             .header-band {
-              background: #0f172a;
-              color: white;
-              padding: 28px 32px 24px;
-              border-bottom: 4px solid #2563eb;
+              background: #ffffff;
+              color: #1f2937;
+              padding: 18px 20px 14px;
+              border-bottom: 2px solid #194898;
             }
             .logo-section {
               display: flex;
               align-items: center;
-              gap: 14px;
-              margin-bottom: 12px;
+              justify-content: space-between;
+              gap: 16px;
+              margin-bottom: 10px;
             }
             .company-logo {
-              width: 60px;
-              height: 60px;
-              background: white;
-              border-radius: 14px;
-              padding: 10px;
-              box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+              width: 52px;
+              height: 52px;
+              padding: 6px;
               object-fit: contain;
             }
             .doc-title {
-              font-size: 24px;
+              font-size: 19px;
               font-weight: 700;
-              letter-spacing: -0.01em;
+              color: #194898;
+              text-transform: uppercase;
+              letter-spacing: 0.04em;
             }
             .doc-subtitle {
-              font-size: 13px;
-              opacity: 0.88;
-              margin-top: 3px;
+              font-size: 11px;
+              color: #6b7280;
+              margin-top: 2px;
             }
             .inspection-meta {
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              gap: 16px;
-              flex-wrap: wrap;
-              margin-top: 6px;
+              display: grid;
+              grid-template-columns: 1fr auto;
+              align-items: start;
+              gap: 10px;
+              margin-top: 8px;
             }
-            .meta-info { flex: 1; min-width: 260px; }
-            .meta-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
-            .meta-date { font-size: 13px; color: #cbd5e1; }
+            .meta-info {
+              flex: 1;
+              min-width: 260px;
+              border: 1px solid #d1d5db;
+              background: #f9fafb;
+              padding: 10px 12px;
+            }
+            .meta-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; color: #111827; }
+            .meta-date { font-size: 12px; color: #374151; }
             .status-badge {
-              padding: 10px 14px;
-              border-radius: 12px;
-              font-size: 13px;
+              padding: 6px 10px;
+              border-radius: 4px;
+              font-size: 11px;
               font-weight: 700;
               letter-spacing: 0.02em;
               text-transform: uppercase;
             }
-            .content-area { padding: 20px 24px; background: #f8fafc; }
+            .content-area { padding: 14px; background: #ffffff; }
             .section-card {
               background: white;
-              border: 1px solid #e2e8f0;
-              border-radius: 14px;
-              margin-bottom: 12px;
+              border: 1px solid #d1d5db;
+              border-radius: 0;
+              margin-bottom: 10px;
               overflow: hidden;
-              box-shadow: 0 8px 24px rgba(15,23,42,0.06);
+              box-shadow: none;
             }
             .section-header {
-              background: #f8fafc;
-              padding: 14px 18px;
-              border-bottom: 1px solid #e2e8f0;
+              background: #eff6ff;
+              padding: 8px 10px;
+              border-bottom: 1px solid #d1d5db;
             }
-            .section-title { font-size: 16px; font-weight: 700; color: #0f172a; margin: 0; letter-spacing: -0.01em; }
-            .section-desc { font-size: 13px; color: #64748b; margin-top: 4px; }
+            .section-title { font-size: 13px; font-weight: 700; color: #1e3a8a; margin: 0; text-transform: uppercase; letter-spacing: 0.03em; }
+            .section-desc { font-size: 11px; color: #6b7280; margin-top: 3px; }
             .section-body {
-              padding: 14px 16px;
+              padding: 10px;
               display: grid;
-              gap: 14px;
+              gap: 10px;
             }
             .field-item {
-              padding-bottom: 12px;
-              border-bottom: 1px solid #f1f5f9;
+              padding-bottom: 8px;
+              border-bottom: 1px solid #e5e7eb;
             }
             .field-item:last-child { border-bottom: none; padding-bottom: 0; }
             .field-label {
               font-weight: 600;
-              color: #64748b;
-              font-size: 11px;
-              letter-spacing: 0.04em;
+              color: #374151;
+              font-size: 10px;
+              letter-spacing: 0.03em;
               text-transform: uppercase;
-              margin-bottom: 6px;
+              margin-bottom: 4px;
               display: flex;
               align-items: center;
               gap: 6px;
             }
             .required-mark { color: #ef4444; font-size: 14px; }
-            .field-value { color: #0f172a; font-size: 14px; line-height: 1.6; }
+            .field-value { color: #111827; font-size: 12px; line-height: 1.5; }
             .footer-area {
               background: white;
-              padding: 22px 32px 28px;
-              border-top: 1px solid #e2e8f0;
+              padding: 10px 14px 12px;
+              border-top: 2px solid #194898;
             }
             .footer-grid {
               display: grid;
               grid-template-columns: repeat(2, minmax(0, 1fr));
-              gap: 14px 20px;
-              font-size: 13px;
-              color: #475569;
+              gap: 10px 12px;
+              font-size: 11px;
+              color: #374151;
             }
-            .footer-item strong { color: #0f172a; display: block; margin-bottom: 4px; }
+            .footer-item strong { color: #111827; display: block; margin-bottom: 2px; font-size: 10px; text-transform: uppercase; }
             .page-number {
               text-align: center;
-              font-size: 11px;
-              color: #94a3b8;
-              margin-top: 14px;
-              padding-top: 10px;
-              border-top: 1px solid #e2e8f0;
+              font-size: 10px;
+              color: #6b7280;
+              margin-top: 10px;
+              padding-top: 8px;
+              border-top: 1px solid #d1d5db;
             }
             @media print { body { background: white; } .page-container { box-shadow: none; margin: 0; } }
           </style>
@@ -656,11 +660,11 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
           <div class="page-container">
             <div class="header-band">
               <div class="logo-section">
-                <img src="${window.location.origin}/logo.png" alt="RODICON" class="company-logo" />
                 <div>
                   <h1 class="doc-title">Reporte de Inspección HSE</h1>
-                  <p class="doc-subtitle">Sistema de Gestión de Seguridad y Salud Ocupacional</p>
+                  <p class="doc-subtitle">Formato de inspección | Sistema RODICON</p>
                 </div>
+                <img src="${window.location.origin}/logo.png" alt="RODICON" class="company-logo" />
               </div>
               <div class="inspection-meta">
                 <div class="meta-info">
@@ -714,7 +718,7 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
                 margin: [6, 6, 6, 6],
                 filename: '${completedInspection.inspection_number || 'inspeccion'}.pdf',
                 image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+                html2canvas: { scale: 3, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
                 pagebreak: { mode: ['css', 'legacy'] }
               };

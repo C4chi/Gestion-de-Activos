@@ -1061,31 +1061,50 @@ function PhotoUpload({ value, onChange, disabled, allowMultiple = false, onUploa
   const compressImage = async (file) => {
     if (!file?.type?.startsWith('image/')) return file;
 
+    const objectUrl = URL.createObjectURL(file);
     const img = await new Promise((resolve, reject) => {
       const image = new Image();
-      image.onload = () => resolve(image);
-      image.onerror = reject;
-      image.src = URL.createObjectURL(file);
+      image.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(image);
+      };
+      image.onerror = (err) => {
+        URL.revokeObjectURL(objectUrl);
+        reject(err);
+      };
+      image.src = objectUrl;
     });
 
-    const maxWidth = 1600;
-    const maxHeight = 1600;
+    const maxWidth = 2560;
+    const maxHeight = 2560;
     const ratio = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
     const targetWidth = Math.round(img.width * ratio);
     const targetHeight = Math.round(img.height * ratio);
+
+    if (ratio >= 1 && file.size <= 2 * 1024 * 1024) {
+      return file;
+    }
 
     const canvas = document.createElement('canvas');
     canvas.width = targetWidth;
     canvas.height = targetHeight;
 
     const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+    }
     ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
     const blob = await new Promise((resolve) => {
-      canvas.toBlob(resolve, 'image/jpeg', 0.75);
+      canvas.toBlob(resolve, 'image/jpeg', 0.9);
     });
 
     if (!blob) return file;
+
+    if (blob.size >= file.size * 0.95 && ratio >= 0.95) {
+      return file;
+    }
 
     return new File([blob], `${file.name.replace(/\.[^.]+$/, '')}.jpg`, {
       type: 'image/jpeg',
