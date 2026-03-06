@@ -218,11 +218,11 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
       ` : '';
 
       const filesHtml = files.length > 0 ? `
-        <div style="margin-top:10px;">
+        <div class="photo-block" style="margin-top:10px;">
           <p style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;">Archivos de seguimiento (${files.length})</p>
-          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
+          <div class="photo-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
             ${files.map((url, idx) => `
-              <div style="position:relative;">
+              <div class="photo-cell" style="position:relative;">
                 <img src="${url}" style="width:100%;height:160px;object-fit:contain;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;image-rendering:auto;" />
                 <span style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.7);color:white;padding:2px 6px;border-radius:4px;font-size:10px;">Archivo ${idx + 1}</span>
               </div>
@@ -278,15 +278,15 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
         if (photos.length === 0) return '<div style="margin-top:4px;color:#9ca3af;">Sin fotos</div>';
         
         if (photos.length === 1) {
-          return `<div style="margin-top:8px;"><img src="${photos[0]}" style="width:100%;max-height:320px;object-fit:contain;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;image-rendering:auto;" /></div>`;
+          return `<div class="photo-block" style="margin-top:8px;"><img src="${photos[0]}" style="width:100%;max-height:320px;object-fit:contain;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;image-rendering:auto;" /></div>`;
         }
         
         return `
-          <div style="margin-top:8px;">
+          <div class="photo-block" style="margin-top:8px;">
             <p style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;">${photos.length} fotos</p>
-            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
+            <div class="photo-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
               ${photos.map((url, idx) => `
-                <div style="position:relative;">
+                <div class="photo-cell" style="position:relative;">
                   <img src="${url}" style="width:100%;height:170px;object-fit:contain;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;image-rendering:auto;" />
                   <span style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.7);color:white;padding:2px 6px;border-radius:4px;font-size:10px;">Foto ${idx + 1}</span>
                 </div>
@@ -441,6 +441,8 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
               margin-bottom: 10px;
               overflow: hidden;
               box-shadow: none;
+              break-inside: avoid;
+              page-break-inside: avoid;
             }
             .section-header {
               background: #eff6ff;
@@ -457,8 +459,17 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
             .field-item {
               padding-bottom: 8px;
               border-bottom: 1px solid #e5e7eb;
+              break-inside: avoid;
+              page-break-inside: avoid;
             }
             .field-item:last-child { border-bottom: none; padding-bottom: 0; }
+            .photo-block,
+            .photo-grid,
+            .photo-cell,
+            img {
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
             .field-label {
               font-weight: 600;
               color: #374151;
@@ -560,7 +571,7 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 3, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                pagebreak: { mode: ['css', 'legacy'] }
+                pagebreak: { mode: ['css', 'legacy'], avoid: ['.section-card', '.field-item', '.photo-block', '.photo-cell', 'img'] }
               };
               html2pdf().set(opt).from(element).save().then(() => {
                 setTimeout(() => window.close(), 1000);
@@ -678,7 +689,10 @@ function InspectionSections({ inspection }) {
   const answers = inspection.answers || {};
 
   const toggleSection = (sectionId) => {
-    setExpandedSections(prev => ({...prev, [sectionId]: !prev[sectionId]}));
+    setExpandedSections(prev => {
+      const isExpanded = prev[sectionId] !== false;
+      return { ...prev, [sectionId]: !isExpanded };
+    });
   };
 
   if (!tpl.sections || tpl.sections.length === 0) {
@@ -691,10 +705,10 @@ function InspectionSections({ inspection }) {
         <div key={idx} className="bg-white rounded-lg border border-gray-200">
           <button onClick={() => toggleSection(idx)} className="w-full px-6 py-4 text-left hover:bg-gray-50 flex items-center justify-between">
             <h3 className="font-semibold text-gray-900">{section.title || `Sección ${idx + 1}`}</h3>
-            <span className="text-gray-500">{expandedSections[idx] ? '▼' : '▶'}</span>
+            <span className="text-gray-500">{expandedSections[idx] !== false ? '▼' : '▶'}</span>
           </button>
 
-          {expandedSections[idx] && (
+          {expandedSections[idx] !== false && (
             <div className="px-6 py-4 border-t border-gray-200 space-y-4">
               {section.items?.map(item => (
                 <div key={item.id} className="space-y-2">
@@ -703,7 +717,7 @@ function InspectionSections({ inspection }) {
                     {item.required && <span className="text-red-500 ml-1">*</span>}
                   </p>
                   <div className="text-gray-600 text-sm">
-                    {renderAnswerValue(item, answers[item.id])}
+                    {renderAnswerValue(item, answers[item.id], answers)}
                   </div>
                 </div>
               ))}
@@ -715,29 +729,178 @@ function InspectionSections({ inspection }) {
   );
 }
 
-function renderAnswerValue(item, answer) {
-  if (!answer) return '—';
-  const value = answer.value;
-  const label = answer.label;
+function normalizePhotos(rawValue) {
+  if (Array.isArray(rawValue)) return rawValue.filter((url) => typeof url === 'string' && url.trim() !== '');
+  if (typeof rawValue === 'string') {
+    if (!rawValue.trim()) return [];
+    if (rawValue.trim().startsWith('[')) {
+      try {
+        const parsed = JSON.parse(rawValue);
+        if (Array.isArray(parsed)) return parsed.filter((url) => typeof url === 'string' && url.trim() !== '');
+      } catch {
+        return [rawValue];
+      }
+    }
+    return [rawValue];
+  }
+  return [];
+}
+
+function PhotoGallery({ photos = [], label = 'Foto' }) {
+  if (!photos.length) return null;
+  return (
+    <div className="mt-2 space-y-2">
+      {photos.length > 1 && (
+        <p className="text-xs text-gray-500">{photos.length} archivos adjuntos</p>
+      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {photos.map((url, index) => (
+          <a key={`${url}-${index}`} href={url} target="_blank" rel="noreferrer" className="block">
+            <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+              <img src={url} alt={`${label} ${index + 1}`} className="w-full h-40 object-contain bg-gray-50" />
+              <span className="absolute left-2 bottom-2 text-[11px] bg-black/70 text-white px-2 py-0.5 rounded">
+                {label} {index + 1}
+              </span>
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function renderFollowUpContent(itemId, answers) {
+  if (!itemId) return null;
+
+  const questions = Object.entries(answers || {})
+    .filter(([key, ans]) => key.startsWith(`${itemId}_question_`) && ans?.value)
+    .sort(([a], [b]) => a.localeCompare(b));
+
+  const note = answers?.[`${itemId}_followup_note`]?.value;
+  const files = normalizePhotos(answers?.[`${itemId}_followup_files`]?.value);
+
+  if (!questions.length && !note && files.length === 0) return null;
+
+  return (
+    <div className="mt-3 space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+      <p className="text-xs font-semibold text-amber-800 uppercase tracking-wide">Seguimiento</p>
+
+      {questions.map(([key, ans], index) => (
+        <div key={key} className="rounded border border-amber-200 bg-white p-2">
+          <p className="text-xs font-semibold text-gray-700">{ans?.label || `Pregunta adicional ${index + 1}`}</p>
+          <p className="text-sm text-gray-900">{ans?.value || '—'}</p>
+        </div>
+      ))}
+
+      {note && (
+        <div className="rounded border border-amber-300 bg-white p-2">
+          <p className="text-xs font-semibold text-gray-700">Nota de seguimiento</p>
+          <p className="text-sm text-gray-900 whitespace-pre-wrap">{note}</p>
+        </div>
+      )}
+
+      {files.length > 0 && <PhotoGallery photos={files} label="Seguimiento" />}
+    </div>
+  );
+}
+
+function renderAnswerValue(item, answer, answers = {}) {
+  const value = answer?.value;
+  const label = answer?.label;
+  const followUp = renderFollowUpContent(item?.id, answers);
+
+  if (!answer) return followUp || '—';
 
   if (item.type === 'asset' || item.type === 'location' || item.type === 'area') {
-    return label || value || '—';
+    return (
+      <>
+        <span>{label || value || '—'}</span>
+        {followUp}
+      </>
+    );
   }
+
   if (item.type === 'photo' || (typeof value === 'string' && (value.startsWith('data:image') || value.includes('http'))) || Array.isArray(value)) {
-    const photos = Array.isArray(value) ? value : (value ? [value] : []);
-    if (photos.length === 0) return '—';
-    return photos.length === 1 ? '📷 Foto adjunta' : `📷 ${photos.length} fotos adjuntas`;
+    const photos = normalizePhotos(value);
+    return (
+      <>
+        {photos.length > 0 ? <PhotoGallery photos={photos} label="Foto" /> : <span>—</span>}
+        {followUp}
+      </>
+    );
   }
+
   if (item.type === 'signature') {
-    if (typeof value === 'string' && value.startsWith('text:')) return value.replace('text:', '');
-    return '✍️ Firma adjunta';
+    if (typeof value === 'string' && value.startsWith('text:')) {
+      return (
+        <>
+          <span>{value.replace('text:', '')}</span>
+          {followUp}
+        </>
+      );
+    }
+
+    if (value) {
+      return (
+        <>
+          <div className="border border-gray-200 rounded-lg bg-gray-50 p-2 inline-block">
+            <img src={value} alt="Firma" className="max-h-28 object-contain" />
+          </div>
+          {followUp}
+        </>
+      );
+    }
+
+    return followUp || '—';
   }
-  if (item.type === 'checkbox') return value ? '✓ Sí' : '✗ No';
+
+  if (item.type === 'checkbox') {
+    return (
+      <>
+        <span>{value ? '✓ Sí' : '✗ No'}</span>
+        {followUp}
+      </>
+    );
+  }
+
   if (item.type === 'single_select') {
     const option = item.options?.find(opt => opt.value === value);
-    return option?.label || value || '—';
+    const extraPhotos = normalizePhotos(answers?.[`${item.id}_photo`]?.value);
+    const extraNote = answers?.[`${item.id}_note`]?.value;
+    const extraField = answers?.[`${item.id}_field`]?.value;
+
+    return (
+      <div className="space-y-2">
+        <span className="inline-flex px-2.5 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200 font-medium">
+          {option?.label || value || '—'}
+        </span>
+
+        {extraPhotos.length > 0 && <PhotoGallery photos={extraPhotos} label="Evidencia" />}
+
+        {extraNote && (
+          <div className="rounded border border-amber-300 bg-amber-50 p-2">
+            <p className="text-xs font-semibold text-amber-800">Nota</p>
+            <p className="text-sm text-gray-900 whitespace-pre-wrap">{extraNote}</p>
+          </div>
+        )}
+
+        {extraField && (
+          <div className="rounded border border-gray-200 bg-gray-50 p-2 text-sm text-gray-900 whitespace-pre-wrap">
+            {extraField}
+          </div>
+        )}
+
+        {followUp}
+      </div>
+    );
   }
-  return value || '—';
+
+  return (
+    <>
+      <span>{value || '—'}</span>
+      {followUp}
+    </>
+  );
 }
 
 function InspectionInfo({ inspection }) {

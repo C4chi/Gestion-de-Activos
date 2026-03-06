@@ -344,11 +344,11 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
       ` : '';
 
       const filesHtml = files.length > 0 ? `
-        <div style="margin-top:10px;">
+        <div class="photo-block" style="margin-top:10px;">
           <p style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;">Archivos de seguimiento (${files.length})</p>
-          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
+          <div class="photo-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
             ${files.map((url, idx) => `
-              <div style="position:relative;">
+              <div class="photo-cell" style="position:relative;">
                 <img src="${url}" style="width:100%;height:160px;object-fit:contain;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;image-rendering:auto;" />
                 <span style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.7);color:white;padding:2px 6px;border-radius:4px;font-size:10px;">Archivo ${idx + 1}</span>
               </div>
@@ -400,11 +400,11 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
         const photoValue = answers[item.id + '_photo']?.value;
         const photos = Array.isArray(photoValue) ? photoValue : (photoValue ? [photoValue] : []);
         const photoHTML = photos.length > 0 ? `
-          <div style="margin-top:12px;">
+          <div class="photo-block" style="margin-top:12px;">
             <p style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;">Evidencia (${photos.length} foto${photos.length > 1 ? 's' : ''})</p>
-            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
+            <div class="photo-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
               ${photos.map((url, idx) => `
-                <div style="position:relative;">
+                <div class="photo-cell" style="position:relative;">
                   <img src="${url}" style="width:100%;height:170px;object-fit:contain;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;image-rendering:auto;" />
                   <span style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.7);color:white;padding:2px 6px;border-radius:4px;font-size:10px;">Foto ${idx + 1}</span>
                 </div>
@@ -438,15 +438,15 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
         if (photos.length === 0) return '<div style="margin-top:4px;color:#9ca3af;">Sin fotos</div>';
         
         if (photos.length === 1) {
-          return `<div style="margin-top:8px;"><img src="${photos[0]}" style="width:100%;max-height:320px;object-fit:contain;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;image-rendering:auto;" /></div>`;
+          return `<div class="photo-block" style="margin-top:8px;"><img src="${photos[0]}" style="width:100%;max-height:320px;object-fit:contain;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;image-rendering:auto;" /></div>`;
         }
         
         return `
-          <div style="margin-top:8px;">
+          <div class="photo-block" style="margin-top:8px;">
             <p style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;">${photos.length} fotos</p>
-            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
+            <div class="photo-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
               ${photos.map((url, idx) => `
-                <div style="position:relative;">
+                <div class="photo-cell" style="position:relative;">
                   <img src="${url}" style="width:100%;height:170px;object-fit:contain;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;image-rendering:auto;" />
                   <span style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.7);color:white;padding:2px 6px;border-radius:4px;font-size:10px;">Foto ${idx + 1}</span>
                 </div>
@@ -601,6 +601,8 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
               margin-bottom: 10px;
               overflow: hidden;
               box-shadow: none;
+              break-inside: avoid;
+              page-break-inside: avoid;
             }
             .section-header {
               background: #eff6ff;
@@ -617,8 +619,17 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
             .field-item {
               padding-bottom: 8px;
               border-bottom: 1px solid #e5e7eb;
+              break-inside: avoid;
+              page-break-inside: avoid;
             }
             .field-item:last-child { border-bottom: none; padding-bottom: 0; }
+            .photo-block,
+            .photo-grid,
+            .photo-cell,
+            img {
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
             .field-label {
               font-weight: 600;
               color: #374151;
@@ -720,7 +731,7 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 3, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                pagebreak: { mode: ['css', 'legacy'] }
+                pagebreak: { mode: ['css', 'legacy'], avoid: ['.section-card', '.field-item', '.photo-block', '.photo-cell', 'img'] }
               };
               html2pdf().set(opt).from(element).save().then(() => {
                 setTimeout(() => window.close(), 1000);
