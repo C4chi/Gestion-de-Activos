@@ -471,6 +471,22 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
 
     const buildSections = () => {
       if (!tpl.sections) return '';
+
+      const shouldRenderItem = (item, answer) => {
+        const value = answer?.value;
+
+        if (item?.type === 'photo') {
+          const photos = Array.isArray(value) ? value : (value ? [value] : []);
+          return photos.length > 0;
+        }
+
+        if (value === null || value === undefined) return !!item?.required;
+        if (typeof value === 'string' && value.trim() === '') return !!item?.required;
+        if (Array.isArray(value) && value.length === 0) return !!item?.required;
+
+        return true;
+      };
+
       return tpl.sections.map((section, sectionIdx) => `
         <div class="section-card">
           <div class="section-header">
@@ -480,6 +496,7 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
           <div class="section-body">
             ${(section.items || []).map(item => {
               const answer = answers[item.id];
+              if (!shouldRenderItem(item, answer)) return '';
               return `
                 <div class="field-item">
                   <div class="field-label">
