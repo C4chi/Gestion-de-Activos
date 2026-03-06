@@ -20,6 +20,25 @@ export const InventoryView = ({
   gpsFilter,
   setGpsFilter,
 }) => {
+  const totalAssets = Number(kpis?.total || 0);
+  const noOpPercent = totalAssets > 0 ? Math.round((Number(kpis?.noOp || 0) / totalAssets) * 100) : 0;
+  const tallerPercent = totalAssets > 0 ? Math.round((Number(kpis?.enTaller || 0) / totalAssets) * 100) : 0;
+  const repuestoPercent = totalAssets > 0 ? Math.round((Number(kpis?.esperaRepuesto || 0) / totalAssets) * 100) : 0;
+
+  const activeFilters = [
+    search ? { label: `Búsqueda: "${search}"`, onClear: () => setSearch('') } : null,
+    locationFilter ? { label: `Ubicación: ${locationFilter}`, onClear: () => setLocationFilter?.('') } : null,
+    isAdminGlobal && gpsFilter ? { label: `GPS: ${gpsFilter}`, onClear: () => setGpsFilter?.('') } : null,
+    filter && filter !== 'ALL' ? { label: `Estado: ${filter.replaceAll('_', ' ')}`, onClear: () => setFilter('ALL') } : null,
+  ].filter(Boolean);
+
+  const clearAllFilters = () => {
+    setSearch('');
+    setLocationFilter?.('');
+    setFilter('ALL');
+    setGpsFilter?.('');
+  };
+
   return (
     <main className="flex-1 flex flex-col h-full overflow-hidden relative bg-gray-50">
       <header className="bg-white border-b min-h-16 flex items-center justify-between px-4 lg:px-8 shadow-sm shrink-0 gap-4 flex-wrap py-2">
@@ -72,21 +91,88 @@ export const InventoryView = ({
           <h2 className="text-lg lg:text-2xl font-bold text-gray-800">
             Bienvenido, {userName}
           </h2>
-          <p className="text-sm text-gray-500">Panel principal de gestión</p>
+          <p className="text-sm text-gray-500">
+            {filteredAssets.length} de {totalAssets} activos visibles
+            {filter !== 'ALL' ? ` · filtro ${filter.replaceAll('_', ' ')}` : ''}
+          </p>
         </div>
 
         {/* Tarjetas Dashboard */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-6 lg:mb-8">
-          <DashboardCard title="Total Activos" value={kpis.total} icon="🚙" color="blue" active={filter === 'ALL'} onClick={() => setFilter('ALL')} />
-          <DashboardCard title="No Operativos" value={kpis.noOp} icon="⚠️" color="red" active={filter === 'NO_OP'} onClick={() => setFilter('NO_OP')} />
-          <DashboardCard title="En Taller" value={kpis.enTaller} icon="🔧" color="yellow" active={filter === 'EN_TALLER'} onClick={() => setFilter('EN_TALLER')} />
-          <DashboardCard title="Espera de Repuesto" value={kpis.esperaRepuesto} icon="⏳" color="red" active={filter === 'ESPERA_REPUESTO'} onClick={() => setFilter('ESPERA_REPUESTO')} />
+          <DashboardCard
+            title="Total Activos"
+            value={kpis.total}
+            icon="🚙"
+            color="blue"
+            active={filter === 'ALL'}
+            onClick={() => setFilter('ALL')}
+            subtitle="Base operativa"
+            footnote="Clic para ver todos"
+          />
+          <DashboardCard
+            title="No Operativos"
+            value={kpis.noOp}
+            icon="⚠️"
+            color="red"
+            active={filter === 'NO_OP'}
+            onClick={() => setFilter('NO_OP')}
+            subtitle={`${noOpPercent}% del total`}
+            footnote="Incluye taller y repuesto"
+          />
+          <DashboardCard
+            title="En Taller"
+            value={kpis.enTaller}
+            icon="🔧"
+            color="yellow"
+            active={filter === 'EN_TALLER'}
+            onClick={() => setFilter('EN_TALLER')}
+            subtitle={`${tallerPercent}% del total`}
+            footnote="Mantenimiento activo"
+          />
+          <DashboardCard
+            title="Espera de Repuesto"
+            value={kpis.esperaRepuesto}
+            icon="⏳"
+            color="red"
+            active={filter === 'ESPERA_REPUESTO'}
+            onClick={() => setFilter('ESPERA_REPUESTO')}
+            subtitle={`${repuestoPercent}% del total`}
+            footnote="Pendiente por suministro"
+          />
+        </div>
+
+        {/* Filtros activos */}
+        <div className="mb-4 lg:mb-6 flex flex-wrap items-center gap-2">
+          {activeFilters.length > 0 ? (
+            <>
+              {activeFilters.map((item, index) => (
+                <button
+                  key={`${item.label}-${index}`}
+                  type="button"
+                  onClick={item.onClear}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
+                  title="Quitar filtro"
+                >
+                  {item.label} ×
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="inline-flex items-center px-2.5 py-1 rounded-full text-xs bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200"
+              >
+                Limpiar todo
+              </button>
+            </>
+          ) : (
+            <p className="text-xs text-gray-500">Sin filtros activos</p>
+          )}
         </div>
 
         {/* Tabla Inventario - Desktop */}
         <div className="hidden lg:block bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 sticky top-0 z-10">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Ficha</th>
                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Marca / Modelo</th>
@@ -96,15 +182,31 @@ export const InventoryView = ({
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredAssets.map(a => (
-                <tr key={a.id} onClick={() => onAssetSelect(a)} className="hover:bg-blue-50 cursor-pointer transition">
-                  <td className="px-6 py-4 font-bold text-blue-900">{a.ficha}</td>
-                  <td className="px-6 py-4"><div className="font-bold text-gray-700">{a.marca} {a.modelo}</div><div className="text-xs text-gray-400 font-mono">{a.chasis || '-'}</div></td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{a.ubicacion_actual}</td>
-                  <td className="px-6 py-4 text-center"><StatusBadge status={a.status} /></td>
-                  <td className="px-6 py-4 text-right text-gray-400"><ChevronRight className="w-5 h-5" /></td>
+              {filteredAssets.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-10 text-center">
+                    <p className="text-sm font-semibold text-gray-700">No hay activos para mostrar</p>
+                    <p className="text-xs text-gray-500 mt-1">Revisa búsqueda o filtros activos</p>
+                    <button
+                      type="button"
+                      onClick={clearAllFilters}
+                      className="mt-3 text-xs px-3 py-1.5 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+                    >
+                      Limpiar filtros
+                    </button>
+                  </td>
                 </tr>
-              ))}
+              ) : (
+                filteredAssets.map((a, index) => (
+                  <tr key={a.id} onClick={() => onAssetSelect(a)} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} hover:bg-blue-50 cursor-pointer transition`}>
+                    <td className="px-6 py-4 font-bold text-blue-900">{a.ficha}</td>
+                    <td className="px-6 py-4"><div className="font-bold text-gray-700">{a.marca} {a.modelo}</div><div className="text-xs text-gray-400 font-mono">{a.chasis || '-'}</div></td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{a.ubicacion_actual}</td>
+                    <td className="px-6 py-4 text-center"><StatusBadge status={a.status} /></td>
+                    <td className="px-6 py-4 text-right text-gray-400"><ChevronRight className="w-5 h-5" /></td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -117,12 +219,7 @@ export const InventoryView = ({
               <p className="text-xs text-gray-500 mt-1">Revisa búsqueda o filtros activos</p>
               <button
                 type="button"
-                onClick={() => {
-                  setSearch('');
-                  setLocationFilter?.('');
-                  setFilter('ALL');
-                  setGpsFilter?.('');
-                }}
+                onClick={clearAllFilters}
                 className="mt-3 text-xs px-3 py-1.5 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
               >
                 Limpiar filtros
