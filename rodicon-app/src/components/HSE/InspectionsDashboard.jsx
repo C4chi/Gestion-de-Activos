@@ -188,6 +188,11 @@ export default function InspectionsDashboard() {
     return String(inspection.conducted_by) === String(user.id);
   };
 
+  const isInspectionOwner = (inspection) => {
+    if (!inspection || !inspection.conducted_by || !user?.id) return false;
+    return String(inspection.conducted_by) === String(user.id);
+  };
+
   const handleContinueDraft = (inspection) => {
     if (!inspection || inspection.status !== 'DRAFT') return;
 
@@ -207,6 +212,28 @@ export default function InspectionsDashboard() {
     } catch (error) {
       console.error('Error opening draft:', error);
       toast.error('No se pudo abrir el borrador');
+    }
+  };
+
+  const handleEditCompletedInspection = (inspection) => {
+    if (!inspection || inspection.status !== 'COMPLETED') return;
+
+    if (!isInspectionOwner(inspection)) {
+      toast.error('Solo el usuario que realizó la inspección puede editarla');
+      return;
+    }
+
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('hseTemplateId', inspection.template_id);
+      url.searchParams.set('hseInspectionId', inspection.id);
+      if (user?.id) {
+        url.searchParams.set('hseUserId', String(user.id));
+      }
+      window.open(url.toString(), '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('Error opening inspection for edit:', error);
+      toast.error('No se pudo abrir la inspección para edición');
     }
   };
 
@@ -632,6 +659,23 @@ export default function InspectionsDashboard() {
                           >
                             Continuar
                           </button>
+                        ) : inspection.status === 'COMPLETED' ? (
+                          <>
+                            <button
+                              onClick={() => handleEditCompletedInspection(inspection)}
+                              disabled={!isInspectionOwner(inspection)}
+                              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                              title={!isInspectionOwner(inspection) ? 'Solo quien realizó la inspección puede editarla' : 'Editar inspección'}
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => handleViewInspection(inspection)}
+                              className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                            >
+                              Ver informe
+                            </button>
+                          </>
                         ) : (
                           <button
                             onClick={() => handleViewInspection(inspection)}
@@ -697,6 +741,22 @@ export default function InspectionsDashboard() {
                       >
                         Continuar
                       </button>
+                    ) : inspection.status === 'COMPLETED' ? (
+                      <>
+                        <button
+                          onClick={() => handleEditCompletedInspection(inspection)}
+                          disabled={!isInspectionOwner(inspection)}
+                          className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => handleViewInspection(inspection)}
+                          className="flex-1 px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+                        >
+                          Ver informe
+                        </button>
+                      </>
                     ) : (
                       <button
                         onClick={() => handleViewInspection(inspection)}

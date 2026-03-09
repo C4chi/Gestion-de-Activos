@@ -17,6 +17,7 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
   const [saving, setSaving] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [completedInspection, setCompletedInspection] = useState(null);
+  const editableStatuses = ['DRAFT', 'COMPLETED'];
 
   const extractContextFromAnswers = (schema, answers) => {
     let location = null;
@@ -51,14 +52,14 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
         if (inspectionId) {
           const existingInspection = await getInspectionById(inspectionId);
 
-          if (!existingInspection || existingInspection.status !== 'DRAFT') {
-            toast.error('El borrador no está disponible para continuar');
+          if (!existingInspection || !editableStatuses.includes(existingInspection.status)) {
+            toast.error('La inspección no está disponible para edición');
             setAccessDenied(true);
             return;
           }
 
           if (!resolvedUserId || String(existingInspection.conducted_by) !== String(resolvedUserId)) {
-            toast.error('Solo el usuario que inició el borrador puede continuarlo');
+            toast.error('Solo el usuario que realizó la inspección puede editarla');
             setAccessDenied(true);
             return;
           }
@@ -133,15 +134,16 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
 
       if (isDraftMode && draftInspection) {
         if (!isOnline()) {
-          toast.error('Debes tener conexión para continuar un borrador existente');
+          toast.error('Debes tener conexión para editar una inspección existente');
           return;
         }
 
+        const wasCompleted = draftInspection.status === 'COMPLETED';
         await completeInspection(draftInspection.id, completePayload);
         const fullInspection = await getInspectionById(draftInspection.id);
         setCompletedInspection(fullInspection);
         setShowSuccessModal(true);
-        toast.success('✓ Borrador completado exitosamente');
+        toast.success(wasCompleted ? '✓ Inspección actualizada exitosamente' : '✓ Borrador completado exitosamente');
         return;
       }
 
@@ -784,7 +786,7 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
       return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
           <div className="bg-white border border-red-200 rounded-xl p-6 text-center max-w-md w-full">
-            <p className="text-red-700 font-semibold">No tienes permisos para continuar este borrador.</p>
+            <p className="text-red-700 font-semibold">No tienes permisos para editar esta inspección.</p>
             <button
               type="button"
               onClick={() => window.close()}
@@ -811,7 +813,11 @@ export default function InspectionStandalone({ templateId, inspectionId = null, 
           <div className="flex items-center gap-2 text-gray-800">
             <ClipboardCheck className="text-blue-600" />
             <div>
-              <p className="text-xs text-gray-500">{isDraftMode ? 'Continuación de borrador' : 'Nueva inspección'}</p>
+              <p className="text-xs text-gray-500">
+                {isDraftMode
+                  ? (draftInspection?.status === 'COMPLETED' ? 'Edición de inspección completada' : 'Continuación de borrador')
+                  : 'Nueva inspección'}
+              </p>
               <h1 className="text-lg font-semibold">{template.name}</h1>
               {template.description && (
                 <p className="text-xs text-gray-500">{template.description}</p>
