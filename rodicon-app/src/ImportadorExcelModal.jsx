@@ -1,15 +1,46 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { FullScreenModal } from './FullScreenModal';
 import { useAppContext } from './AppContext';
 import { Upload, AlertCircle, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 
-export const ImportadorExcelModal = ({ onClose }) => {
+export const ImportadorExcelModal = ({ onClose, importType = 'gps' }) => {
   const { assets, updateAsset } = useAppContext();
   const [previewData, setPreviewData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1); // 1=upload, 2=preview, 3=done
+
+  const isStatusImport = importType === 'status';
+  const targetField = isStatusImport ? 'status' : 'gps';
+  const targetLabel = isStatusImport ? 'Status' : 'GPS';
+  const titleText = isStatusImport ? '📤 Importador de Status por Excel' : '📤 Importador GPS por Excel';
+
+  const exampleRows = useMemo(() => {
+    if (isStatusImport) {
+      return [
+        { ficha: 'A-015', value: 'EN TALLER' },
+        { ficha: 'CA-001', value: 'DISPONIBLE' }
+      ];
+    }
+
+    return [
+      { ficha: 'A-015', value: 'Systrack' },
+      { ficha: 'CA-001', value: 'JDLink' }
+    ];
+  }, [isStatusImport]);
+
+  const getCellValue = (row, keys) => {
+    for (const key of keys) {
+      const val = row[key];
+      if (val !== undefined && val !== null && String(val).trim() !== '') {
+        return String(val).trim();
+      }
+    }
+    return '';
+  };
+
+  const normalizeStatus = (value) => String(value || '').trim().toUpperCase();
 
   const handleFileUpload = (event) => {
     const file = event.target.files?.[0];
@@ -32,15 +63,12 @@ export const ImportadorExcelModal = ({ onClose }) => {
         // Mapear datos y validar
         const mapped = data
           .map((row) => {
-            const ficha = String(row.ficha || row.FICHA || '').trim();
-            const gps = String(
-              row.gps ||
-              row.GPS ||
-              row['Tipo GPS'] ||
-              row['TIPO GPS'] ||
-              row['tipo gps'] ||
-              ''
-            ).trim();
+            const ficha = getCellValue(row, ['ficha', 'FICHA']);
+            const rawValue = isStatusImport
+              ? getCellValue(row, ['status', 'STATUS', 'estado', 'ESTADO'])
+              : getCellValue(row, ['gps', 'GPS', 'Tipo GPS', 'TIPO GPS', 'tipo gps']);
+
+            const targetValue = isStatusImport ? normalizeStatus(rawValue) : rawValue;
 
             if (!ficha) return null;
 
@@ -50,19 +78,19 @@ export const ImportadorExcelModal = ({ onClose }) => {
             if (!asset) {
               return {
                 ficha,
-                gps,
+                value: targetValue,
                 error: `❌ Equipo no encontrado`,
                 found: false,
               };
             }
 
-            if (!gps) {
+            if (!targetValue) {
               return {
                 id: asset.id,
                 ficha,
-                gps,
-                currentGps: asset.gps || '',
-                error: '❌ GPS vacío',
+                value: targetValue,
+                currentValue: asset[targetField] || '',
+                error: `❌ ${targetLabel} vacío`,
                 found: true,
               };
             }
@@ -70,8 +98,8 @@ export const ImportadorExcelModal = ({ onClose }) => {
             return {
               id: asset.id,
               ficha,
-              gps,
-              currentGps: asset.gps || '',
+              value: targetValue,
+              currentValue: asset[targetField] || '',
               error: null,
               found: true,
             };
@@ -86,7 +114,7 @@ export const ImportadorExcelModal = ({ onClose }) => {
         setPreviewData(mapped);
         setStep(2);
         const validCount = mapped.filter(m => m.found && !m.error).length;
-        toast.success(`${validCount} activos listos para actualizar GPS`);
+        toast.success(`${validCount} activos listos para actualizar ${targetLabel}`);
       };
       reader.readAsBinaryString(file);
     } catch (error) {
@@ -98,7 +126,7 @@ export const ImportadorExcelModal = ({ onClose }) => {
   const handleImport = async () => {
     const toUpdate = previewData.filter(d => d.found && !d.error);
     if (toUpdate.length === 0) {
-      toast.error('No hay activos válidos para actualizar GPS');
+      toast.error(`No hay activos válidos para actualizar ${targetLabel}`);
       return;
     }
 
@@ -109,7 +137,7 @@ export const ImportadorExcelModal = ({ onClose }) => {
       const results = await Promise.allSettled(
         toUpdate.map(item => 
           updateAsset(item.id, {
-            gps: item.gps,
+            [targetField]: item.value,
           })
         )
       );
@@ -129,7 +157,7 @@ export const ImportadorExcelModal = ({ onClose }) => {
     } catch (error) {
       console.error('Error en importación:', error);
       setLoading(false);
-      toast.error('Error al importar GPS');
+      toast.error(`Error al importar ${targetLabel}`);
     }
   };
 
@@ -141,14 +169,14 @@ export const ImportadorExcelModal = ({ onClose }) => {
   };
 
   return (
-    <FullScreenModal title="📤 Importador GPS por Excel" color="blue" onClose={onClose}>
+    <FullScreenModal title={titleText} color="blue" onClose={onClose}>
       {step === 1 && (
         <div className="max-w-2xl mx-auto">
           <div className="bg-white border-2 border-dashed border-blue-300 rounded-xl p-12 text-center">
             <Upload className="w-16 h-16 text-blue-500 mx-auto mb-4" />
             <h3 className="text-xl font-bold text-gray-800 mb-2">Sube tu archivo Excel</h3>
             <p className="text-gray-600 mb-6">
-              El Excel debe tener 2 columnas: <strong>Ficha</strong> y <strong>GPS</strong>
+              El Excel debe tener 2 columnas: <strong>Ficha</strong> y <strong>{targetLabel}</strong>
             </p>
             <input
               type="file"
@@ -172,18 +200,16 @@ export const ImportadorExcelModal = ({ onClose }) => {
                 <thead>
                   <tr className="bg-blue-100">
                     <th className="border p-2 text-left">Ficha</th>
-                    <th className="border p-2 text-left">GPS</th>
+                    <th className="border p-2 text-left">{targetLabel}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td className="border p-2">A-015</td>
-                    <td className="border p-2">Systrack</td>
-                  </tr>
-                  <tr>
-                    <td className="border p-2">CA-001</td>
-                    <td className="border p-2">JDLink</td>
-                  </tr>
+                  {exampleRows.map((row, idx) => (
+                    <tr key={idx}>
+                      <td className="border p-2">{row.ficha}</td>
+                      <td className="border p-2">{row.value}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -212,8 +238,8 @@ export const ImportadorExcelModal = ({ onClose }) => {
               <thead className="bg-gray-100 sticky top-0">
                 <tr>
                   <th className="p-3 text-left font-bold text-gray-700">Ficha</th>
-                  <th className="p-3 text-left font-bold text-gray-700">GPS Actual</th>
-                  <th className="p-3 text-left font-bold text-gray-700">Nuevo GPS</th>
+                  <th className="p-3 text-left font-bold text-gray-700">{targetLabel} Actual</th>
+                  <th className="p-3 text-left font-bold text-gray-700">Nuevo {targetLabel}</th>
                   <th className="p-3 text-left font-bold text-gray-700">Estado</th>
                 </tr>
               </thead>
@@ -221,10 +247,10 @@ export const ImportadorExcelModal = ({ onClose }) => {
                 {previewData.map((item, idx) => (
                   <tr key={idx} className={item.found && !item.error ? 'border-b hover:bg-gray-50' : 'border-b bg-red-50'}>
                     <td className="p-3 font-mono font-bold">{item.ficha}</td>
-                    <td className="p-3 text-gray-600">{item.currentGps || '—'}</td>
+                    <td className="p-3 text-gray-600">{item.currentValue || '—'}</td>
                     <td className="p-3">
                       <span className="px-2 py-1 rounded bg-blue-600 text-white text-xs font-bold">
-                        {item.gps || '—'}
+                        {item.value || '—'}
                       </span>
                     </td>
                     <td className="p-3">
@@ -266,7 +292,7 @@ export const ImportadorExcelModal = ({ onClose }) => {
           <CheckCircle className="w-20 h-20 text-green-600 mx-auto mb-4" />
           <h3 className="text-2xl font-bold text-gray-800 mb-2">¡Importación completada!</h3>
           <p className="text-gray-600 mb-8">
-            Los GPS de los activos fueron actualizados correctamente en la base de datos.
+            Los {targetLabel.toLowerCase()} de los activos fueron actualizados correctamente en la base de datos.
           </p>
           <button
             onClick={onClose}

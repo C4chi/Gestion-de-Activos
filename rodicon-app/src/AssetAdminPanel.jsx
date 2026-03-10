@@ -29,6 +29,7 @@ export const AssetAdminPanel = ({ onClose, isAdmin = true }) => {
   const [showLocationManager, setShowLocationManager] = useState(false);
   const [showPDFImporter, setShowPDFImporter] = useState(false);
   const [showExcelImporter, setShowExcelImporter] = useState(false);
+  const [showStatusExcelImporter, setShowStatusExcelImporter] = useState(false);
 
   if (!isAdmin) {
     return (
@@ -204,8 +205,17 @@ export const AssetAdminPanel = ({ onClose, isAdmin = true }) => {
         />
       ) : showExcelImporter ? (
         <ImportadorExcelModal
+          importType="gps"
           onClose={() => {
             setShowExcelImporter(false);
+            fetchAllData();
+          }}
+        />
+      ) : showStatusExcelImporter ? (
+        <ImportadorExcelModal
+          importType="status"
+          onClose={() => {
+            setShowStatusExcelImporter(false);
             fetchAllData();
           }}
         />
@@ -240,7 +250,7 @@ export const AssetAdminPanel = ({ onClose, isAdmin = true }) => {
             </div>
 
             {/* Botones de acción */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
               <button
                 onClick={() => setShowImporter(true)}
                 className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition text-sm"
@@ -254,6 +264,13 @@ export const AssetAdminPanel = ({ onClose, isAdmin = true }) => {
               >
                 <FileText size={18} />
                 Importar GPS (Excel)
+              </button>
+              <button
+                onClick={() => setShowStatusExcelImporter(true)}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg transition text-sm"
+              >
+                <FileText size={18} />
+                Importar Status (Excel)
               </button>
               <button
                 onClick={() => setShowPDFImporter(true)}

@@ -376,7 +376,7 @@ export default function App() {
         onRefresh={fetchAllData}
         onLogout={() => { logout(); setActiveModal('PIN'); }}
         protectedAction={protectedAction}
-        onAdminPanel={() => protectedAction(() => setAdminPanelOpen(true), ['ADMIN'])}
+        onAdminPanel={() => protectedAction(() => setAdminPanelOpen(true), ['ADMIN', 'ADMIN_GLOBAL'])}
         onUserPanel={() => protectedAction(() => setUserPanelOpen(true), ['ADMIN', 'ADMIN_GLOBAL'])}
         onReportsPanel={() => protectedAction(() => setReportsPanelOpen(true), ['ADMIN', 'ADMIN_GLOBAL', 'GERENTE'])}
         onEppAlmacen={() => protectedAction(() => setEppAlmacenOpen(true), ['ADMIN', 'ADMIN_GLOBAL', 'HSE', 'GERENTE'])}
