@@ -186,6 +186,33 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
       return input;
     };
 
+    const getFormHeaderDateTimeValue = () => {
+      if (!tpl.sections) return null;
+
+      for (const section of tpl.sections) {
+        for (const item of section.items || []) {
+          const value = answers[item.id]?.value;
+          if (!value) continue;
+          if (item.type === 'datetime') return value;
+        }
+      }
+
+      for (const section of tpl.sections) {
+        for (const item of section.items || []) {
+          const value = answers[item.id]?.value;
+          if (!value) continue;
+          if (/fecha\s*y\s*hora/i.test(item.label || '')) return value;
+        }
+      }
+
+      return null;
+    };
+
+    const headerDateValue = getFormHeaderDateTimeValue() || inspection.completed_at || inspection.created_at;
+    const headerDateText = typeof headerDateValue === 'string'
+      ? formatPossibleDateTimeValue(headerDateValue)
+      : formatDateTime(headerDateValue);
+
     const statusStyles = inspection.status === 'COMPLETED'
       ? { bg: 'rgba(34,197,94,0.12)', text: '#16a34a', border: 'rgba(34,197,94,0.45)', label: 'Completada', icon: '✓' }
       : { bg: 'rgba(249,115,22,0.12)', text: '#ea580c', border: 'rgba(249,115,22,0.35)', label: 'Incompleta', icon: '⏱' };
@@ -569,7 +596,7 @@ export default function InspectionDetailModal({ inspectionId, onClose, onUpdate 
               <div class="inspection-meta">
                 <div class="meta-info">
                   <div class="meta-title">${inspection.title}</div>
-                  <div class="meta-date">📅 ${formatDateTime(inspection.completed_at || inspection.created_at)}</div>
+                  <div class="meta-date">📅 Fecha de actividad: ${headerDateText}</div>
                   <div class="meta-date" style="margin-top:4px;">📋 Inspección #${inspection.inspection_number}</div>
                 </div>
                 <div class="status-badge" style="background:${statusStyles.bg};color:${statusStyles.text};border:1px solid ${statusStyles.border};">
