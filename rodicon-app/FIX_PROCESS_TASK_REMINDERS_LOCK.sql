@@ -28,6 +28,24 @@ CREATE TABLE IF NOT EXISTS task_photos (
 
 CREATE INDEX IF NOT EXISTS idx_task_photos_task ON task_photos(task_id);
 
+ALTER TABLE task_reminders
+ADD COLUMN IF NOT EXISTS repeat_every_hours INT;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'task_reminders_repeat_hours_check'
+      AND conrelid = 'task_reminders'::regclass
+  ) THEN
+    ALTER TABLE task_reminders
+    ADD CONSTRAINT task_reminders_repeat_hours_check CHECK (
+      repeat_every_hours IS NULL OR repeat_every_hours > 0
+    );
+  END IF;
+END $$;
+
 INSERT INTO task_assignees (task_id, user_id)
 SELECT t.id, t.assigned_to
 FROM tasks t
@@ -70,7 +88,8 @@ BEGIN
       t.description,
       t.priority,
       t.due_date,
-      t.assigned_to
+      t.assigned_to,
+      r.repeat_every_hours
     FROM task_reminders r
     INNER JOIN tasks t ON t.id = r.task_id
     WHERE r.sent_at IS NULL
@@ -192,7 +211,15 @@ BEGIN
 
     UPDATE task_reminders
     SET
-      sent_at = NOW(),
+      sent_at = CASE
+        WHEN COALESCE(rec.repeat_every_hours, 0) > 0 THEN NULL
+        ELSE NOW()
+      END,
+      remind_at = CASE
+        WHEN COALESCE(rec.repeat_every_hours, 0) > 0
+          THEN NOW() + make_interval(hours => rec.repeat_every_hours)
+        ELSE remind_at
+      END,
       in_app_sent = ('in_app' = ANY (rec.channels)),
       email_queued = ('email' = ANY (rec.channels)) AND v_email_for_reminder,
       attempts = attempts + 1,

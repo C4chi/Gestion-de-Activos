@@ -11,6 +11,7 @@ const DEFAULT_FORM = {
   priority: 'MEDIA',
   status: 'PENDIENTE',
   reminderHoursBefore: 24,
+  reminderEveryHours: 24,
   reminderInApp: true,
   reminderEmail: true,
 };
@@ -68,7 +69,7 @@ export default function TasksPanel({ currentUser }) {
   const fetchReminders = useCallback(async () => {
     const { data, error } = await supabase
       .from('task_reminders')
-      .select('id,task_id,remind_at,channels,sent_at,in_app_sent,email_queued,attempts,created_at')
+      .select('id,task_id,remind_at,repeat_every_hours,channels,sent_at,in_app_sent,email_queued,attempts,created_at')
       .order('remind_at', { ascending: true })
       .limit(400);
 
@@ -420,6 +421,8 @@ export default function TasksPanel({ currentUser }) {
 
     const hoursBefore = Number(form.reminderHoursBefore);
     const safeHoursBefore = Number.isFinite(hoursBefore) && hoursBefore >= 0 ? hoursBefore : 24;
+    const everyHours = Number(form.reminderEveryHours);
+    const safeEveryHours = Number.isFinite(everyHours) && everyHours > 0 ? everyHours : 24;
     const remindAt = new Date(dueDate.getTime() - safeHoursBefore * 60 * 60 * 1000);
 
     try {
@@ -459,6 +462,7 @@ export default function TasksPanel({ currentUser }) {
       const reminderPayload = {
         task_id: taskData.id,
         remind_at: remindAt.toISOString(),
+        repeat_every_hours: safeEveryHours,
         channels,
       };
 
@@ -556,6 +560,41 @@ export default function TasksPanel({ currentUser }) {
     const newDueInput = window.prompt('Fecha límite (YYYY-MM-DDTHH:mm)', currentDue);
     if (!newDueInput) return;
 
+    const currentAssigneeIds = (assigneeIdsByTask.get(task.id) || (task.assigned_to ? [task.assigned_to] : [])).map(Number);
+    const userList = users
+      .map((user) => `${user.id}:${user.nombre || user.nombre_usuario || `Usuario ${user.id}`}`)
+      .join(' | ');
+    const assigneesInput = window.prompt(
+      `IDs de responsables (separados por coma). Disponibles: ${userList}`,
+      currentAssigneeIds.join(',')
+    );
+    if (assigneesInput === null) return;
+
+    const parsedAssigneeIds = [...new Set(
+      assigneesInput
+        .split(',')
+        .map((value) => Number(value.trim()))
+        .filter((value) => Number.isFinite(value) && usersById.has(value))
+    )];
+
+    if (parsedAssigneeIds.length === 0) {
+      toast.error('Debe seleccionar al menos un responsable válido');
+      return;
+    }
+
+    const existingReminder = reminders
+      .filter((reminder) => reminder.task_id === task.id)
+      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0] || null;
+
+    const currentEveryHours = existingReminder?.repeat_every_hours || 24;
+    const everyHoursInput = window.prompt('Frecuencia de recordatorio (cada cuántas horas)', String(currentEveryHours));
+    if (everyHoursInput === null) return;
+    const parsedEveryHours = Number(everyHoursInput);
+    if (!Number.isFinite(parsedEveryHours) || parsedEveryHours <= 0) {
+      toast.error('La frecuencia debe ser mayor que 0 horas');
+      return;
+    }
+
     const newDescription = window.prompt('Descripción', task.description || '') || null;
 
     const dueDate = new Date(newDueInput);
@@ -564,20 +603,69 @@ export default function TasksPanel({ currentUser }) {
       return;
     }
 
+    const now = Date.now();
+    const nextByCadence = now + parsedEveryHours * 60 * 60 * 1000;
+    const nextReminderAtMs = Math.min(dueDate.getTime(), nextByCadence);
+    const nextReminderAtIso = new Date(nextReminderAtMs).toISOString();
+
     try {
       const { error } = await supabase
         .from('tasks')
         .update({
           title: newTitle.trim(),
           description: newDescription,
+          assigned_to: parsedAssigneeIds[0],
           due_date: dueDate.toISOString(),
         })
         .eq('id', task.id);
 
       if (error) throw error;
 
+      const { error: deleteAssigneesError } = await supabase
+        .from('task_assignees')
+        .delete()
+        .eq('task_id', task.id);
+
+      if (deleteAssigneesError) throw deleteAssigneesError;
+
+      const assigneeRows = parsedAssigneeIds.map((userId) => ({ task_id: task.id, user_id: userId }));
+      const { error: insertAssigneesError } = await supabase
+        .from('task_assignees')
+        .insert(assigneeRows);
+
+      if (insertAssigneesError) throw insertAssigneesError;
+
+      if (existingReminder) {
+        const { error: updateReminderError } = await supabase
+          .from('task_reminders')
+          .update({
+            repeat_every_hours: parsedEveryHours,
+            remind_at: nextReminderAtIso,
+            sent_at: null,
+            in_app_sent: false,
+            email_queued: false,
+            processed_by: null,
+          })
+          .eq('id', existingReminder.id);
+
+        if (updateReminderError) throw updateReminderError;
+      } else {
+        const { error: insertReminderError } = await supabase
+          .from('task_reminders')
+          .insert([
+            {
+              task_id: task.id,
+              remind_at: nextReminderAtIso,
+              repeat_every_hours: parsedEveryHours,
+              channels: ['in_app', 'email'],
+            },
+          ]);
+
+        if (insertReminderError) throw insertReminderError;
+      }
+
       toast.success('Tarea actualizada');
-      await fetchTasks();
+      await Promise.all([fetchTasks(), fetchTaskAssignees(), fetchReminders()]);
     } catch (error) {
       console.error('Error editando tarea:', error);
       toast.error(`Error editando tarea: ${error.message}`);
@@ -769,6 +857,17 @@ export default function TasksPanel({ currentUser }) {
                 min="0"
                 value={form.reminderHoursBefore}
                 onChange={(event) => setForm((prev) => ({ ...prev, reminderHoursBefore: event.target.value }))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Frecuencia (cada cuántas horas)</label>
+              <input
+                type="number"
+                min="1"
+                value={form.reminderEveryHours}
+                onChange={(event) => setForm((prev) => ({ ...prev, reminderEveryHours: event.target.value }))}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
             </div>
@@ -979,7 +1078,10 @@ export default function TasksPanel({ currentUser }) {
                         <td className="py-3 pr-3 text-gray-700">
                           {reminder.remind_at ? new Date(reminder.remind_at).toLocaleString() : '-'}
                         </td>
-                        <td className="py-3 pr-3 text-gray-700">{(reminder.channels || []).join(', ')}</td>
+                        <td className="py-3 pr-3 text-gray-700">
+                          {(reminder.channels || []).join(', ')}
+                          {reminder.repeat_every_hours ? ` · cada ${reminder.repeat_every_hours}h` : ''}
+                        </td>
                         <td className="py-3 pr-3">
                           <div className="flex items-center gap-2">
                             <button
