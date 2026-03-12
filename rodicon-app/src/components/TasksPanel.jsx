@@ -303,23 +303,6 @@ export default function TasksPanel({ currentUser }) {
     return tasks.filter((task) => task.status === filterStatus);
   }, [tasks, filterStatus]);
 
-  const latestReminderByTask = useMemo(() => {
-    const map = new Map();
-    reminders.forEach((reminder) => {
-      const existing = map.get(reminder.task_id);
-      if (!existing) {
-        map.set(reminder.task_id, reminder);
-        return;
-      }
-      const existingDate = new Date(existing.created_at || existing.remind_at || 0).getTime();
-      const currentDate = new Date(reminder.created_at || reminder.remind_at || 0).getTime();
-      if (currentDate > existingDate) {
-        map.set(reminder.task_id, reminder);
-      }
-    });
-    return map;
-  }, [reminders]);
-
   const resetForm = () => setForm(DEFAULT_FORM);
 
   const createTask = async (event) => {
@@ -701,7 +684,6 @@ export default function TasksPanel({ currentUser }) {
                     ? new Date(task.due_date).toLocaleString()
                     : '-';
                   const pendingReminder = reminders.find((reminder) => reminder.task_id === task.id && !reminder.sent_at);
-                  const latestReminder = latestReminderByTask.get(task.id);
 
                   return (
                     <tr key={task.id} className="border-b border-gray-100 align-top">
@@ -771,26 +753,6 @@ export default function TasksPanel({ currentUser }) {
                             <Trash2 size={14} />
                             Eliminar tarea
                           </button>
-                          {latestReminder && (
-                            <button
-                              type="button"
-                              onClick={() => editReminder(latestReminder)}
-                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-slate-50 text-slate-700 hover:bg-slate-100"
-                            >
-                              <Pencil size={14} />
-                              Editar rec.
-                            </button>
-                          )}
-                          {latestReminder && (
-                            <button
-                              type="button"
-                              onClick={() => deleteReminder(latestReminder.id)}
-                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-red-50 text-red-700 hover:bg-red-100"
-                            >
-                              <Trash2 size={14} />
-                              Eliminar rec.
-                            </button>
-                          )}
                         </div>
                       </td>
                     </tr>
