@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { CalendarClock, CheckCircle2, Clock3, Filter, Mail, Plus, RefreshCw } from 'lucide-react';
+import { CalendarClock, CheckCircle2, Clock3, Filter, Mail, Pencil, Plus, RefreshCw, Send, Trash2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 const DEFAULT_FORM = {
@@ -17,10 +17,12 @@ const DEFAULT_FORM = {
 
 export default function TasksPanel({ currentUser }) {
   const [tasks, setTasks] = useState([]);
+  const [reminders, setReminders] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [processingReminders, setProcessingReminders] = useState(false);
+  const [bulkSending, setBulkSending] = useState(false);
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [form, setForm] = useState(DEFAULT_FORM);
 
@@ -48,19 +50,44 @@ export default function TasksPanel({ currentUser }) {
     setTasks(data || []);
   }, []);
 
+  const fetchReminders = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('task_reminders')
+      .select('id,task_id,remind_at,channels,sent_at,in_app_sent,email_queued,attempts,created_at')
+      .order('remind_at', { ascending: true })
+      .limit(400);
+
+    if (error) throw error;
+    setReminders(data || []);
+  }, []);
+
   const loadInitialData = useCallback(async () => {
     try {
       setLoading(true);
-      await Promise.all([fetchUsers(), fetchTasks()]);
+      await Promise.all([fetchUsers(), fetchTasks(), fetchReminders()]);
     } catch (error) {
       console.error('Error cargando tareas:', error);
       toast.error(`Error cargando tareas: ${error.message}`);
     } finally {
       setLoading(false);
     }
-  }, [fetchTasks, fetchUsers]);
+  }, [fetchReminders, fetchTasks, fetchUsers]);
 
-  const processReminders = useCallback(async () => {
+  const dispatchEmails = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('task-email-dispatch', {
+        body: {},
+      });
+
+      if (error) throw error;
+      return data || { processed: 0, sent: 0, failed: 0 };
+    } catch (error) {
+      console.warn('No se pudo ejecutar dispatcher de email:', error?.message || error);
+      return { processed: 0, sent: 0, failed: 0 };
+    }
+  }, []);
+
+  const processReminders = useCallback(async (silent = false) => {
     try {
       setProcessingReminders(true);
       const { data, error } = await supabase.rpc('process_task_reminders', { p_limit: 100 });
@@ -71,15 +98,184 @@ export default function TasksPanel({ currentUser }) {
       const inApp = row?.in_app_notifications || 0;
       const emails = row?.emails_queued || 0;
 
-      if (processed > 0) {
+      if (processed > 0 && !silent) {
         toast.success(`Recordatorios procesados: ${processed} (app: ${inApp}, email: ${emails})`);
       }
+
+      return { processed, inApp, emails };
     } catch (error) {
       console.error('Error procesando recordatorios:', error);
+      if (!silent) {
+        toast.error(`Error procesando recordatorios: ${error.message}`);
+      }
+      return { processed: 0, inApp: 0, emails: 0, error: true };
     } finally {
       setProcessingReminders(false);
     }
   }, []);
+
+  const processAllPendingNow = useCallback(async () => {
+    try {
+      setBulkSending(true);
+
+      const openTaskIds = tasks
+        .filter((task) => ['PENDIENTE', 'EN_PROGRESO'].includes(task.status))
+        .map((task) => task.id);
+
+      if (openTaskIds.length === 0) {
+        toast('No hay tareas pendientes para recordar.');
+        return;
+      }
+
+      const pendingReminders = reminders.filter(
+        (reminder) => !reminder.sent_at && openTaskIds.includes(reminder.task_id)
+      );
+
+      if (pendingReminders.length === 0) {
+        toast('No hay recordatorios pendientes por enviar.');
+        return;
+      }
+
+      const reminderIds = pendingReminders.map((reminder) => reminder.id);
+      const forceNowIso = new Date(Date.now() - 60000).toISOString();
+
+      const { error: updateError } = await supabase
+        .from('task_reminders')
+        .update({ remind_at: forceNowIso })
+        .in('id', reminderIds);
+
+      if (updateError) throw updateError;
+
+      const result = await processReminders(true);
+      const dispatchResult = await dispatchEmails();
+      await fetchReminders();
+
+      toast.success(
+        `Pendientes enviados ahora. Procesados: ${result.processed || 0}, emails enviados: ${dispatchResult.sent || 0}`
+      );
+    } catch (error) {
+      console.error('Error enviando pendientes:', error);
+      toast.error(`No se pudieron enviar pendientes: ${error.message}`);
+    } finally {
+      setBulkSending(false);
+    }
+  }, [dispatchEmails, fetchReminders, processReminders, reminders, tasks]);
+
+  const formatDateForInput = (isoDate) => {
+    if (!isoDate) return '';
+    const date = new Date(isoDate);
+    if (Number.isNaN(date.getTime())) return '';
+    const pad = (num) => String(num).padStart(2, '0');
+    const year = date.getFullYear();
+    const month = pad(date.getMonth() + 1);
+    const day = pad(date.getDate());
+    const hours = pad(date.getHours());
+    const minutes = pad(date.getMinutes());
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
+  const editReminder = async (reminder) => {
+    const currentDate = formatDateForInput(reminder.remind_at);
+    const remindAtInput = window.prompt('Nueva fecha/hora (YYYY-MM-DDTHH:mm)', currentDate);
+    if (!remindAtInput) return;
+
+    const includeInApp = window.confirm('¿Mantener canal en app? (Aceptar = Sí, Cancelar = No)');
+    const includeEmail = window.confirm('¿Mantener canal email? (Aceptar = Sí, Cancelar = No)');
+
+    const channels = [];
+    if (includeInApp) channels.push('in_app');
+    if (includeEmail) channels.push('email');
+
+    if (channels.length === 0) {
+      toast.error('Debe quedar al menos un canal de recordatorio');
+      return;
+    }
+
+    const remindAtDate = new Date(remindAtInput);
+    if (Number.isNaN(remindAtDate.getTime())) {
+      toast.error('Fecha inválida');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('task_reminders')
+        .update({
+          remind_at: remindAtDate.toISOString(),
+          channels,
+          sent_at: null,
+          in_app_sent: false,
+          email_queued: false,
+          processed_by: null,
+        })
+        .eq('id', reminder.id);
+
+      if (error) throw error;
+
+      toast.success('Recordatorio actualizado');
+      await fetchReminders();
+    } catch (error) {
+      console.error('Error actualizando recordatorio:', error);
+      toast.error(`Error actualizando recordatorio: ${error.message}`);
+    }
+  };
+
+  const deleteReminder = async (reminderId) => {
+    const confirmed = window.confirm('¿Eliminar este recordatorio?');
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from('task_reminders')
+        .delete()
+        .eq('id', reminderId);
+
+      if (error) throw error;
+
+      toast.success('Recordatorio eliminado');
+      await fetchReminders();
+    } catch (error) {
+      console.error('Error eliminando recordatorio:', error);
+      toast.error(`Error eliminando recordatorio: ${error.message}`);
+    }
+  };
+
+  const sendReminderNow = async (task) => {
+    try {
+      const existing = reminders.find((reminder) => reminder.task_id === task.id && !reminder.sent_at);
+      const forceNowIso = new Date(Date.now() - 60000).toISOString();
+
+      if (existing) {
+        const { error: updateError } = await supabase
+          .from('task_reminders')
+          .update({ remind_at: forceNowIso })
+          .eq('id', existing.id);
+
+        if (updateError) throw updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from('task_reminders')
+          .insert([
+            {
+              task_id: task.id,
+              remind_at: forceNowIso,
+              channels: ['in_app', 'email'],
+            },
+          ]);
+
+        if (insertError) throw insertError;
+      }
+
+      await processReminders(true);
+      const dispatchResult = await dispatchEmails();
+      await fetchReminders();
+
+      toast.success(`Recordatorio enviado. Emails enviados: ${dispatchResult.sent || 0}`);
+    } catch (error) {
+      console.error('Error enviando recordatorio inmediato:', error);
+      toast.error(`No se pudo enviar recordatorio: ${error.message}`);
+    }
+  };
 
   useEffect(() => {
     if (!isAdminGlobal) return;
@@ -255,6 +451,15 @@ export default function TasksPanel({ currentUser }) {
             <Mail size={16} />
             {processingReminders ? 'Procesando...' : 'Procesar recordatorios'}
           </button>
+          <button
+            type="button"
+            onClick={processAllPendingNow}
+            disabled={bulkSending}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
+          >
+            <Send size={16} />
+            {bulkSending ? 'Enviando...' : 'Enviar pendientes ahora'}
+          </button>
         </div>
       </div>
 
@@ -422,6 +627,7 @@ export default function TasksPanel({ currentUser }) {
                   const dueLabel = task.due_date
                     ? new Date(task.due_date).toLocaleString()
                     : '-';
+                  const pendingReminder = reminders.find((reminder) => reminder.task_id === task.id && !reminder.sent_at);
 
                   return (
                     <tr key={task.id} className="border-b border-gray-100 align-top">
@@ -465,11 +671,106 @@ export default function TasksPanel({ currentUser }) {
                               Reabrir
                             </button>
                           )}
+                          {task.status !== 'COMPLETADA' && task.status !== 'CANCELADA' && (
+                            <button
+                              type="button"
+                              onClick={() => sendReminderNow(task)}
+                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                            >
+                              <Send size={14} />
+                              Recordar ahora
+                            </button>
+                          )}
+                          {pendingReminder && (
+                            <button
+                              type="button"
+                              onClick={() => editReminder(pendingReminder)}
+                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-slate-50 text-slate-700 hover:bg-slate-100"
+                            >
+                              <Pencil size={14} />
+                              Editar rec.
+                            </button>
+                          )}
+                          {pendingReminder && (
+                            <button
+                              type="button"
+                              onClick={() => deleteReminder(pendingReminder.id)}
+                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-red-50 text-red-700 hover:bg-red-100"
+                            >
+                              <Trash2 size={14} />
+                              Eliminar rec.
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
                   );
                 })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Recordatorios pendientes</h3>
+        {reminders.filter((reminder) => !reminder.sent_at).length === 0 ? (
+          <div className="text-sm text-gray-500">No hay recordatorios pendientes.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-600 border-b border-gray-200">
+                  <th className="py-2 pr-3">Tarea</th>
+                  <th className="py-2 pr-3">Programado</th>
+                  <th className="py-2 pr-3">Canales</th>
+                  <th className="py-2 pr-3">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reminders
+                  .filter((reminder) => !reminder.sent_at)
+                  .map((reminder) => {
+                    const task = tasks.find((item) => item.id === reminder.task_id);
+                    return (
+                      <tr key={reminder.id} className="border-b border-gray-100">
+                        <td className="py-3 pr-3 text-gray-800">{task?.title || `Tarea #${reminder.task_id}`}</td>
+                        <td className="py-3 pr-3 text-gray-700">
+                          {reminder.remind_at ? new Date(reminder.remind_at).toLocaleString() : '-'}
+                        </td>
+                        <td className="py-3 pr-3 text-gray-700">{(reminder.channels || []).join(', ')}</td>
+                        <td className="py-3 pr-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => task && sendReminderNow(task)}
+                              disabled={!task}
+                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                            >
+                              <Send size={14} />
+                              Enviar ahora
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => editReminder(reminder)}
+                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-slate-50 text-slate-700 hover:bg-slate-100"
+                            >
+                              <Pencil size={14} />
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteReminder(reminder.id)}
+                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-red-50 text-red-700 hover:bg-red-100"
+                            >
+                              <Trash2 size={14} />
+                              Eliminar
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
