@@ -22,7 +22,7 @@ const SidebarBtn = ({ icon, label, onClick, color, collapsed, disabled }) => (
   </button>
 );
 
-export const Sidebar = ({ collapsed, onToggle, onMenuClick, onNewAsset, onRefresh, onLogout, protectedAction, onAdminPanel, onUserPanel, onReportsPanel, onEppAlmacen, isAdmin, canWorkshop, canPurchasing, canHse, canEpp, canReports, userId }) => (
+export const Sidebar = ({ collapsed, onToggle, onMenuClick, onNewAsset, onRefresh, onLogout, protectedAction, onAdminPanel, onUserPanel, onReportsPanel, onEppAlmacen, isAdmin, canWorkshop, canPurchasing, canHse, canEpp, canReports, isAdminGlobal, userId }) => (
   <>
     {/* Overlay para móvil */}
     {!collapsed && (
@@ -56,6 +56,9 @@ export const Sidebar = ({ collapsed, onToggle, onMenuClick, onNewAsset, onRefres
         <SidebarBtn icon={<ShoppingCart/>} label="Compras" color="green" collapsed={collapsed} onClick={() => onMenuClick('PURCHASING')} disabled={!canPurchasing}/>
         {/* <SidebarBtn icon={<CheckCircle/>} label="Aprobaciones" color="purple" collapsed={collapsed} onClick={() => onMenuClick('WORKFLOW_APPROVALS')} disabled={!canPurchasing}/> */}
         <SidebarBtn icon={<Activity/>} label="Métricas" color="blue" collapsed={collapsed} onClick={() => onMenuClick('METRICS')}/>
+        {isAdminGlobal && (
+          <SidebarBtn icon={<ClipboardCheck/>} label="Tareas" color="indigo" collapsed={collapsed} onClick={() => onMenuClick('TASKS')} />
+        )}
         {canReports && (
           <SidebarBtn icon={<BarChart3/>} label="Reportes" color="blue" collapsed={collapsed} onClick={onReportsPanel}/>
         )}

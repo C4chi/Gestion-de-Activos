@@ -3,6 +3,7 @@ import { useAppContext } from './AppContext'; // Usar contexto centralizado
 import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
 import { Menu } from 'lucide-react';
+import { supabase } from './supabaseClient';
 
 // Hooks
 import { useNotifications } from './hooks/useNotifications';
@@ -31,6 +32,7 @@ const PurchaseWorkflowPanel = React.lazy(() => import('./components/PurchaseWork
 const PreventiveMaintenancePanel = React.lazy(() => import('./components/PreventiveMaintenancePanel'));
 const MetricsPanel = React.lazy(() => import('./components/MetricsPanel'));
 const TechnicalStructurePanel = React.lazy(() => import('./components/TechnicalStructurePanel'));
+const TasksPanel = React.lazy(() => import('./components/TasksPanel'));
 
 // Módulo de Solicitudes de Mantenimiento - Lazy Load
 const MaintenanceRequestForm = React.lazy(() => import('./components/MaintenanceRequestForm'));
@@ -140,7 +142,7 @@ export default function App() {
   const canPurchasing = can(['ADMIN', 'ADMIN_GLOBAL', 'COMPRAS', 'GERENTE', 'GERENTE_TALLER']);
   const canHse = can(['ADMIN', 'ADMIN_GLOBAL', 'HSE', 'GERENTE']);
   const canAdmin = can(['ADMIN', 'ADMIN_GLOBAL']);
-  const isAdminGlobal = can(['ADMIN_GLOBAL']);
+  const isAdminGlobal = user?.rol === 'ADMIN_GLOBAL';
   const canReports = can(['ADMIN', 'ADMIN_GLOBAL', 'GERENTE', 'GERENTE_TALLER']);
   const canEpp = can(['ADMIN', 'ADMIN_GLOBAL', 'HSE', 'GERENTE', 'GERENTE_TALLER']);
   const canApprovePurchases = can(['ADMIN', 'ADMIN_GLOBAL', 'GERENTE_TALLER']); // Solo GERENTE_TALLER aprueba cotizaciones
@@ -199,6 +201,30 @@ export default function App() {
   }, [isAdminGlobal, gpsFilter]);
 
   useEffect(() => {
+    if (!user || user.rol !== 'ADMIN_GLOBAL') return;
+
+    let isMounted = true;
+
+    const processTaskReminders = async () => {
+      try {
+        await supabase.rpc('process_task_reminders', { p_limit: 100 });
+      } catch (error) {
+        if (isMounted) {
+          console.warn('No se pudieron procesar recordatorios de tareas:', error?.message || error);
+        }
+      }
+    };
+
+    processTaskReminders();
+    const intervalId = window.setInterval(processTaskReminders, 300000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+    };
+  }, [user]);
+
+  useEffect(() => {
     const syncSidebarForViewport = () => {
       if (window.innerWidth < 1024) {
         setSidebarCollapsed(true);
@@ -244,6 +270,11 @@ export default function App() {
   };
 
   const handleMenuClick = (overlay) => {
+    if (overlay === 'TASKS' && !isAdminGlobal) {
+      toast.error('No tienes permiso para esta acción');
+      return;
+    }
+
     const roleMap = {
       WORKSHOP: ['ADMIN', 'TALLER', 'GERENTE_TALLER'],
       TECHNICAL_STRUCTURE: ['ADMIN', 'TALLER', 'GERENTE_TALLER'],
@@ -251,6 +282,7 @@ export default function App() {
       SAFETY: ['ADMIN', 'HSE'],
       HSE_INSPECTIONS: ['ADMIN', 'HSE'],
       TEMPLATE_BUILDER: ['ADMIN', 'HSE'],
+      TASKS: ['ADMIN_GLOBAL'],
     };
 
     const allowedRoles = roleMap[overlay];
@@ -386,6 +418,7 @@ export default function App() {
         canHse={canHse}
         canEpp={canEpp}
         canReports={canReports}
+        isAdminGlobal={isAdminGlobal}
         userId={user?.id}
       />
 
@@ -502,6 +535,14 @@ export default function App() {
         <FullScreenModal title="📊 Métricas y Reportes" color="blue" onClose={() => setActiveOverlay(null)}>
           <Suspense fallback={<LazyLoadFallback />}>
             <MetricsPanel />
+          </Suspense>
+        </FullScreenModal>
+      )}
+
+      {activeOverlay === 'TASKS' && isAdminGlobal && (
+        <FullScreenModal title="✅ Tareas y Recordatorios" color="indigo" onClose={() => setActiveOverlay(null)}>
+          <Suspense fallback={<LazyLoadFallback />}>
+            <TasksPanel currentUser={user} />
           </Suspense>
         </FullScreenModal>
       )}
