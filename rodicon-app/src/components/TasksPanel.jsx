@@ -17,6 +17,44 @@ const DEFAULT_FORM = {
 };
 
 const QUICK_REMINDER_HOURS = [4, 8, 12, 24, 48, 72];
+const QUICK_TASK_FILTERS = ['TODAS', 'VENCIDAS', 'VENCEN_HOY', 'SIN_FOTO'];
+
+const PRIORITY_BADGE_STYLES = {
+  BAJA: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  MEDIA: 'bg-amber-50 text-amber-700 border border-amber-200',
+  ALTA: 'bg-orange-50 text-orange-700 border border-orange-200',
+  CRITICA: 'bg-rose-50 text-rose-700 border border-rose-200',
+};
+
+const TASK_TEMPLATES = [
+  {
+    key: 'compras-semanal',
+    label: 'Compras semanales',
+    title: 'Revisión semanal de compras',
+    description: 'Validar solicitudes, cotizaciones y órdenes pendientes de la semana.',
+    priority: 'MEDIA',
+    reminderHoursBefore: 24,
+    reminderEveryHours: 24,
+  },
+  {
+    key: 'cierre-mensual',
+    label: 'Cierre mensual',
+    title: 'Cierre mensual de pendientes',
+    description: 'Consolidar tareas abiertas y actualizar estatus para cierre de mes.',
+    priority: 'ALTA',
+    reminderHoursBefore: 48,
+    reminderEveryHours: 24,
+  },
+  {
+    key: 'hse-seguimiento',
+    label: 'Seguimiento HSE',
+    title: 'Seguimiento de hallazgos HSE',
+    description: 'Dar seguimiento a observaciones y acciones correctivas pendientes.',
+    priority: 'CRITICA',
+    reminderHoursBefore: 12,
+    reminderEveryHours: 12,
+  },
+];
 
 export default function TasksPanel({ currentUser }) {
   const [tasks, setTasks] = useState([]);
@@ -29,11 +67,15 @@ export default function TasksPanel({ currentUser }) {
   const [processingReminders, setProcessingReminders] = useState(false);
   const [bulkSending, setBulkSending] = useState(false);
   const [filterStatus, setFilterStatus] = useState('ALL');
+  const [quickTaskFilter, setQuickTaskFilter] = useState('TODAS');
   const [form, setForm] = useState(DEFAULT_FORM);
+  const [selectedTemplate, setSelectedTemplate] = useState('');
   const [newTaskFiles, setNewTaskFiles] = useState([]);
   const [detailTask, setDetailTask] = useState(null);
   const [detailUploading, setDetailUploading] = useState(false);
   const [editModal, setEditModal] = useState(null);
+  const [assigneeSearch, setAssigneeSearch] = useState('');
+  const [editAssigneeSearch, setEditAssigneeSearch] = useState('');
 
   const isAdminGlobal = currentUser?.rol === 'ADMIN_GLOBAL';
 
@@ -285,6 +327,51 @@ export default function TasksPanel({ currentUser }) {
     return Number.isNaN(date.getTime()) ? null : date;
   };
 
+  const getPriorityBadgeClass = (priority) => PRIORITY_BADGE_STYLES[priority] || 'bg-slate-100 text-slate-700 border border-slate-200';
+
+  const applyTemplate = () => {
+    const template = TASK_TEMPLATES.find((item) => item.key === selectedTemplate);
+    if (!template) return;
+
+    setForm((prev) => ({
+      ...prev,
+      title: template.title,
+      description: template.description,
+      priority: template.priority,
+      reminderHoursBefore: template.reminderHoursBefore,
+      reminderEveryHours: template.reminderEveryHours,
+    }));
+  };
+
+  const snoozeReminder = async (reminder, hours) => {
+    const parsedHours = Number(hours);
+    if (!Number.isFinite(parsedHours) || parsedHours <= 0) return;
+
+    try {
+      const baseDate = parseDbDate(reminder.remind_at) || new Date();
+      const nextDate = new Date(Math.max(Date.now(), baseDate.getTime()) + parsedHours * 60 * 60 * 1000);
+
+      const { error } = await supabase
+        .from('task_reminders')
+        .update({
+          remind_at: nextDate.toISOString(),
+          sent_at: null,
+          in_app_sent: false,
+          email_queued: false,
+          processed_by: null,
+        })
+        .eq('id', reminder.id);
+
+      if (error) throw error;
+
+      toast.success(`Recordatorio pospuesto ${parsedHours}h`);
+      await fetchReminders();
+    } catch (error) {
+      console.error('Error posponiendo recordatorio:', error);
+      toast.error(`No se pudo posponer recordatorio: ${error.message}`);
+    }
+  };
+
   const editReminder = async (reminder) => {
     const currentDate = formatDateForInput(reminder.remind_at);
     const remindAtInput = window.prompt('Nueva fecha/hora (YYYY-MM-DDTHH:mm)', currentDate);
@@ -420,9 +507,58 @@ export default function TasksPanel({ currentUser }) {
   }, [taskAssignees]);
 
   const filteredTasks = useMemo(() => {
-    if (filterStatus === 'ALL') return tasks;
-    return tasks.filter((task) => task.status === filterStatus);
-  }, [tasks, filterStatus]);
+    const priorityWeight = {
+      CRITICA: 4,
+      ALTA: 3,
+      MEDIA: 2,
+      BAJA: 1,
+    };
+
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
+
+    return tasks
+      .filter((task) => (filterStatus === 'ALL' ? true : task.status === filterStatus))
+      .filter((task) => {
+        if (quickTaskFilter === 'TODAS') return true;
+
+        const dueDate = parseDbDate(task.due_date);
+        const photosCount = taskPhotos.filter((photo) => photo.task_id === task.id).length;
+
+        if (quickTaskFilter === 'SIN_FOTO') {
+          return photosCount === 0;
+        }
+
+        if (!dueDate) return false;
+        if (quickTaskFilter === 'VENCIDAS') {
+          return dueDate.getTime() < Date.now() && !['COMPLETADA', 'CANCELADA'].includes(task.status);
+        }
+
+        if (quickTaskFilter === 'VENCEN_HOY') {
+          return dueDate >= todayStart && dueDate <= todayEnd;
+        }
+
+        return true;
+      })
+      .sort((firstTask, secondTask) => {
+        const firstDue = parseDbDate(firstTask.due_date);
+        const secondDue = parseDbDate(secondTask.due_date);
+        const firstOpen = !['COMPLETADA', 'CANCELADA'].includes(firstTask.status);
+        const secondOpen = !['COMPLETADA', 'CANCELADA'].includes(secondTask.status);
+        const firstOverdue = firstOpen && firstDue && firstDue.getTime() < Date.now();
+        const secondOverdue = secondOpen && secondDue && secondDue.getTime() < Date.now();
+
+        if (firstOverdue !== secondOverdue) return firstOverdue ? -1 : 1;
+
+        const priorityDiff = (priorityWeight[secondTask.priority] || 0) - (priorityWeight[firstTask.priority] || 0);
+        if (priorityDiff !== 0) return priorityDiff;
+
+        const firstDueTime = firstDue?.getTime() || Number.MAX_SAFE_INTEGER;
+        const secondDueTime = secondDue?.getTime() || Number.MAX_SAFE_INTEGER;
+        return firstDueTime - secondDueTime;
+      });
+  }, [tasks, filterStatus, quickTaskFilter, taskPhotos]);
 
   const resetForm = () => setForm(DEFAULT_FORM);
 
@@ -801,6 +937,30 @@ export default function TasksPanel({ currentUser }) {
         </h3>
 
         <form onSubmit={createTask} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-end">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Plantilla rápida (opcional)</label>
+              <select
+                value={selectedTemplate}
+                onChange={(event) => setSelectedTemplate(event.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              >
+                <option value="">Seleccionar plantilla...</option>
+                {TASK_TEMPLATES.map((template) => (
+                  <option key={template.key} value={template.key}>{template.label}</option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={applyTemplate}
+              disabled={!selectedTemplate}
+              className="inline-flex items-center justify-center px-3 py-2 rounded-lg border border-indigo-300 text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
+            >
+              Aplicar plantilla
+            </button>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
@@ -816,8 +976,22 @@ export default function TasksPanel({ currentUser }) {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Responsable</label>
+              <input
+                type="text"
+                value={assigneeSearch}
+                onChange={(event) => setAssigneeSearch(event.target.value)}
+                placeholder="Buscar responsable..."
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm mb-2"
+              />
               <div className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm max-h-[160px] overflow-y-auto space-y-2">
-                {users.map((user) => {
+                {users
+                  .filter((user) => {
+                    const search = assigneeSearch.trim().toLowerCase();
+                    if (!search) return true;
+                    const label = (user.nombre || user.nombre_usuario || `Usuario ${user.id}`).toLowerCase();
+                    return label.includes(search);
+                  })
+                  .map((user) => {
                   const userId = String(user.id);
                   const checked = (form.assigned_to || []).map(String).includes(userId);
 
@@ -855,6 +1029,7 @@ export default function TasksPanel({ currentUser }) {
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                 required
               />
+              <p className="text-xs text-gray-500 mt-1">Se muestra en hora local del navegador.</p>
             </div>
 
             <div>
@@ -994,6 +1169,33 @@ export default function TasksPanel({ currentUser }) {
           </div>
         </div>
 
+        <div className="flex flex-wrap gap-2 mb-4">
+          {QUICK_TASK_FILTERS.map((filterKey) => {
+            const active = quickTaskFilter === filterKey;
+            const labels = {
+              TODAS: 'Todas',
+              VENCIDAS: 'Vencidas',
+              VENCEN_HOY: 'Vencen hoy',
+              SIN_FOTO: 'Sin foto',
+            };
+
+            return (
+              <button
+                key={filterKey}
+                type="button"
+                onClick={() => setQuickTaskFilter(filterKey)}
+                className={`text-xs px-3 py-1.5 rounded-full border transition ${
+                  active
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400'
+                }`}
+              >
+                {labels[filterKey]}
+              </button>
+            );
+          })}
+        </div>
+
         {loading ? (
           <div className="text-sm text-gray-500">Cargando tareas...</div>
         ) : filteredTasks.length === 0 ? (
@@ -1044,7 +1246,7 @@ export default function TasksPanel({ currentUser }) {
                       </td>
                       <td className="py-3 pr-3 text-gray-700">{dueLabel}</td>
                       <td className="py-3 pr-3">
-                        <span className="inline-flex px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
+                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${getPriorityBadgeClass(task.priority)}`}>
                           {task.priority}
                         </span>
                       </td>
@@ -1149,7 +1351,7 @@ export default function TasksPanel({ currentUser }) {
                           {reminder.repeat_every_hours ? ` · cada ${reminder.repeat_every_hours}h` : ''}
                         </td>
                         <td className="py-3 pr-3">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <button
                               type="button"
                               onClick={() => task && sendReminderNow(task)}
@@ -1166,6 +1368,27 @@ export default function TasksPanel({ currentUser }) {
                             >
                               <Pencil size={14} />
                               Editar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => snoozeReminder(reminder, 1)}
+                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-amber-50 text-amber-700 hover:bg-amber-100"
+                            >
+                              +1h
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => snoozeReminder(reminder, 4)}
+                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-amber-50 text-amber-700 hover:bg-amber-100"
+                            >
+                              +4h
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => snoozeReminder(reminder, 24)}
+                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-amber-50 text-amber-700 hover:bg-amber-100"
+                            >
+                              +24h
                             </button>
                             <button
                               type="button"
@@ -1205,7 +1428,11 @@ export default function TasksPanel({ currentUser }) {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-gray-50 rounded-lg p-3">
                   <div className="text-xs text-gray-500">Prioridad</div>
-                  <div className="font-semibold text-gray-800">{detailTask.priority}</div>
+                  <div className="mt-1">
+                    <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${getPriorityBadgeClass(detailTask.priority)}`}>
+                      {detailTask.priority}
+                    </span>
+                  </div>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3">
                   <div className="text-xs text-gray-500">Vence</div>
@@ -1306,8 +1533,22 @@ export default function TasksPanel({ currentUser }) {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Responsables</label>
+                <input
+                  type="text"
+                  value={editAssigneeSearch}
+                  onChange={(event) => setEditAssigneeSearch(event.target.value)}
+                  placeholder="Buscar responsable..."
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm mb-2"
+                />
                 <div className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm max-h-[180px] overflow-y-auto space-y-2">
-                  {users.map((user) => {
+                  {users
+                    .filter((user) => {
+                      const search = editAssigneeSearch.trim().toLowerCase();
+                      if (!search) return true;
+                      const label = (user.nombre || user.nombre_usuario || `Usuario ${user.id}`).toLowerCase();
+                      return label.includes(search);
+                    })
+                    .map((user) => {
                     const userId = String(user.id);
                     const checked = (editModal.assigned_to || []).includes(userId);
                     return (
