@@ -16,6 +16,8 @@ const DEFAULT_FORM = {
   reminderEmail: true,
 };
 
+const QUICK_REMINDER_HOURS = [4, 8, 12, 24, 48, 72];
+
 export default function TasksPanel({ currentUser }) {
   const [tasks, setTasks] = useState([]);
   const [taskAssignees, setTaskAssignees] = useState([]);
@@ -31,6 +33,7 @@ export default function TasksPanel({ currentUser }) {
   const [newTaskFiles, setNewTaskFiles] = useState([]);
   const [detailTask, setDetailTask] = useState(null);
   const [detailUploading, setDetailUploading] = useState(false);
+  const [editModal, setEditModal] = useState(null);
 
   const isAdminGlobal = currentUser?.rol === 'ADMIN_GLOBAL';
 
@@ -552,90 +555,97 @@ export default function TasksPanel({ currentUser }) {
     }
   };
 
-  const editTask = async (task) => {
-    const newTitle = window.prompt('Título de la tarea', task.title || '');
-    if (!newTitle) return;
-
-    const currentDue = formatDateForInput(task.due_date);
-    const newDueInput = window.prompt('Fecha límite (YYYY-MM-DDTHH:mm)', currentDue);
-    if (!newDueInput) return;
-
-    const currentAssigneeIds = (assigneeIdsByTask.get(task.id) || (task.assigned_to ? [task.assigned_to] : [])).map(Number);
-    const userList = users
-      .map((user) => `${user.id}:${user.nombre || user.nombre_usuario || `Usuario ${user.id}`}`)
-      .join(' | ');
-    const assigneesInput = window.prompt(
-      `IDs de responsables (separados por coma). Disponibles: ${userList}`,
-      currentAssigneeIds.join(',')
-    );
-    if (assigneesInput === null) return;
-
-    const parsedAssigneeIds = [...new Set(
-      assigneesInput
-        .split(',')
-        .map((value) => Number(value.trim()))
-        .filter((value) => Number.isFinite(value) && usersById.has(value))
-    )];
-
-    if (parsedAssigneeIds.length === 0) {
-      toast.error('Debe seleccionar al menos un responsable válido');
-      return;
-    }
-
+  const openEditTask = (task) => {
     const existingReminder = reminders
       .filter((reminder) => reminder.task_id === task.id)
       .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0] || null;
 
-    const currentEveryHours = existingReminder?.repeat_every_hours || 24;
-    const everyHoursInput = window.prompt('Frecuencia de recordatorio (cada cuántas horas)', String(currentEveryHours));
-    if (everyHoursInput === null) return;
-    const parsedEveryHours = Number(everyHoursInput);
-    if (!Number.isFinite(parsedEveryHours) || parsedEveryHours <= 0) {
-      toast.error('La frecuencia debe ser mayor que 0 horas');
+    const assigneeIds = (assigneeIdsByTask.get(task.id) || (task.assigned_to ? [task.assigned_to] : [])).map(String);
+
+    setEditModal({
+      taskId: task.id,
+      title: task.title || '',
+      description: task.description || '',
+      due_date: formatDateForInput(task.due_date),
+      assigned_to: assigneeIds,
+      reminderEveryHours: String(existingReminder?.repeat_every_hours || 24),
+      reminderId: existingReminder?.id || null,
+      reminderChannels: existingReminder?.channels || ['in_app', 'email'],
+    });
+  };
+
+  const saveEditedTask = async (event) => {
+    event.preventDefault();
+    if (!editModal) return;
+
+    const trimmedTitle = editModal.title?.trim();
+    if (!trimmedTitle) {
+      toast.error('El título es obligatorio');
       return;
     }
 
-    const newDescription = window.prompt('Descripción', task.description || '') || null;
+    if (!editModal.due_date) {
+      toast.error('Debe seleccionar fecha límite');
+      return;
+    }
 
-    const dueDate = new Date(newDueInput);
+    const dueDate = new Date(editModal.due_date);
     if (Number.isNaN(dueDate.getTime())) {
       toast.error('Fecha límite inválida');
       return;
     }
 
+    const parsedAssigneeIds = [...new Set(
+      (editModal.assigned_to || [])
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value) && usersById.has(value))
+    )];
+
+    if (parsedAssigneeIds.length === 0) {
+      toast.error('Debe seleccionar al menos un responsable');
+      return;
+    }
+
+    const parsedEveryHours = Number(editModal.reminderEveryHours);
+    if (!Number.isFinite(parsedEveryHours) || parsedEveryHours <= 0) {
+      toast.error('La frecuencia debe ser mayor que 0 horas');
+      return;
+    }
+
     const now = Date.now();
     const nextByCadence = now + parsedEveryHours * 60 * 60 * 1000;
-    const nextReminderAtMs = Math.min(dueDate.getTime(), nextByCadence);
+    const dueMs = dueDate.getTime();
+    const nextReminderAtMs = dueMs > now ? Math.min(dueMs, nextByCadence) : now + 60 * 1000;
     const nextReminderAtIso = new Date(nextReminderAtMs).toISOString();
 
     try {
       const { error } = await supabase
         .from('tasks')
         .update({
-          title: newTitle.trim(),
-          description: newDescription,
+          title: trimmedTitle,
+          description: editModal.description?.trim() || null,
           assigned_to: parsedAssigneeIds[0],
           due_date: dueDate.toISOString(),
         })
-        .eq('id', task.id);
+        .eq('id', editModal.taskId);
 
       if (error) throw error;
 
       const { error: deleteAssigneesError } = await supabase
         .from('task_assignees')
         .delete()
-        .eq('task_id', task.id);
+        .eq('task_id', editModal.taskId);
 
       if (deleteAssigneesError) throw deleteAssigneesError;
 
-      const assigneeRows = parsedAssigneeIds.map((userId) => ({ task_id: task.id, user_id: userId }));
+      const assigneeRows = parsedAssigneeIds.map((userId) => ({ task_id: editModal.taskId, user_id: userId }));
       const { error: insertAssigneesError } = await supabase
         .from('task_assignees')
         .insert(assigneeRows);
 
       if (insertAssigneesError) throw insertAssigneesError;
 
-      if (existingReminder) {
+      if (editModal.reminderId) {
         const { error: updateReminderError } = await supabase
           .from('task_reminders')
           .update({
@@ -646,7 +656,7 @@ export default function TasksPanel({ currentUser }) {
             email_queued: false,
             processed_by: null,
           })
-          .eq('id', existingReminder.id);
+          .eq('id', editModal.reminderId);
 
         if (updateReminderError) throw updateReminderError;
       } else {
@@ -654,10 +664,10 @@ export default function TasksPanel({ currentUser }) {
           .from('task_reminders')
           .insert([
             {
-              task_id: task.id,
+              task_id: editModal.taskId,
               remind_at: nextReminderAtIso,
               repeat_every_hours: parsedEveryHours,
-              channels: ['in_app', 'email'],
+              channels: editModal.reminderChannels,
             },
           ]);
 
@@ -665,6 +675,7 @@ export default function TasksPanel({ currentUser }) {
       }
 
       toast.success('Tarea actualizada');
+      setEditModal(null);
       await Promise.all([fetchTasks(), fetchTaskAssignees(), fetchReminders()]);
     } catch (error) {
       console.error('Error editando tarea:', error);
@@ -870,6 +881,25 @@ export default function TasksPanel({ currentUser }) {
                 onChange={(event) => setForm((prev) => ({ ...prev, reminderEveryHours: event.target.value }))}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
+              <div className="mt-2 flex flex-wrap gap-2">
+                {QUICK_REMINDER_HOURS.map((hours) => {
+                  const active = Number(form.reminderEveryHours) === hours;
+                  return (
+                    <button
+                      key={hours}
+                      type="button"
+                      onClick={() => setForm((prev) => ({ ...prev, reminderEveryHours: String(hours) }))}
+                      className={`text-xs px-2 py-1 rounded-full border transition ${
+                        active
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400'
+                      }`}
+                    >
+                      {hours}h
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <label className="inline-flex items-center gap-2 text-sm text-gray-700 mt-6 md:mt-0">
@@ -1019,7 +1049,7 @@ export default function TasksPanel({ currentUser }) {
                           )}
                           <button
                             type="button"
-                            onClick={() => editTask(task)}
+                            onClick={() => openEditTask(task)}
                             className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-slate-50 text-slate-700 hover:bg-slate-100"
                           >
                             <Pencil size={14} />
@@ -1190,6 +1220,122 @@ export default function TasksPanel({ currentUser }) {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {editModal && (
+        <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4" onClick={() => setEditModal(null)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[88vh] overflow-hidden" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-bold text-gray-900">Editar tarea</h3>
+              <button type="button" onClick={() => setEditModal(null)} className="p-2 rounded hover:bg-gray-100">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={saveEditedTask} className="p-4 space-y-4 overflow-y-auto max-h-[75vh]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
+                  <input
+                    type="text"
+                    value={editModal.title}
+                    onChange={(event) => setEditModal((prev) => ({ ...prev, title: event.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Fecha límite</label>
+                  <input
+                    type="datetime-local"
+                    value={editModal.due_date}
+                    onChange={(event) => setEditModal((prev) => ({ ...prev, due_date: event.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                <textarea
+                  rows={3}
+                  value={editModal.description}
+                  onChange={(event) => setEditModal((prev) => ({ ...prev, description: event.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Responsables</label>
+                <div className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm max-h-[180px] overflow-y-auto space-y-2">
+                  {users.map((user) => {
+                    const userId = String(user.id);
+                    const checked = (editModal.assigned_to || []).includes(userId);
+                    return (
+                      <label key={user.id} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            setEditModal((prev) => {
+                              const currentIds = prev.assigned_to || [];
+                              const nextIds = currentIds.includes(userId)
+                                ? currentIds.filter((id) => id !== userId)
+                                : [...currentIds, userId];
+                              return { ...prev, assigned_to: nextIds };
+                            });
+                          }}
+                          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span>{user.nombre || user.nombre_usuario || `Usuario ${user.id}`}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Frecuencia (cada cuántas horas)</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={editModal.reminderEveryHours}
+                  onChange={(event) => setEditModal((prev) => ({ ...prev, reminderEveryHours: event.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                />
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {QUICK_REMINDER_HOURS.map((hours) => {
+                    const active = Number(editModal.reminderEveryHours) === hours;
+                    return (
+                      <button
+                        key={hours}
+                        type="button"
+                        onClick={() => setEditModal((prev) => ({ ...prev, reminderEveryHours: String(hours) }))}
+                        className={`text-xs px-2 py-1 rounded-full border transition ${
+                          active
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400'
+                        }`}
+                      >
+                        {hours}h
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t">
+                <button type="button" onClick={() => setEditModal(null)} className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
+                  Cancelar
+                </button>
+                <button type="submit" className="px-3 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
+                  Guardar cambios
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
