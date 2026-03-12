@@ -680,23 +680,34 @@ export default function TasksPanel({ currentUser }) {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Responsable</label>
-              <select
-                multiple
-                value={form.assigned_to}
-                onChange={(event) => {
-                  const selectedIds = Array.from(event.target.selectedOptions).map((option) => option.value);
-                  setForm((prev) => ({ ...prev, assigned_to: selectedIds }));
-                }}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm min-h-[120px]"
-                required
-              >
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.nombre || user.nombre_usuario || `Usuario ${user.id}`}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-gray-500 mt-1">Mantén presionado Ctrl (Windows) para seleccionar múltiples responsables.</p>
+              <div className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm max-h-[160px] overflow-y-auto space-y-2">
+                {users.map((user) => {
+                  const userId = String(user.id);
+                  const checked = (form.assigned_to || []).map(String).includes(userId);
+
+                  return (
+                    <label key={user.id} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          setForm((prev) => {
+                            const currentIds = (prev.assigned_to || []).map(String);
+                            const nextIds = currentIds.includes(userId)
+                              ? currentIds.filter((id) => id !== userId)
+                              : [...currentIds, userId];
+
+                            return { ...prev, assigned_to: nextIds };
+                          });
+                        }}
+                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span>{user.nombre || user.nombre_usuario || `Usuario ${user.id}`}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Selecciona uno o varios responsables.</p>
             </div>
 
             <div>

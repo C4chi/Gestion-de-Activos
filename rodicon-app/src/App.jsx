@@ -365,19 +365,6 @@ export default function App() {
         </button>
       )}
 
-      {/* NotificationCenter en header */}
-      {user && (
-        <div className="fixed top-4 right-4 z-50 bg-white border-2 border-blue-200 rounded-xl shadow-xl p-1">
-          <NotificationCenter
-            notifications={notifications}
-            unreadCount={unreadCount}
-            onMarkAsRead={markAsRead}
-            onMarkAllAsRead={markAllAsRead}
-            onDelete={deleteNotification}
-          />
-        </div>
-      )}
-
       {user && (!isConnected || pendingCount > 0) && (
         <div className="fixed top-20 right-4 z-40">
           <div className={`rounded-lg border px-3 py-2 text-xs shadow-sm ${
@@ -437,6 +424,15 @@ export default function App() {
           gpsOptions={gpsOptions}
           gpsFilter={gpsFilter}
           setGpsFilter={setGpsFilter}
+          notificationCenter={user ? (
+            <NotificationCenter
+              notifications={notifications}
+              unreadCount={unreadCount}
+              onMarkAsRead={markAsRead}
+              onMarkAllAsRead={markAllAsRead}
+              onDelete={deleteNotification}
+            />
+          ) : null}
           filteredAssets={filteredAssets}
           onAssetSelect={handleAssetSelect}
         />

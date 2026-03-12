@@ -19,6 +19,7 @@ export const InventoryView = ({
   gpsOptions = [],
   gpsFilter,
   setGpsFilter,
+  notificationCenter,
 }) => {
   const totalAssets = Number(kpis?.total || 0);
   const noOpPercent = totalAssets > 0 ? Math.round((Number(kpis?.noOp || 0) / totalAssets) * 100) : 0;
@@ -84,6 +85,11 @@ export const InventoryView = ({
             </div>
           )}
         </div>
+        {notificationCenter && (
+          <div className="shrink-0 flex items-center">
+            {notificationCenter}
+          </div>
+        )}
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 lg:p-8">
