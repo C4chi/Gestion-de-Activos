@@ -17,6 +17,23 @@ type ClaimedJob = {
   created_at: string;
 };
 
+const isLikelyHtml = (value: string) => /<\/?[a-z][\s\S]*>/i.test(value || '');
+
+const escapeHtml = (value: string) =>
+  (value || '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+
+const wrapPlainAsHtml = (value: string) => {
+  const escaped = escapeHtml(value || '').replaceAll('\n', '<br/>');
+  return `<div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">${escaped}</div>`;
+};
+
+const stripHtml = (value: string) => (value || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -78,6 +95,9 @@ Deno.serve(async (req) => {
 
   for (const job of queue) {
     try {
+      const htmlBody = isLikelyHtml(job.body) ? job.body : wrapPlainAsHtml(job.body);
+      const textBody = isLikelyHtml(job.body) ? stripHtml(job.body) : job.body;
+
       const sendgridResponse = await fetch('https://api.sendgrid.com/v3/mail/send', {
         method: 'POST',
         headers: {
@@ -88,7 +108,10 @@ Deno.serve(async (req) => {
           personalizations: [{ to: [{ email: job.to_email }] }],
           from: { email: fromEmail, name: fromName },
           subject: job.subject,
-          content: [{ type: 'text/plain', value: job.body }],
+          content: [
+            { type: 'text/plain', value: textBody || 'Recordatorio de tarea' },
+            { type: 'text/html', value: htmlBody || wrapPlainAsHtml('Recordatorio de tarea') },
+          ],
         }),
       });
 
