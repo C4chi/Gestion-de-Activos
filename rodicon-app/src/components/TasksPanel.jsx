@@ -303,6 +303,23 @@ export default function TasksPanel({ currentUser }) {
     return tasks.filter((task) => task.status === filterStatus);
   }, [tasks, filterStatus]);
 
+  const latestReminderByTask = useMemo(() => {
+    const map = new Map();
+    reminders.forEach((reminder) => {
+      const existing = map.get(reminder.task_id);
+      if (!existing) {
+        map.set(reminder.task_id, reminder);
+        return;
+      }
+      const existingDate = new Date(existing.created_at || existing.remind_at || 0).getTime();
+      const currentDate = new Date(reminder.created_at || reminder.remind_at || 0).getTime();
+      if (currentDate > existingDate) {
+        map.set(reminder.task_id, reminder);
+      }
+    });
+    return map;
+  }, [reminders]);
+
   const resetForm = () => setForm(DEFAULT_FORM);
 
   const createTask = async (event) => {
@@ -406,6 +423,62 @@ export default function TasksPanel({ currentUser }) {
     } catch (error) {
       console.error('Error actualizando tarea:', error);
       toast.error(`Error actualizando estado: ${error.message}`);
+    }
+  };
+
+  const editTask = async (task) => {
+    const newTitle = window.prompt('Título de la tarea', task.title || '');
+    if (!newTitle) return;
+
+    const currentDue = formatDateForInput(task.due_date);
+    const newDueInput = window.prompt('Fecha límite (YYYY-MM-DDTHH:mm)', currentDue);
+    if (!newDueInput) return;
+
+    const newDescription = window.prompt('Descripción', task.description || '') || null;
+
+    const dueDate = new Date(newDueInput);
+    if (Number.isNaN(dueDate.getTime())) {
+      toast.error('Fecha límite inválida');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          title: newTitle.trim(),
+          description: newDescription,
+          due_date: dueDate.toISOString(),
+        })
+        .eq('id', task.id);
+
+      if (error) throw error;
+
+      toast.success('Tarea actualizada');
+      await fetchTasks();
+    } catch (error) {
+      console.error('Error editando tarea:', error);
+      toast.error(`Error editando tarea: ${error.message}`);
+    }
+  };
+
+  const deleteTask = async (taskId) => {
+    const confirmed = window.confirm('¿Eliminar esta tarea? También se eliminarán sus recordatorios.');
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      toast.success('Tarea eliminada');
+      await Promise.all([fetchTasks(), fetchReminders()]);
+    } catch (error) {
+      console.error('Error eliminando tarea:', error);
+      toast.error(`Error eliminando tarea: ${error.message}`);
     }
   };
 
@@ -628,6 +701,7 @@ export default function TasksPanel({ currentUser }) {
                     ? new Date(task.due_date).toLocaleString()
                     : '-';
                   const pendingReminder = reminders.find((reminder) => reminder.task_id === task.id && !reminder.sent_at);
+                  const latestReminder = latestReminderByTask.get(task.id);
 
                   return (
                     <tr key={task.id} className="border-b border-gray-100 align-top">
@@ -681,20 +755,36 @@ export default function TasksPanel({ currentUser }) {
                               Recordar ahora
                             </button>
                           )}
-                          {pendingReminder && (
+                          <button
+                            type="button"
+                            onClick={() => editTask(task)}
+                            className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-slate-50 text-slate-700 hover:bg-slate-100"
+                          >
+                            <Pencil size={14} />
+                            Editar tarea
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteTask(task.id)}
+                            className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-red-50 text-red-700 hover:bg-red-100"
+                          >
+                            <Trash2 size={14} />
+                            Eliminar tarea
+                          </button>
+                          {latestReminder && (
                             <button
                               type="button"
-                              onClick={() => editReminder(pendingReminder)}
+                              onClick={() => editReminder(latestReminder)}
                               className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-slate-50 text-slate-700 hover:bg-slate-100"
                             >
                               <Pencil size={14} />
                               Editar rec.
                             </button>
                           )}
-                          {pendingReminder && (
+                          {latestReminder && (
                             <button
                               type="button"
-                              onClick={() => deleteReminder(pendingReminder.id)}
+                              onClick={() => deleteReminder(latestReminder.id)}
                               className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-red-50 text-red-700 hover:bg-red-100"
                             >
                               <Trash2 size={14} />
