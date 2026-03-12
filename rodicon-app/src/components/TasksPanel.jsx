@@ -68,6 +68,7 @@ export default function TasksPanel({ currentUser }) {
   const [bulkSending, setBulkSending] = useState(false);
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [quickTaskFilter, setQuickTaskFilter] = useState('TODAS');
+  const [activePage, setActivePage] = useState('CREATE');
   const [form, setForm] = useState(DEFAULT_FORM);
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [newTaskFiles, setNewTaskFiles] = useState([]);
@@ -930,6 +931,32 @@ export default function TasksPanel({ currentUser }) {
         </div>
       </div>
 
+      <div className="bg-white border border-gray-200 rounded-xl p-2 shadow-sm inline-flex gap-2">
+        <button
+          type="button"
+          onClick={() => setActivePage('CREATE')}
+          className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
+            activePage === 'CREATE'
+              ? 'bg-indigo-600 text-white'
+              : 'text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          Crear tarea
+        </button>
+        <button
+          type="button"
+          onClick={() => setActivePage('LIST')}
+          className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
+            activePage === 'LIST'
+              ? 'bg-indigo-600 text-white'
+              : 'text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          Listado y recordatorios
+        </button>
+      </div>
+
+      {activePage === 'CREATE' && (
       <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <Plus size={18} className="text-green-600" />
@@ -1145,7 +1172,10 @@ export default function TasksPanel({ currentUser }) {
           </button>
         </form>
       </div>
+      )}
 
+      {activePage === 'LIST' && (
+      <>
       <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -1408,6 +1438,8 @@ export default function TasksPanel({ currentUser }) {
           </div>
         )}
       </div>
+      </>
+      )}
 
       {detailTask && (
         <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4" onClick={() => setDetailTask(null)}>
