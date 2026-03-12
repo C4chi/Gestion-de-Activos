@@ -367,7 +367,7 @@ export default function App() {
 
       {/* NotificationCenter en header */}
       {user && (
-        <div className="fixed top-4 right-4 z-40">
+        <div className="fixed top-4 right-4 z-50 bg-white border-2 border-blue-200 rounded-xl shadow-xl p-1">
           <NotificationCenter
             notifications={notifications}
             unreadCount={unreadCount}
@@ -379,7 +379,7 @@ export default function App() {
       )}
 
       {user && (!isConnected || pendingCount > 0) && (
-        <div className="fixed top-16 right-4 z-40">
+        <div className="fixed top-20 right-4 z-40">
           <div className={`rounded-lg border px-3 py-2 text-xs shadow-sm ${
             !isConnected
               ? 'bg-amber-50 border-amber-200 text-amber-700'

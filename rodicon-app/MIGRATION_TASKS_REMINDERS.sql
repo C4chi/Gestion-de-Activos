@@ -29,6 +29,31 @@ CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON tasks(assigned_to);
 CREATE INDEX IF NOT EXISTS idx_tasks_created_by ON tasks(created_by);
 
+-- 1.2) Fotos adjuntas de tareas
+CREATE TABLE IF NOT EXISTS task_photos (
+  id BIGSERIAL PRIMARY KEY,
+  task_id BIGINT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  url TEXT NOT NULL,
+  storage_path TEXT,
+  file_name VARCHAR(255),
+  uploaded_by BIGINT REFERENCES app_users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_photos_task ON task_photos(task_id);
+
+-- 1.1) Relación N:M de responsables por tarea
+CREATE TABLE IF NOT EXISTS task_assignees (
+  id BIGSERIAL PRIMARY KEY,
+  task_id BIGINT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  user_id BIGINT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  UNIQUE(task_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_assignees_task ON task_assignees(task_id);
+CREATE INDEX IF NOT EXISTS idx_task_assignees_user ON task_assignees(user_id);
+
 -- 2) Recordatorios de tareas
 CREATE TABLE IF NOT EXISTS task_reminders (
   id BIGSERIAL PRIMARY KEY,
@@ -109,6 +134,7 @@ RETURNS TABLE (
 ) AS $$
 DECLARE
   rec RECORD;
+  assignee_rec RECORD;
   v_processed INT := 0;
   v_inapp INT := 0;
   v_emails INT := 0;
@@ -117,7 +143,7 @@ DECLARE
   v_description TEXT;
   v_priority TEXT;
   v_due_date TEXT;
-  v_assignee_name TEXT;
+  v_email_for_reminder BOOLEAN;
 BEGIN
   SELECT to_regclass('public.notifications') IS NOT NULL INTO v_has_notifications_table;
 
@@ -130,12 +156,9 @@ BEGIN
       t.description,
       t.priority,
       t.due_date,
-      t.assigned_to,
-      u.email AS assignee_email,
-      u.nombre AS assignee_name
+      t.assigned_to
     FROM task_reminders r
     INNER JOIN tasks t ON t.id = r.task_id
-    LEFT JOIN app_users u ON u.id = t.assigned_to
     WHERE r.sent_at IS NULL
       AND r.remind_at <= NOW()
       AND t.status IN ('PENDIENTE', 'EN_PROGRESO')
@@ -147,55 +170,71 @@ BEGIN
     v_description := replace(replace(COALESCE(rec.description, 'Sin descripción adicional.'), '<', '&lt;'), '>', '&gt;');
     v_priority := replace(replace(COALESCE(rec.priority, 'MEDIA'), '<', '&lt;'), '>', '&gt;');
     v_due_date := to_char(rec.due_date, 'YYYY-MM-DD HH24:MI');
-    v_assignee_name := replace(replace(COALESCE(rec.assignee_name, 'Usuario'), '<', '&lt;'), '>', '&gt;');
+    v_email_for_reminder := FALSE;
 
-    -- Canal IN-APP
-    IF v_has_notifications_table AND ('in_app' = ANY (rec.channels)) AND rec.assigned_to IS NOT NULL THEN
-      INSERT INTO notifications (usuario_id, tipo, titulo, contenido, entidad_id, entidad_tipo, metadata)
-      VALUES (
-        rec.assigned_to,
-        'GENERAL',
-        '⏰ Recordatorio de tarea',
-        'La tarea "' || rec.title || '" está próxima o vencida. Fecha límite: ' || v_due_date,
-        rec.task_id::TEXT,
-        'task',
-        jsonb_build_object(
-          'task_id', rec.task_id,
-          'due_date', rec.due_date,
-          'source', 'task_reminder'
+    FOR assignee_rec IN
+      SELECT u.id AS user_id, u.email, u.nombre
+      FROM app_users u
+      INNER JOIN task_assignees ta ON ta.user_id = u.id
+      WHERE ta.task_id = rec.task_id
+      UNION ALL
+      SELECT u.id AS user_id, u.email, u.nombre
+      FROM app_users u
+      WHERE rec.assigned_to IS NOT NULL
+        AND u.id = rec.assigned_to
+        AND NOT EXISTS (
+          SELECT 1
+          FROM task_assignees ta
+          WHERE ta.task_id = rec.task_id
         )
-      );
-      v_inapp := v_inapp + 1;
-    END IF;
+    LOOP
+      IF v_has_notifications_table AND ('in_app' = ANY (rec.channels)) THEN
+        INSERT INTO notifications (usuario_id, tipo, titulo, contenido, entidad_id, entidad_tipo, metadata)
+        VALUES (
+          assignee_rec.user_id,
+          'GENERAL',
+          '⏰ Recordatorio de tarea',
+          'La tarea "' || rec.title || '" está próxima o vencida. Fecha límite: ' || v_due_date,
+          rec.task_id::TEXT,
+          'task',
+          jsonb_build_object(
+            'task_id', rec.task_id,
+            'due_date', rec.due_date,
+            'source', 'task_reminder'
+          )
+        );
+        v_inapp := v_inapp + 1;
+      END IF;
 
-    -- Canal EMAIL (se encola para un worker externo)
-    IF ('email' = ANY (rec.channels)) AND rec.assignee_email IS NOT NULL THEN
-      INSERT INTO task_email_queue (task_id, reminder_id, to_email, subject, body)
-      VALUES (
-        rec.task_id,
-        rec.reminder_id,
-        rec.assignee_email,
-        'Recordatorio de tarea: ' || rec.title,
-        '<div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">' ||
-          '<h2 style="margin: 0 0 12px 0; color: #111827;">⏰ Recordatorio de tarea</h2>' ||
-          '<p style="margin: 0 0 12px 0;">Hola <strong>' || v_assignee_name || '</strong>, tienes una tarea pendiente.</p>' ||
-          '<div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px;">' ||
-            '<p style="margin: 0 0 8px 0;"><strong>Nombre:</strong> ' || v_title || '</p>' ||
-            '<p style="margin: 0 0 8px 0;"><strong>Descripción:</strong> ' || v_description || '</p>' ||
-            '<p style="margin: 0 0 8px 0;"><strong>Prioridad:</strong> ' || v_priority || '</p>' ||
-            '<p style="margin: 0;"><strong>Fecha de vencimiento:</strong> ' || v_due_date || '</p>' ||
-          '</div>' ||
-          '<p style="margin: 12px 0 0 0; color: #6b7280; font-size: 12px;">Mensaje automático de Rodicon.</p>' ||
-        '</div>'
-      );
-      v_emails := v_emails + 1;
-    END IF;
+      IF ('email' = ANY (rec.channels)) AND assignee_rec.email IS NOT NULL THEN
+        INSERT INTO task_email_queue (task_id, reminder_id, to_email, subject, body)
+        VALUES (
+          rec.task_id,
+          rec.reminder_id,
+          assignee_rec.email,
+          'Recordatorio de tarea: ' || rec.title,
+          '<div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">' ||
+            '<h2 style="margin: 0 0 12px 0; color: #111827;">⏰ Recordatorio de tarea</h2>' ||
+            '<p style="margin: 0 0 12px 0;">Hola <strong>' || replace(replace(COALESCE(assignee_rec.nombre, 'Usuario'), '<', '&lt;'), '>', '&gt;') || '</strong>, tienes una tarea pendiente.</p>' ||
+            '<div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px;">' ||
+              '<p style="margin: 0 0 8px 0;"><strong>Nombre:</strong> ' || v_title || '</p>' ||
+              '<p style="margin: 0 0 8px 0;"><strong>Descripción:</strong> ' || v_description || '</p>' ||
+              '<p style="margin: 0 0 8px 0;"><strong>Prioridad:</strong> ' || v_priority || '</p>' ||
+              '<p style="margin: 0;"><strong>Fecha de vencimiento:</strong> ' || v_due_date || '</p>' ||
+            '</div>' ||
+            '<p style="margin: 12px 0 0 0; color: #6b7280; font-size: 12px;">Mensaje automático de Rodicon.</p>' ||
+          '</div>'
+        );
+        v_emails := v_emails + 1;
+        v_email_for_reminder := TRUE;
+      END IF;
+    END LOOP;
 
     UPDATE task_reminders
     SET
       sent_at = NOW(),
       in_app_sent = ('in_app' = ANY (rec.channels)),
-      email_queued = ('email' = ANY (rec.channels)) AND rec.assignee_email IS NOT NULL,
+      email_queued = ('email' = ANY (rec.channels)) AND v_email_for_reminder,
       attempts = attempts + 1,
       processed_by = 'process_task_reminders'
     WHERE id = rec.reminder_id;
@@ -209,6 +248,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- RLS deshabilitado para mantener consistencia con app_users + PIN de este proyecto.
 ALTER TABLE tasks DISABLE ROW LEVEL SECURITY;
+ALTER TABLE task_assignees DISABLE ROW LEVEL SECURITY;
+ALTER TABLE task_photos DISABLE ROW LEVEL SECURITY;
 ALTER TABLE task_reminders DISABLE ROW LEVEL SECURITY;
 ALTER TABLE task_email_queue DISABLE ROW LEVEL SECURITY;
 

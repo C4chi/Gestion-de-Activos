@@ -32,12 +32,13 @@ export const NotificationCenter = ({
       {/* Badge y botón */}
       <button
         onClick={() => setShowModal(!showModal)}
-        className="relative p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
+        className="relative p-2.5 text-gray-700 hover:bg-blue-50 rounded-lg transition border border-gray-200"
         title="Notificaciones"
       >
-        <Bell className="w-6 h-6" />
+        <Bell className="w-6 h-6 text-blue-700" />
+        {unreadCount > 0 && <span className="absolute -top-0.5 -left-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />}
         {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+          <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-bold rounded-full min-w-[20px] h-5 px-1 flex items-center justify-center shadow">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}

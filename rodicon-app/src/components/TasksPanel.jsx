@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { CalendarClock, CheckCircle2, Clock3, Filter, Mail, Pencil, Plus, RefreshCw, Send, Trash2 } from 'lucide-react';
+import { CalendarClock, CheckCircle2, Clock3, Eye, Filter, ImagePlus, Mail, Pencil, Plus, RefreshCw, Send, Trash2, X } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 const DEFAULT_FORM = {
   title: '',
   description: '',
-  assigned_to: '',
+  assigned_to: [],
   due_date: '',
   priority: 'MEDIA',
   status: 'PENDIENTE',
@@ -17,6 +17,8 @@ const DEFAULT_FORM = {
 
 export default function TasksPanel({ currentUser }) {
   const [tasks, setTasks] = useState([]);
+  const [taskAssignees, setTaskAssignees] = useState([]);
+  const [taskPhotos, setTaskPhotos] = useState([]);
   const [reminders, setReminders] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +27,9 @@ export default function TasksPanel({ currentUser }) {
   const [bulkSending, setBulkSending] = useState(false);
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [form, setForm] = useState(DEFAULT_FORM);
+  const [newTaskFiles, setNewTaskFiles] = useState([]);
+  const [detailTask, setDetailTask] = useState(null);
+  const [detailUploading, setDetailUploading] = useState(false);
 
   const isAdminGlobal = currentUser?.rol === 'ADMIN_GLOBAL';
 
@@ -50,6 +55,16 @@ export default function TasksPanel({ currentUser }) {
     setTasks(data || []);
   }, []);
 
+  const fetchTaskAssignees = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('task_assignees')
+      .select('id,task_id,user_id,created_at')
+      .limit(1000);
+
+    if (error) throw error;
+    setTaskAssignees(data || []);
+  }, []);
+
   const fetchReminders = useCallback(async () => {
     const { data, error } = await supabase
       .from('task_reminders')
@@ -61,17 +76,72 @@ export default function TasksPanel({ currentUser }) {
     setReminders(data || []);
   }, []);
 
+  const fetchTaskPhotos = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('task_photos')
+      .select('id,task_id,url,storage_path,file_name,uploaded_by,created_at')
+      .order('created_at', { ascending: false })
+      .limit(1000);
+
+    if (error) throw error;
+    setTaskPhotos(data || []);
+  }, []);
+
   const loadInitialData = useCallback(async () => {
     try {
       setLoading(true);
-      await Promise.all([fetchUsers(), fetchTasks(), fetchReminders()]);
+      await Promise.all([fetchUsers(), fetchTasks(), fetchTaskAssignees(), fetchTaskPhotos(), fetchReminders()]);
     } catch (error) {
       console.error('Error cargando tareas:', error);
       toast.error(`Error cargando tareas: ${error.message}`);
     } finally {
       setLoading(false);
     }
-  }, [fetchReminders, fetchTasks, fetchUsers]);
+  }, [fetchReminders, fetchTaskAssignees, fetchTaskPhotos, fetchTasks, fetchUsers]);
+
+  const uploadFilesForTask = useCallback(async (taskId, files) => {
+    if (!Array.isArray(files) || files.length === 0) return [];
+
+    const uploadedRows = [];
+
+    for (const file of files) {
+      if (!file || !file.type?.startsWith('image/')) continue;
+
+      const safeName = file.name?.replace(/\s+/g, '-').toLowerCase() || 'foto.jpg';
+      const path = `public/tasks/${taskId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('uploads')
+        .upload(path, file, {
+          contentType: file.type || 'image/jpeg',
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicData } = supabase.storage
+        .from('uploads')
+        .getPublicUrl(path);
+
+      uploadedRows.push({
+        task_id: taskId,
+        url: publicData?.publicUrl,
+        storage_path: path,
+        file_name: file.name,
+        uploaded_by: currentUser?.id || null,
+      });
+    }
+
+    if (uploadedRows.length > 0) {
+      const { error: insertError } = await supabase
+        .from('task_photos')
+        .insert(uploadedRows);
+
+      if (insertError) throw insertError;
+    }
+
+    return uploadedRows;
+  }, [currentUser?.id]);
 
   const dispatchEmails = useCallback(async () => {
     try {
@@ -298,6 +368,16 @@ export default function TasksPanel({ currentUser }) {
     return map;
   }, [users]);
 
+  const assigneeIdsByTask = useMemo(() => {
+    const map = new Map();
+    taskAssignees.forEach((row) => {
+      const list = map.get(row.task_id) || [];
+      list.push(row.user_id);
+      map.set(row.task_id, list);
+    });
+    return map;
+  }, [taskAssignees]);
+
   const filteredTasks = useMemo(() => {
     if (filterStatus === 'ALL') return tasks;
     return tasks.filter((task) => task.status === filterStatus);
@@ -313,7 +393,7 @@ export default function TasksPanel({ currentUser }) {
       return;
     }
 
-    if (!form.assigned_to) {
+    if (!Array.isArray(form.assigned_to) || form.assigned_to.length === 0) {
       toast.error('Debe seleccionar un responsable');
       return;
     }
@@ -348,7 +428,7 @@ export default function TasksPanel({ currentUser }) {
       const taskPayload = {
         title: form.title.trim(),
         description: form.description?.trim() || null,
-        assigned_to: Number(form.assigned_to),
+        assigned_to: Number(form.assigned_to[0]),
         due_date: dueDate.toISOString(),
         priority: form.priority,
         status: form.status,
@@ -363,6 +443,19 @@ export default function TasksPanel({ currentUser }) {
 
       if (taskError) throw taskError;
 
+      const assigneeRows = [...new Set(form.assigned_to.map((value) => Number(value)).filter((value) => Number.isFinite(value)))].map((userId) => ({
+        task_id: taskData.id,
+        user_id: userId,
+      }));
+
+      if (assigneeRows.length > 0) {
+        const { error: assigneesError } = await supabase
+          .from('task_assignees')
+          .insert(assigneeRows);
+
+        if (assigneesError) throw assigneesError;
+      }
+
       const reminderPayload = {
         task_id: taskData.id,
         remind_at: remindAt.toISOString(),
@@ -375,15 +468,61 @@ export default function TasksPanel({ currentUser }) {
 
       if (reminderError) throw reminderError;
 
+      if (newTaskFiles.length > 0) {
+        await uploadFilesForTask(taskData.id, newTaskFiles);
+      }
+
       toast.success('Tarea creada correctamente');
       resetForm();
-      await fetchTasks();
+      setNewTaskFiles([]);
+      await Promise.all([fetchTasks(), fetchTaskAssignees(), fetchTaskPhotos(), fetchReminders()]);
       await processReminders();
     } catch (error) {
       console.error('Error creando tarea:', error);
       toast.error(`Error creando tarea: ${error.message}`);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const uploadPhotosToDetailTask = async (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!detailTask || files.length === 0) return;
+
+    try {
+      setDetailUploading(true);
+      await uploadFilesForTask(detailTask.id, files);
+      toast.success('Fotos cargadas a la tarea');
+      await fetchTaskPhotos();
+    } catch (error) {
+      console.error('Error subiendo fotos de tarea:', error);
+      toast.error(`No se pudieron subir fotos: ${error.message}`);
+    } finally {
+      setDetailUploading(false);
+      event.target.value = '';
+    }
+  };
+
+  const deleteTaskPhoto = async (photo) => {
+    const confirmed = window.confirm('¿Eliminar esta foto de la tarea?');
+    if (!confirmed) return;
+
+    try {
+      if (photo.storage_path) {
+        await supabase.storage.from('uploads').remove([photo.storage_path]);
+      }
+
+      const { error } = await supabase
+        .from('task_photos')
+        .delete()
+        .eq('id', photo.id);
+
+      if (error) throw error;
+      toast.success('Foto eliminada');
+      await fetchTaskPhotos();
+    } catch (error) {
+      console.error('Error eliminando foto:', error);
+      toast.error(`No se pudo eliminar foto: ${error.message}`);
     }
   };
 
@@ -458,7 +597,7 @@ export default function TasksPanel({ currentUser }) {
       if (error) throw error;
 
       toast.success('Tarea eliminada');
-      await Promise.all([fetchTasks(), fetchReminders()]);
+      await Promise.all([fetchTasks(), fetchTaskAssignees(), fetchReminders()]);
     } catch (error) {
       console.error('Error eliminando tarea:', error);
       toast.error(`Error eliminando tarea: ${error.message}`);
@@ -542,18 +681,22 @@ export default function TasksPanel({ currentUser }) {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Responsable</label>
               <select
+                multiple
                 value={form.assigned_to}
-                onChange={(event) => setForm((prev) => ({ ...prev, assigned_to: event.target.value }))}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                onChange={(event) => {
+                  const selectedIds = Array.from(event.target.selectedOptions).map((option) => option.value);
+                  setForm((prev) => ({ ...prev, assigned_to: selectedIds }));
+                }}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm min-h-[120px]"
                 required
               >
-                <option value="">Seleccione usuario</option>
                 {users.map((user) => (
                   <option key={user.id} value={user.id}>
                     {user.nombre || user.nombre_usuario || `Usuario ${user.id}`}
                   </option>
                 ))}
               </select>
+              <p className="text-xs text-gray-500 mt-1">Mantén presionado Ctrl (Windows) para seleccionar múltiples responsables.</p>
             </div>
 
             <div>
@@ -591,6 +734,20 @@ export default function TasksPanel({ currentUser }) {
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               placeholder="Detalle de la tarea"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Fotografías (opcional)</label>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(event) => setNewTaskFiles(Array.from(event.target.files || []))}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+            {newTaskFiles.length > 0 && (
+              <p className="text-xs text-gray-500 mt-1">{newTaskFiles.length} foto(s) seleccionada(s)</p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -679,7 +836,11 @@ export default function TasksPanel({ currentUser }) {
               </thead>
               <tbody>
                 {filteredTasks.map((task) => {
-                  const assignee = usersById.get(task.assigned_to);
+                  const assigneeIds = assigneeIdsByTask.get(task.id) || (task.assigned_to ? [task.assigned_to] : []);
+                  const assigneeNames = assigneeIds
+                    .map((id) => usersById.get(id)?.nombre || usersById.get(id)?.nombre_usuario || `Usuario ${id}`)
+                    .filter(Boolean);
+                  const photosCount = taskPhotos.filter((photo) => photo.task_id === task.id).length;
                   const dueLabel = task.due_date
                     ? new Date(task.due_date).toLocaleString()
                     : '-';
@@ -688,13 +849,22 @@ export default function TasksPanel({ currentUser }) {
                   return (
                     <tr key={task.id} className="border-b border-gray-100 align-top">
                       <td className="py-3 pr-3">
-                        <div className="font-medium text-gray-900">{task.title}</div>
+                        <button
+                          type="button"
+                          onClick={() => setDetailTask(task)}
+                          className="font-medium text-gray-900 hover:text-blue-700 text-left"
+                        >
+                          {task.title}
+                        </button>
                         {task.description && (
                           <div className="text-gray-500 text-xs mt-1 max-w-[420px]">{task.description}</div>
                         )}
+                        {photosCount > 0 && (
+                          <div className="text-xs text-blue-600 mt-1">📷 {photosCount} foto(s)</div>
+                        )}
                       </td>
                       <td className="py-3 pr-3 text-gray-700">
-                        {assignee?.nombre || assignee?.nombre_usuario || `Usuario ${task.assigned_to}`}
+                        {assigneeNames.length > 0 ? assigneeNames.join(', ') : '-'}
                       </td>
                       <td className="py-3 pr-3 text-gray-700">{dueLabel}</td>
                       <td className="py-3 pr-3">
@@ -752,6 +922,14 @@ export default function TasksPanel({ currentUser }) {
                           >
                             <Trash2 size={14} />
                             Eliminar tarea
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDetailTask(task)}
+                            className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100"
+                          >
+                            <Eye size={14} />
+                            Ver detalle
                           </button>
                         </div>
                       </td>
@@ -828,6 +1006,80 @@ export default function TasksPanel({ currentUser }) {
           </div>
         )}
       </div>
+
+      {detailTask && (
+        <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4" onClick={() => setDetailTask(null)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[88vh] overflow-hidden" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-bold text-gray-900">Detalle de tarea</h3>
+              <button type="button" onClick={() => setDetailTask(null)} className="p-2 rounded hover:bg-gray-100">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4 overflow-y-auto max-h-[75vh]">
+              <div>
+                <h4 className="text-xl font-semibold text-gray-900">{detailTask.title}</h4>
+                <p className="text-gray-600 mt-1">{detailTask.description || 'Sin descripción'}</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-500">Prioridad</div>
+                  <div className="font-semibold text-gray-800">{detailTask.priority}</div>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-500">Vence</div>
+                  <div className="font-semibold text-gray-800">{new Date(detailTask.due_date).toLocaleString()}</div>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-500">Responsables</div>
+                  <div className="font-semibold text-gray-800">
+                    {(assigneeIdsByTask.get(detailTask.id) || (detailTask.assigned_to ? [detailTask.assigned_to] : []))
+                      .map((id) => usersById.get(id)?.nombre || usersById.get(id)?.nombre_usuario || `Usuario ${id}`)
+                      .join(', ') || '-'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="border rounded-lg p-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <h5 className="font-semibold text-gray-900">Fotos</h5>
+                  <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm cursor-pointer hover:bg-indigo-700">
+                    <ImagePlus size={16} />
+                    {detailUploading ? 'Subiendo...' : 'Añadir fotos'}
+                    <input type="file" accept="image/*" multiple className="hidden" onChange={uploadPhotosToDetailTask} disabled={detailUploading} />
+                  </label>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {taskPhotos.filter((photo) => photo.task_id === detailTask.id).length === 0 ? (
+                    <div className="text-sm text-gray-500 col-span-full">No hay fotos en esta tarea.</div>
+                  ) : (
+                    taskPhotos
+                      .filter((photo) => photo.task_id === detailTask.id)
+                      .map((photo) => (
+                        <div key={photo.id} className="border rounded-lg p-2 bg-gray-50">
+                          <a href={photo.url} target="_blank" rel="noreferrer">
+                            <img src={photo.url} alt={photo.file_name || 'foto tarea'} className="w-full h-24 object-cover rounded" />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => deleteTaskPhoto(photo)}
+                            className="mt-2 w-full inline-flex items-center justify-center gap-1 text-xs px-2 py-1 rounded bg-red-50 text-red-700 hover:bg-red-100"
+                          >
+                            <Trash2 size={13} />
+                            Eliminar foto
+                          </button>
+                        </div>
+                      ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
