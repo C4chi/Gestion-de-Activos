@@ -237,8 +237,26 @@ export default function TasksPanel({ currentUser }) {
 
   const formatDateForInput = (isoDate) => {
     if (!isoDate) return '';
-    const date = new Date(isoDate);
-    if (Number.isNaN(date.getTime())) return '';
+    const normalizeDateInput = (value) => {
+      if (typeof value !== 'string') return value;
+      const trimmed = value.trim();
+      const hasTimezone = /([zZ]|[+-]\d{2}:\d{2})$/.test(trimmed);
+      const isDateTimeWithoutTimezone = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(trimmed);
+
+      if (!hasTimezone && isDateTimeWithoutTimezone) {
+        return `${trimmed.replace(' ', 'T')}Z`;
+      }
+
+      return trimmed;
+    };
+
+    const parseDateValue = (value) => {
+      const date = new Date(normalizeDateInput(value));
+      return Number.isNaN(date.getTime()) ? null : date;
+    };
+
+    const date = parseDateValue(isoDate);
+    if (!date) return '';
     const pad = (num) => String(num).padStart(2, '0');
     const year = date.getFullYear();
     const month = pad(date.getMonth() + 1);
@@ -246,6 +264,25 @@ export default function TasksPanel({ currentUser }) {
     const hours = pad(date.getHours());
     const minutes = pad(date.getMinutes());
     return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
+  const parseDbDate = (value) => {
+    if (!value) return null;
+    if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+    if (typeof value !== 'string') {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    const trimmed = value.trim();
+    const hasTimezone = /([zZ]|[+-]\d{2}:\d{2})$/.test(trimmed);
+    const isDateTimeWithoutTimezone = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(trimmed);
+    const normalized = (!hasTimezone && isDateTimeWithoutTimezone)
+      ? `${trimmed.replace(' ', 'T')}Z`
+      : trimmed;
+
+    const date = new Date(normalized);
+    return Number.isNaN(date.getTime()) ? null : date;
   };
 
   const editReminder = async (reminder) => {
@@ -558,7 +595,7 @@ export default function TasksPanel({ currentUser }) {
   const openEditTask = (task) => {
     const existingReminder = reminders
       .filter((reminder) => reminder.task_id === task.id)
-      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0] || null;
+      .sort((a, b) => (parseDbDate(b.created_at)?.getTime() || 0) - (parseDbDate(a.created_at)?.getTime() || 0))[0] || null;
 
     const assigneeIds = (assigneeIdsByTask.get(task.id) || (task.assigned_to ? [task.assigned_to] : [])).map(String);
 
@@ -981,9 +1018,8 @@ export default function TasksPanel({ currentUser }) {
                     .map((id) => usersById.get(id)?.nombre || usersById.get(id)?.nombre_usuario || `Usuario ${id}`)
                     .filter(Boolean);
                   const photosCount = taskPhotos.filter((photo) => photo.task_id === task.id).length;
-                  const dueLabel = task.due_date
-                    ? new Date(task.due_date).toLocaleString()
-                    : '-';
+                  const dueDateParsed = parseDbDate(task.due_date);
+                  const dueLabel = dueDateParsed ? dueDateParsed.toLocaleString() : '-';
                   const pendingReminder = reminders.find((reminder) => reminder.task_id === task.id && !reminder.sent_at);
 
                   return (
@@ -1106,7 +1142,7 @@ export default function TasksPanel({ currentUser }) {
                       <tr key={reminder.id} className="border-b border-gray-100">
                         <td className="py-3 pr-3 text-gray-800">{task?.title || `Tarea #${reminder.task_id}`}</td>
                         <td className="py-3 pr-3 text-gray-700">
-                          {reminder.remind_at ? new Date(reminder.remind_at).toLocaleString() : '-'}
+                          {parseDbDate(reminder.remind_at)?.toLocaleString() || '-'}
                         </td>
                         <td className="py-3 pr-3 text-gray-700">
                           {(reminder.channels || []).join(', ')}
@@ -1173,7 +1209,7 @@ export default function TasksPanel({ currentUser }) {
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3">
                   <div className="text-xs text-gray-500">Vence</div>
-                  <div className="font-semibold text-gray-800">{new Date(detailTask.due_date).toLocaleString()}</div>
+                  <div className="font-semibold text-gray-800">{parseDbDate(detailTask.due_date)?.toLocaleString() || '-'}</div>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3">
                   <div className="text-xs text-gray-500">Responsables</div>
