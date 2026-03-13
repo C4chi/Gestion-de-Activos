@@ -82,7 +82,7 @@ const buildIcsAttachment = (params: {
   return {
     content: toBase64Utf8(ics),
     filename: 'recordatorio-tarea.ics',
-    type: 'text/calendar; charset=utf-8',
+    type: 'text/calendar',
     disposition: 'attachment',
   };
 };
