@@ -197,7 +197,7 @@ BEGIN
     v_title := replace(replace(COALESCE(rec.title, 'Tarea sin título'), '<', '&lt;'), '>', '&gt;');
     v_description := replace(replace(COALESCE(rec.description, 'Sin descripción adicional.'), '<', '&lt;'), '>', '&gt;');
     v_priority := replace(replace(COALESCE(rec.priority, 'MEDIA'), '<', '&lt;'), '>', '&gt;');
-    v_due_date := to_char(rec.due_date, 'YYYY-MM-DD HH24:MI');
+    v_due_date := COALESCE(to_char(rec.due_date, 'YYYY-MM-DD HH24:MI'), 'Sin fecha límite');
     v_calendar_link := '';
     v_email_for_reminder := FALSE;
 

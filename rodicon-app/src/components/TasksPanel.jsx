@@ -367,12 +367,14 @@ export default function TasksPanel({ currentUser }) {
     reminderHoursBefore,
     repeatEveryHours,
   }) => {
-    const safeDueDate = dueDate instanceof Date ? dueDate : new Date(dueDate);
-    if (Number.isNaN(safeDueDate.getTime())) return [];
+    const safeDueDate = dueDate ? (dueDate instanceof Date ? dueDate : new Date(dueDate)) : null;
+    const hasDueDate = safeDueDate && !Number.isNaN(safeDueDate.getTime());
 
     const isRecurringPayment = taskKind !== 'GENERAL' && recurrenceType !== 'NONE';
 
     if (isRecurringPayment) {
+      if (!hasDueDate) return [];
+
       const daysBeforeList = [...new Set((reminderDaysBefore || []).map(Number).filter((value) => Number.isFinite(value) && value >= 0))];
       const sortedDays = daysBeforeList.length > 0 ? daysBeforeList.sort((a, b) => b - a) : [7, 3, 1, 0];
 
@@ -392,14 +394,84 @@ export default function TasksPanel({ currentUser }) {
       ? Number(repeatEveryHours)
       : 24;
 
+    const nextReminderAt = hasDueDate
+      ? new Date(safeDueDate.getTime() - safeHoursBefore * 60 * 60 * 1000).toISOString()
+      : new Date(Date.now() + safeRepeatEveryHours * 60 * 60 * 1000).toISOString();
+
     return [
       {
         task_id: taskId,
-        remind_at: new Date(safeDueDate.getTime() - safeHoursBefore * 60 * 60 * 1000).toISOString(),
+        remind_at: nextReminderAt,
         repeat_every_hours: recurrenceType === 'NONE' ? safeRepeatEveryHours : null,
         channels,
       },
     ];
+  };
+
+  const notifyTaskAssignment = async ({ taskId, title, assigneeIds, dueDate, channels }) => {
+    const uniqueAssigneeIds = [...new Set((assigneeIds || []).map(Number).filter((value) => Number.isFinite(value)))];
+    if (uniqueAssigneeIds.length === 0) return;
+
+    const dueDateLabel = dueDate ? parseDbDate(dueDate)?.toLocaleString() || 'Sin fecha límite' : 'Sin fecha límite';
+
+    const inAppRows = uniqueAssigneeIds
+      .filter((userId) => userId !== currentUser?.id)
+      .map((userId) => ({
+        usuario_id: userId,
+        tipo: 'GENERAL',
+        titulo: '📌 Nueva tarea asignada',
+        contenido: `Se te asignó la tarea "${title}". Fecha límite: ${dueDateLabel}.`,
+        entidad_id: String(taskId),
+        entidad_tipo: 'task',
+        metadata: {
+          task_id: taskId,
+          source: 'task_assignment',
+          due_date: dueDate || null,
+        },
+      }));
+
+    if (inAppRows.length > 0) {
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert(inAppRows);
+
+      if (notificationError) {
+        console.warn('No se pudieron crear notificaciones de asignación:', notificationError.message);
+      }
+    }
+
+    if ((channels || []).includes('email')) {
+      const recipients = uniqueAssigneeIds
+        .map((userId) => usersById.get(userId))
+        .filter((user) => user?.email)
+        .map((user) => ({
+          to_email: user.email,
+          body: `<div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
+            <h2 style="margin:0 0 12px 0;">📌 Nueva tarea asignada</h2>
+            <p style="margin:0 0 8px 0;">Hola <strong>${(user.nombre || user.nombre_usuario || 'Usuario')}</strong>, se te asignó una tarea.</p>
+            <p style="margin:0 0 8px 0;"><strong>Tarea:</strong> ${title}</p>
+            <p style="margin:0;"><strong>Fecha límite:</strong> ${dueDateLabel}</p>
+          </div>`,
+        }));
+
+      if (recipients.length > 0) {
+        const emailRows = recipients.map((recipient) => ({
+          task_id: taskId,
+          reminder_id: null,
+          to_email: recipient.to_email,
+          subject: `Nueva tarea asignada: ${title}`,
+          body: recipient.body,
+        }));
+
+        const { error: queueError } = await supabase
+          .from('task_email_queue')
+          .insert(emailRows);
+
+        if (queueError) {
+          console.warn('No se pudo encolar email de asignación:', queueError.message);
+        }
+      }
+    }
   };
 
   const getPriorityBadgeClass = (priority) => PRIORITY_BADGE_STYLES[priority] || 'bg-slate-100 text-slate-700 border border-slate-200';
@@ -650,13 +722,8 @@ export default function TasksPanel({ currentUser }) {
       return;
     }
 
-    if (!form.due_date) {
-      toast.error('Debe seleccionar fecha y hora límite');
-      return;
-    }
-
-    const dueDate = new Date(form.due_date);
-    if (Number.isNaN(dueDate.getTime())) {
+    const dueDate = form.due_date ? new Date(form.due_date) : null;
+    if (form.due_date && dueDate && Number.isNaN(dueDate.getTime())) {
       toast.error('Fecha límite inválida');
       return;
     }
@@ -679,6 +746,11 @@ export default function TasksPanel({ currentUser }) {
       return;
     }
 
+    if (isPaymentTask && !dueDate) {
+      toast.error('Las tareas de pago requieren fecha límite');
+      return;
+    }
+
     try {
       setSubmitting(true);
 
@@ -686,7 +758,7 @@ export default function TasksPanel({ currentUser }) {
         title: form.title.trim(),
         description: form.description?.trim() || null,
         assigned_to: Number(form.assigned_to[0]),
-        due_date: dueDate.toISOString(),
+        due_date: dueDate ? dueDate.toISOString() : null,
         task_kind: form.task_kind,
         recurrence_type: recurrenceType,
         reminder_days_before: isPaymentTask ? reminderDaysBefore : null,
@@ -737,6 +809,14 @@ export default function TasksPanel({ currentUser }) {
       if (newTaskFiles.length > 0) {
         await uploadFilesForTask(taskData.id, newTaskFiles);
       }
+
+      await notifyTaskAssignment({
+        taskId: taskData.id,
+        title: form.title.trim(),
+        assigneeIds: form.assigned_to,
+        dueDate: dueDate ? dueDate.toISOString() : null,
+        channels,
+      });
 
       toast.success('Tarea creada correctamente');
       resetForm();
@@ -908,13 +988,8 @@ export default function TasksPanel({ currentUser }) {
       return;
     }
 
-    if (!editModal.due_date) {
-      toast.error('Debe seleccionar fecha límite');
-      return;
-    }
-
-    const dueDate = new Date(editModal.due_date);
-    if (Number.isNaN(dueDate.getTime())) {
+    const dueDate = editModal.due_date ? new Date(editModal.due_date) : null;
+    if (editModal.due_date && dueDate && Number.isNaN(dueDate.getTime())) {
       toast.error('Fecha límite inválida');
       return;
     }
@@ -938,8 +1013,8 @@ export default function TasksPanel({ currentUser }) {
 
     const now = Date.now();
     const nextByCadence = now + parsedEveryHours * 60 * 60 * 1000;
-    const dueMs = dueDate.getTime();
-    const nextReminderAtMs = dueMs > now ? Math.min(dueMs, nextByCadence) : now + 60 * 1000;
+    const dueMs = dueDate ? dueDate.getTime() : Number.MAX_SAFE_INTEGER;
+    const nextReminderAtMs = dueDate ? (dueMs > now ? Math.min(dueMs, nextByCadence) : now + 60 * 1000) : nextByCadence;
     const nextReminderAtIso = new Date(nextReminderAtMs).toISOString();
 
     try {
@@ -949,7 +1024,7 @@ export default function TasksPanel({ currentUser }) {
           title: trimmedTitle,
           description: editModal.description?.trim() || null,
           assigned_to: parsedAssigneeIds[0],
-          due_date: dueDate.toISOString(),
+          due_date: dueDate ? dueDate.toISOString() : null,
         })
         .eq('id', editModal.taskId);
 
@@ -997,6 +1072,14 @@ export default function TasksPanel({ currentUser }) {
 
         if (insertReminderError) throw insertReminderError;
       }
+
+      await notifyTaskAssignment({
+        taskId: editModal.taskId,
+        title: trimmedTitle,
+        assigneeIds: parsedAssigneeIds,
+        dueDate: dueDate ? dueDate.toISOString() : null,
+        channels: editModal.reminderChannels,
+      });
 
       toast.success('Tarea actualizada');
       setEditModal(null);
@@ -1204,9 +1287,8 @@ export default function TasksPanel({ currentUser }) {
                 value={form.due_date}
                 onChange={(event) => setForm((prev) => ({ ...prev, due_date: event.target.value }))}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                required
               />
-              <p className="text-xs text-gray-500 mt-1">Se muestra en hora local del navegador.</p>
+              <p className="text-xs text-gray-500 mt-1">Opcional para seguimiento periódico. Se muestra en hora local del navegador.</p>
             </div>
 
             <div>
@@ -1779,7 +1861,6 @@ export default function TasksPanel({ currentUser }) {
                     value={editModal.due_date}
                     onChange={(event) => setEditModal((prev) => ({ ...prev, due_date: event.target.value }))}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                    required
                   />
                 </div>
               </div>
