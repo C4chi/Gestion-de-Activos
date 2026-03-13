@@ -357,6 +357,25 @@ export default function TasksPanel({ currentUser }) {
     return null;
   };
 
+  const buildGoogleCalendarLink = ({ title, description, dueDate }) => {
+    const parsedDueDate = parseDbDate(dueDate);
+    if (!parsedDueDate) return null;
+
+    const startDate = new Date(parsedDueDate.getTime() - 30 * 60 * 1000);
+    const endDate = new Date(parsedDueDate.getTime() + 30 * 60 * 1000);
+
+    const formatCalendarDate = (date) => date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+
+    const params = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: title || 'Recordatorio de tarea',
+      details: description || 'Seguimiento de tarea asignada',
+      dates: `${formatCalendarDate(startDate)}/${formatCalendarDate(endDate)}`,
+    });
+
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  };
+
   const buildReminderPayloads = ({
     taskId,
     dueDate,
@@ -413,6 +432,11 @@ export default function TasksPanel({ currentUser }) {
     if (uniqueAssigneeIds.length === 0) return;
 
     const dueDateLabel = dueDate ? parseDbDate(dueDate)?.toLocaleString() || 'Sin fecha límite' : 'Sin fecha límite';
+    const calendarLink = buildGoogleCalendarLink({
+      title: `Tarea asignada: ${title}`,
+      description: `Seguimiento de tarea asignada en Rodicon.\n\nTarea: ${title}`,
+      dueDate,
+    });
 
     const inAppRows = uniqueAssigneeIds
       .filter((userId) => userId !== currentUser?.id)
@@ -451,6 +475,7 @@ export default function TasksPanel({ currentUser }) {
             <p style="margin:0 0 8px 0;">Hola <strong>${(user.nombre || user.nombre_usuario || 'Usuario')}</strong>, se te asignó una tarea.</p>
             <p style="margin:0 0 8px 0;"><strong>Tarea:</strong> ${title}</p>
             <p style="margin:0;"><strong>Fecha límite:</strong> ${dueDateLabel}</p>
+            ${calendarLink ? `<div style="margin-top:12px;"><a href="${calendarLink}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:600;">Añadir a Google Calendar</a></div>` : ''}
           </div>`,
         }));
 
