@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { CalendarClock, CheckCircle2, Clock3, Eye, Filter, ImagePlus, Mail, Pencil, Plus, RefreshCw, Send, Trash2, X } from 'lucide-react';
 import { supabase } from '../supabaseClient';
@@ -82,6 +82,15 @@ export default function TasksPanel({ currentUser }) {
   const [editModal, setEditModal] = useState(null);
   const [assigneeSearch, setAssigneeSearch] = useState('');
   const [editAssigneeSearch, setEditAssigneeSearch] = useState('');
+  const [confirmDialog, setConfirmDialog] = useState({
+    open: false,
+    title: '',
+    message: '',
+    confirmLabel: 'Aceptar',
+    cancelLabel: 'Cancelar',
+    tone: 'danger',
+  });
+  const confirmResolverRef = useRef(null);
 
   const isAdminGlobal = currentUser?.rol === 'ADMIN_GLOBAL';
 
@@ -427,6 +436,29 @@ export default function TasksPanel({ currentUser }) {
     ];
   };
 
+  const requestConfirmation = useCallback((options) => {
+    return new Promise((resolve) => {
+      confirmResolverRef.current = resolve;
+      setConfirmDialog({
+        open: true,
+        title: options?.title || 'Confirmar acción',
+        message: options?.message || '¿Deseas continuar?',
+        confirmLabel: options?.confirmLabel || 'Aceptar',
+        cancelLabel: options?.cancelLabel || 'Cancelar',
+        tone: options?.tone || 'danger',
+      });
+    });
+  }, []);
+
+  const closeConfirmation = useCallback((confirmed) => {
+    if (confirmResolverRef.current) {
+      confirmResolverRef.current(confirmed);
+      confirmResolverRef.current = null;
+    }
+
+    setConfirmDialog((prev) => ({ ...prev, open: false }));
+  }, []);
+
   const notifyTaskAssignment = async ({ taskId, title, assigneeIds, dueDate }) => {
     const uniqueAssigneeIds = [...new Set((assigneeIds || []).map(Number).filter((value) => Number.isFinite(value)))];
     if (uniqueAssigneeIds.length === 0) return;
@@ -591,7 +623,13 @@ export default function TasksPanel({ currentUser }) {
   };
 
   const deleteReminder = async (reminderId) => {
-    const confirmed = window.confirm('¿Eliminar este recordatorio?');
+    const confirmed = await requestConfirmation({
+      title: 'Eliminar recordatorio',
+      message: '¿Eliminar este recordatorio?',
+      confirmLabel: 'Eliminar',
+      cancelLabel: 'Cancelar',
+      tone: 'danger',
+    });
     if (!confirmed) return;
 
     try {
@@ -874,7 +912,13 @@ export default function TasksPanel({ currentUser }) {
   };
 
   const deleteTaskPhoto = async (photo) => {
-    const confirmed = window.confirm('¿Eliminar esta foto de la tarea?');
+    const confirmed = await requestConfirmation({
+      title: 'Eliminar foto',
+      message: '¿Eliminar esta foto de la tarea?',
+      confirmLabel: 'Eliminar',
+      cancelLabel: 'Cancelar',
+      tone: 'danger',
+    });
     if (!confirmed) return;
 
     try {
@@ -1114,7 +1158,13 @@ export default function TasksPanel({ currentUser }) {
   };
 
   const deleteTask = async (taskId) => {
-    const confirmed = window.confirm('¿Eliminar esta tarea? También se eliminarán sus recordatorios.');
+    const confirmed = await requestConfirmation({
+      title: 'Eliminar tarea',
+      message: '¿Eliminar esta tarea? También se eliminarán sus recordatorios.',
+      confirmLabel: 'Eliminar tarea',
+      cancelLabel: 'Cancelar',
+      tone: 'danger',
+    });
     if (!confirmed) return;
 
     try {
@@ -1980,6 +2030,34 @@ export default function TasksPanel({ currentUser }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {confirmDialog.open && (
+        <div className="fixed inset-0 z-[80] bg-black/45 flex items-center justify-center p-4" onClick={() => closeConfirmation(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={(event) => event.stopPropagation()}>
+            <div className="p-5 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900">{confirmDialog.title}</h3>
+              <p className="text-sm text-gray-600 mt-2">{confirmDialog.message}</p>
+            </div>
+
+            <div className="p-4 flex items-center justify-end gap-2 bg-gray-50">
+              <button
+                type="button"
+                onClick={() => closeConfirmation(false)}
+                className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-white"
+              >
+                {confirmDialog.cancelLabel}
+              </button>
+              <button
+                type="button"
+                onClick={() => closeConfirmation(true)}
+                className={`px-3 py-2 rounded-lg text-white ${confirmDialog.tone === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+              >
+                {confirmDialog.confirmLabel}
+              </button>
+            </div>
           </div>
         </div>
       )}
