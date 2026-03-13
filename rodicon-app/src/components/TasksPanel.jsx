@@ -1617,6 +1617,11 @@ export default function TasksPanel({ currentUser }) {
                         >
                           {task.title}
                         </button>
+                        {assigneeNames.length > 0 && (
+                          <div className="text-xs text-gray-600 mt-1 md:hidden">
+                            <span className="font-medium">Responsable:</span> {assigneeNames.join(', ')}
+                          </div>
+                        )}
                         {task.description && (
                           <div className="text-gray-500 text-xs mt-1 max-w-[420px]">{task.description}</div>
                         )}
@@ -1652,17 +1657,20 @@ export default function TasksPanel({ currentUser }) {
                               type="button"
                               onClick={() => updateTaskStatus(task, 'COMPLETADA')}
                               className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-green-50 text-green-700 hover:bg-green-100"
+                              title="Completar"
                             >
                               <CheckCircle2 size={14} />
-                              Completar
+                              <span className="hidden sm:inline">Completar</span>
                             </button>
                           ) : (
                             <button
                               type="button"
                               onClick={() => updateTaskStatus(task, 'EN_PROGRESO')}
                               className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
+                              title="Reabrir"
                             >
-                              Reabrir
+                              <RefreshCw size={14} />
+                              <span className="hidden sm:inline">Reabrir</span>
                             </button>
                           )}
                           {task.status !== 'COMPLETADA' && task.status !== 'CANCELADA' && (
@@ -1670,34 +1678,38 @@ export default function TasksPanel({ currentUser }) {
                               type="button"
                               onClick={() => sendReminderNow(task)}
                               className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                              title="Recordar ahora"
                             >
                               <Send size={14} />
-                              Recordar ahora
+                              <span className="hidden sm:inline">Recordar ahora</span>
                             </button>
                           )}
                           <button
                             type="button"
                             onClick={() => openEditTask(task)}
                             className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-slate-50 text-slate-700 hover:bg-slate-100"
+                            title="Editar tarea"
                           >
                             <Pencil size={14} />
-                            Editar tarea
+                            <span className="hidden sm:inline">Editar tarea</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => deleteTask(task.id)}
                             className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-red-50 text-red-700 hover:bg-red-100"
+                            title="Eliminar tarea"
                           >
                             <Trash2 size={14} />
-                            Eliminar tarea
+                            <span className="hidden sm:inline">Eliminar tarea</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => setDetailTask(task)}
                             className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100"
+                            title="Ver detalle"
                           >
                             <Eye size={14} />
-                            Ver detalle
+                            <span className="hidden sm:inline">Ver detalle</span>
                           </button>
                         </div>
                       </td>
