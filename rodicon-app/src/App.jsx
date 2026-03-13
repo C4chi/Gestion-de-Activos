@@ -2,7 +2,7 @@ import React, { useState, useMemo, Suspense, useEffect } from 'react';
 import { useAppContext } from './AppContext'; // Usar contexto centralizado
 import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
-import { Menu } from 'lucide-react';
+import { Menu, Wifi, WifiOff } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 // Hooks
@@ -390,7 +390,53 @@ export default function App() {
         </button>
       )}
 
-      {user && (!isConnected || pendingCount > 0) && (
+      {user && (
+        <div className="fixed top-4 right-4 z-40">
+          <div className={`rounded-xl border px-3 py-2 text-xs shadow-sm backdrop-blur-sm ${
+            !isConnected
+              ? 'bg-amber-50/95 border-amber-200 text-amber-700'
+              : 'bg-emerald-50/95 border-emerald-200 text-emerald-700'
+          }`}>
+            <div className="flex items-center gap-2">
+              {!isConnected ? (
+                <WifiOff className="h-4 w-4 shrink-0" />
+              ) : (
+                <Wifi className="h-4 w-4 shrink-0" />
+              )}
+              <span className="font-semibold">
+                {!isConnected ? 'Modo offline' : 'En linea'}
+              </span>
+              {isConnected && pendingCount > 0 && (
+                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+                  {pendingCount} pendiente(s)
+                </span>
+              )}
+            </div>
+            {isConnected && pendingCount > 0 && (
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-[11px] text-blue-700">
+                  {syncing ? 'Sincronizando cambios...' : 'Hay cambios por sincronizar'}
+                </span>
+                <button
+                  type="button"
+                  onClick={performSync}
+                  disabled={syncing}
+                  className="underline font-semibold text-blue-700 disabled:opacity-50"
+                >
+                  {syncing ? 'Espera...' : 'Sincronizar'}
+                </button>
+              </div>
+            )}
+            {!isConnected && (
+              <div className="mt-1 text-[11px] text-amber-700">
+                El dispositivo esta trabajando sin conexion.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {false && user && (!isConnected || pendingCount > 0) && (
         <div className="fixed top-20 right-4 z-40">
           <div className={`rounded-lg border px-3 py-2 text-xs shadow-sm ${
             !isConnected
