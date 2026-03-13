@@ -1168,7 +1168,7 @@ export default function TasksPanel({ currentUser }) {
   }
 
   return (
-    <div className="p-6 md:p-8 space-y-6 max-h-[90vh] overflow-y-auto">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 max-h-[90vh] overflow-y-auto overflow-x-hidden">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -1180,7 +1180,7 @@ export default function TasksPanel({ currentUser }) {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={loadInitialData}
@@ -1211,11 +1211,11 @@ export default function TasksPanel({ currentUser }) {
         </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-2 shadow-sm inline-flex gap-2">
+      <div className="bg-white border border-gray-200 rounded-xl p-2 shadow-sm flex flex-wrap gap-2 w-full sm:w-auto">
         <button
           type="button"
           onClick={() => setActivePage('CREATE')}
-          className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
+          className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-sm font-medium transition ${
             activePage === 'CREATE'
               ? 'bg-indigo-600 text-white'
               : 'text-gray-700 hover:bg-gray-50'
@@ -1226,7 +1226,7 @@ export default function TasksPanel({ currentUser }) {
         <button
           type="button"
           onClick={() => setActivePage('LIST')}
-          className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
+          className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-sm font-medium transition ${
             activePage === 'LIST'
               ? 'bg-indigo-600 text-white'
               : 'text-gray-700 hover:bg-gray-50'
@@ -1237,7 +1237,7 @@ export default function TasksPanel({ currentUser }) {
       </div>
 
       {activePage === 'CREATE' && (
-      <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+      <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 shadow-sm">
         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <Plus size={18} className="text-green-600" />
           Nueva tarea
@@ -1529,7 +1529,7 @@ export default function TasksPanel({ currentUser }) {
 
       {activePage === 'LIST' && (
       <>
-      <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+      <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
             <Clock3 size={18} className="text-blue-600" />
@@ -1585,14 +1585,14 @@ export default function TasksPanel({ currentUser }) {
           <div className="text-sm text-gray-500">No hay tareas para este filtro.</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+            <table className="w-full text-sm table-fixed">
               <thead>
                 <tr className="text-left text-gray-600 border-b border-gray-200">
                   <th className="py-2 pr-3">Título</th>
-                  <th className="py-2 pr-3">Responsable</th>
+                  <th className="py-2 pr-3 hidden md:table-cell">Responsable</th>
                   <th className="py-2 pr-3">Vence</th>
-                  <th className="py-2 pr-3">Prioridad</th>
-                  <th className="py-2 pr-3">Estado</th>
+                  <th className="py-2 pr-3 hidden md:table-cell">Prioridad</th>
+                  <th className="py-2 pr-3 hidden md:table-cell">Estado</th>
                   <th className="py-2 pr-3">Acciones</th>
                 </tr>
               </thead>
@@ -1609,11 +1609,11 @@ export default function TasksPanel({ currentUser }) {
 
                   return (
                     <tr key={task.id} className="border-b border-gray-100 align-top">
-                      <td className="py-3 pr-3">
+                      <td className="py-3 pr-3 align-top">
                         <button
                           type="button"
                           onClick={() => setDetailTask(task)}
-                          className="font-medium text-gray-900 hover:text-blue-700 text-left"
+                          className="font-medium text-gray-900 hover:text-blue-700 text-left break-words"
                         >
                           {task.title}
                         </button>
@@ -1631,22 +1631,22 @@ export default function TasksPanel({ currentUser }) {
                           <div className="text-xs text-blue-600 mt-1">📷 {photosCount} foto(s)</div>
                         )}
                       </td>
-                      <td className="py-3 pr-3 text-gray-700">
+                      <td className="py-3 pr-3 text-gray-700 hidden md:table-cell break-words">
                         {assigneeNames.length > 0 ? assigneeNames.join(', ') : '-'}
                       </td>
-                      <td className="py-3 pr-3 text-gray-700">{dueLabel}</td>
-                      <td className="py-3 pr-3">
+                      <td className="py-3 pr-3 text-gray-700 break-words">{dueLabel}</td>
+                      <td className="py-3 pr-3 hidden md:table-cell">
                         <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${getPriorityBadgeClass(task.priority)}`}>
                           {task.priority}
                         </span>
                       </td>
-                      <td className="py-3 pr-3">
+                      <td className="py-3 pr-3 hidden md:table-cell">
                         <span className="inline-flex px-2 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
                           {task.status}
                         </span>
                       </td>
                       <td className="py-3 pr-3">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           {task.status !== 'COMPLETADA' ? (
                             <button
                               type="button"
@@ -1710,13 +1710,13 @@ export default function TasksPanel({ currentUser }) {
         )}
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+      <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 shadow-sm">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Recordatorios pendientes</h3>
         {reminders.filter((reminder) => !reminder.sent_at).length === 0 ? (
           <div className="text-sm text-gray-500">No hay recordatorios pendientes.</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+            <table className="w-full text-sm table-fixed">
               <thead>
                 <tr className="text-left text-gray-600 border-b border-gray-200">
                   <th className="py-2 pr-3">Tarea</th>
