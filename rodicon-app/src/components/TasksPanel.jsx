@@ -8,6 +8,10 @@ const DEFAULT_FORM = {
   description: '',
   assigned_to: [],
   due_date: '',
+  task_kind: 'GENERAL',
+  recurrence_type: 'NONE',
+  reminderDaysBefore: [7, 3, 1, 0],
+  payment_amount: '',
   priority: 'MEDIA',
   status: 'PENDIENTE',
   reminderHoursBefore: 24,
@@ -17,6 +21,7 @@ const DEFAULT_FORM = {
 };
 
 const QUICK_REMINDER_HOURS = [4, 8, 12, 24, 48, 72];
+const QUICK_REMINDER_DAYS = [15, 7, 3, 1, 0];
 const QUICK_TASK_FILTERS = ['TODAS', 'VENCIDAS', 'VENCEN_HOY', 'SIN_FOTO'];
 
 const PRIORITY_BADGE_STYLES = {
@@ -93,7 +98,7 @@ export default function TasksPanel({ currentUser }) {
   const fetchTasks = useCallback(async () => {
     const { data, error } = await supabase
       .from('tasks')
-      .select('id,title,description,assigned_to,due_date,priority,status,created_by,completed_at,created_at,updated_at')
+      .select('*')
       .order('due_date', { ascending: true })
       .limit(200);
 
@@ -326,6 +331,75 @@ export default function TasksPanel({ currentUser }) {
 
     const date = new Date(normalized);
     return Number.isNaN(date.getTime()) ? null : date;
+  };
+
+  const getNextDueDateByRecurrence = (dueDate, recurrenceType) => {
+    if (!dueDate || !(dueDate instanceof Date)) return null;
+
+    if (recurrenceType === 'WEEKLY') {
+      return new Date(dueDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+    }
+
+    if (recurrenceType === 'BIWEEKLY') {
+      return new Date(dueDate.getTime() + 14 * 24 * 60 * 60 * 1000);
+    }
+
+    if (recurrenceType === 'MONTHLY') {
+      const nextDate = new Date(dueDate.getTime());
+      const originalDay = nextDate.getDate();
+      nextDate.setMonth(nextDate.getMonth() + 1);
+      if (nextDate.getDate() < originalDay) {
+        nextDate.setDate(0);
+      }
+      return nextDate;
+    }
+
+    return null;
+  };
+
+  const buildReminderPayloads = ({
+    taskId,
+    dueDate,
+    channels,
+    taskKind,
+    recurrenceType,
+    reminderDaysBefore,
+    reminderHoursBefore,
+    repeatEveryHours,
+  }) => {
+    const safeDueDate = dueDate instanceof Date ? dueDate : new Date(dueDate);
+    if (Number.isNaN(safeDueDate.getTime())) return [];
+
+    const isRecurringPayment = taskKind !== 'GENERAL' && recurrenceType !== 'NONE';
+
+    if (isRecurringPayment) {
+      const daysBeforeList = [...new Set((reminderDaysBefore || []).map(Number).filter((value) => Number.isFinite(value) && value >= 0))];
+      const sortedDays = daysBeforeList.length > 0 ? daysBeforeList.sort((a, b) => b - a) : [7, 3, 1, 0];
+
+      return sortedDays.map((daysBefore) => ({
+        task_id: taskId,
+        remind_at: new Date(safeDueDate.getTime() - daysBefore * 24 * 60 * 60 * 1000).toISOString(),
+        repeat_every_hours: null,
+        channels,
+      }));
+    }
+
+    const safeHoursBefore = Number.isFinite(Number(reminderHoursBefore)) && Number(reminderHoursBefore) >= 0
+      ? Number(reminderHoursBefore)
+      : 24;
+
+    const safeRepeatEveryHours = Number.isFinite(Number(repeatEveryHours)) && Number(repeatEveryHours) > 0
+      ? Number(repeatEveryHours)
+      : 24;
+
+    return [
+      {
+        task_id: taskId,
+        remind_at: new Date(safeDueDate.getTime() - safeHoursBefore * 60 * 60 * 1000).toISOString(),
+        repeat_every_hours: recurrenceType === 'NONE' ? safeRepeatEveryHours : null,
+        channels,
+      },
+    ];
   };
 
   const getPriorityBadgeClass = (priority) => PRIORITY_BADGE_STYLES[priority] || 'bg-slate-100 text-slate-700 border border-slate-200';
@@ -596,11 +670,14 @@ export default function TasksPanel({ currentUser }) {
       return;
     }
 
-    const hoursBefore = Number(form.reminderHoursBefore);
-    const safeHoursBefore = Number.isFinite(hoursBefore) && hoursBefore >= 0 ? hoursBefore : 24;
-    const everyHours = Number(form.reminderEveryHours);
-    const safeEveryHours = Number.isFinite(everyHours) && everyHours > 0 ? everyHours : 24;
-    const remindAt = new Date(dueDate.getTime() - safeHoursBefore * 60 * 60 * 1000);
+    const isPaymentTask = form.task_kind !== 'GENERAL';
+    const recurrenceType = form.recurrence_type || 'NONE';
+    const reminderDaysBefore = [...new Set((form.reminderDaysBefore || []).map(Number).filter((value) => Number.isFinite(value) && value >= 0))];
+
+    if (isPaymentTask && recurrenceType === 'NONE') {
+      toast.error('Para pagos recurrentes selecciona una recurrencia');
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -610,6 +687,10 @@ export default function TasksPanel({ currentUser }) {
         description: form.description?.trim() || null,
         assigned_to: Number(form.assigned_to[0]),
         due_date: dueDate.toISOString(),
+        task_kind: form.task_kind,
+        recurrence_type: recurrenceType,
+        reminder_days_before: isPaymentTask ? reminderDaysBefore : null,
+        payment_amount: isPaymentTask && form.payment_amount !== '' ? Number(form.payment_amount) : null,
         priority: form.priority,
         status: form.status,
         created_by: currentUser?.id,
@@ -636,16 +717,20 @@ export default function TasksPanel({ currentUser }) {
         if (assigneesError) throw assigneesError;
       }
 
-      const reminderPayload = {
-        task_id: taskData.id,
-        remind_at: remindAt.toISOString(),
-        repeat_every_hours: safeEveryHours,
+      const reminderPayloads = buildReminderPayloads({
+        taskId: taskData.id,
+        dueDate,
         channels,
-      };
+        taskKind: form.task_kind,
+        recurrenceType,
+        reminderDaysBefore,
+        reminderHoursBefore: form.reminderHoursBefore,
+        repeatEveryHours: form.reminderEveryHours,
+      });
 
       const { error: reminderError } = await supabase
         .from('task_reminders')
-        .insert([reminderPayload]);
+        .insert(reminderPayloads);
 
       if (reminderError) throw reminderError;
 
@@ -707,7 +792,7 @@ export default function TasksPanel({ currentUser }) {
     }
   };
 
-  const updateTaskStatus = async (taskId, status) => {
+  const updateTaskStatus = async (task, status) => {
     try {
       const payload = {
         status,
@@ -717,12 +802,77 @@ export default function TasksPanel({ currentUser }) {
       const { error } = await supabase
         .from('tasks')
         .update(payload)
-        .eq('id', taskId);
+        .eq('id', task.id);
 
       if (error) throw error;
 
+      const shouldCreateNext = status === 'COMPLETADA' && (task.recurrence_type || 'NONE') !== 'NONE';
+
+      if (shouldCreateNext) {
+        const currentDueDate = parseDbDate(task.due_date);
+        const nextDueDate = getNextDueDateByRecurrence(currentDueDate, task.recurrence_type);
+
+        if (nextDueDate) {
+          const { data: nextTask, error: nextTaskError } = await supabase
+            .from('tasks')
+            .insert([
+              {
+                title: task.title,
+                description: task.description || null,
+                assigned_to: task.assigned_to,
+                due_date: nextDueDate.toISOString(),
+                task_kind: task.task_kind || 'GENERAL',
+                recurrence_type: task.recurrence_type || 'NONE',
+                reminder_days_before: Array.isArray(task.reminder_days_before) ? task.reminder_days_before : null,
+                payment_amount: task.payment_amount || null,
+                source_task_id: task.id,
+                priority: task.priority,
+                status: 'PENDIENTE',
+                created_by: currentUser?.id || task.created_by,
+              },
+            ])
+            .select('id')
+            .single();
+
+          if (nextTaskError) throw nextTaskError;
+
+          const assigneeIds = (assigneeIdsByTask.get(task.id) || (task.assigned_to ? [task.assigned_to] : []))
+            .map(Number)
+            .filter((value) => Number.isFinite(value));
+
+          if (assigneeIds.length > 0) {
+            const assigneeRows = [...new Set(assigneeIds)].map((userId) => ({ task_id: nextTask.id, user_id: userId }));
+            const { error: assigneesError } = await supabase
+              .from('task_assignees')
+              .insert(assigneeRows);
+
+            if (assigneesError) throw assigneesError;
+          }
+
+          const channels = ['in_app', 'email'];
+          const reminderPayloads = buildReminderPayloads({
+            taskId: nextTask.id,
+            dueDate: nextDueDate,
+            channels,
+            taskKind: task.task_kind || 'GENERAL',
+            recurrenceType: task.recurrence_type || 'NONE',
+            reminderDaysBefore: task.reminder_days_before,
+            reminderHoursBefore: 24,
+            repeatEveryHours: 24,
+          });
+
+          if (reminderPayloads.length > 0) {
+            const { error: remindersError } = await supabase
+              .from('task_reminders')
+              .insert(reminderPayloads);
+
+            if (remindersError) throw remindersError;
+          }
+        }
+      }
+
       toast.success('Estado actualizado');
-      await fetchTasks();
+      await Promise.all([fetchTasks(), fetchTaskAssignees(), fetchReminders()]);
     } catch (error) {
       console.error('Error actualizando tarea:', error);
       toast.error(`Error actualizando estado: ${error.message}`);
@@ -1072,7 +1222,81 @@ export default function TasksPanel({ currentUser }) {
                 <option value="CRITICA">CRÍTICA</option>
               </select>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de tarea</label>
+              <select
+                value={form.task_kind}
+                onChange={(event) => setForm((prev) => ({ ...prev, task_kind: event.target.value }))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              >
+                <option value="GENERAL">GENERAL</option>
+                <option value="PAGO_TARJETA">PAGO TARJETA</option>
+                <option value="PAGO_PRESTAMO">PAGO PRÉSTAMO</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Recurrencia</label>
+              <select
+                value={form.recurrence_type}
+                onChange={(event) => setForm((prev) => ({ ...prev, recurrence_type: event.target.value }))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              >
+                <option value="NONE">Sin recurrencia</option>
+                <option value="WEEKLY">Semanal</option>
+                <option value="BIWEEKLY">Quincenal</option>
+                <option value="MONTHLY">Mensual</option>
+              </select>
+            </div>
           </div>
+
+          {form.task_kind !== 'GENERAL' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Monto (opcional)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.payment_amount}
+                  onChange={(event) => setForm((prev) => ({ ...prev, payment_amount: event.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Recordar días antes</label>
+                <div className="flex flex-wrap gap-2">
+                  {QUICK_REMINDER_DAYS.map((days) => {
+                    const active = (form.reminderDaysBefore || []).includes(days);
+                    return (
+                      <button
+                        key={days}
+                        type="button"
+                        onClick={() => {
+                          setForm((prev) => {
+                            const current = prev.reminderDaysBefore || [];
+                            const next = current.includes(days)
+                              ? current.filter((value) => value !== days)
+                              : [...current, days].sort((first, second) => second - first);
+                            return { ...prev, reminderDaysBefore: next };
+                          });
+                        }}
+                        className={`text-xs px-2 py-1 rounded-full border transition ${
+                          active
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400'
+                        }`}
+                      >
+                        {days === 0 ? 'Mismo día' : `${days} días`}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
@@ -1267,6 +1491,13 @@ export default function TasksPanel({ currentUser }) {
                         {task.description && (
                           <div className="text-gray-500 text-xs mt-1 max-w-[420px]">{task.description}</div>
                         )}
+                        {task.task_kind && task.task_kind !== 'GENERAL' && (
+                          <div className="text-xs text-indigo-700 mt-1 font-medium">
+                            {task.task_kind === 'PAGO_TARJETA' ? '💳 Pago de tarjeta' : '🏦 Pago de préstamo'}
+                            {task.payment_amount ? ` · RD$ ${Number(task.payment_amount).toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}
+                            {task.recurrence_type && task.recurrence_type !== 'NONE' ? ` · ${task.recurrence_type}` : ''}
+                          </div>
+                        )}
                         {photosCount > 0 && (
                           <div className="text-xs text-blue-600 mt-1">📷 {photosCount} foto(s)</div>
                         )}
@@ -1290,7 +1521,7 @@ export default function TasksPanel({ currentUser }) {
                           {task.status !== 'COMPLETADA' ? (
                             <button
                               type="button"
-                              onClick={() => updateTaskStatus(task.id, 'COMPLETADA')}
+                              onClick={() => updateTaskStatus(task, 'COMPLETADA')}
                               className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-green-50 text-green-700 hover:bg-green-100"
                             >
                               <CheckCircle2 size={14} />
@@ -1299,7 +1530,7 @@ export default function TasksPanel({ currentUser }) {
                           ) : (
                             <button
                               type="button"
-                              onClick={() => updateTaskStatus(task.id, 'EN_PROGRESO')}
+                              onClick={() => updateTaskStatus(task, 'EN_PROGRESO')}
                               className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
                             >
                               Reabrir
