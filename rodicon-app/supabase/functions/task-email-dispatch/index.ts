@@ -34,6 +34,17 @@ const wrapPlainAsHtml = (value: string) => {
 
 const stripHtml = (value: string) => (value || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
+const removeLegacyGoogleCalendarCta = (value: string) => {
+  if (!value) return value;
+
+  return value
+    .replace(
+      /<div[^>]*>\s*<a[^>]*calendar\.google\.com\/calendar\/render[^>]*>[\s\S]*?<\/a>\s*<\/div>/gi,
+      ''
+    )
+    .replace(/Añadir a Google Calendar/gi, '');
+};
+
 const toIcsDate = (date: Date) => date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
 
 const escapeIcsText = (value: string) =>
@@ -148,8 +159,9 @@ Deno.serve(async (req) => {
 
   for (const job of queue) {
     try {
-      const htmlBody = isLikelyHtml(job.body) ? job.body : wrapPlainAsHtml(job.body);
-      const textBody = isLikelyHtml(job.body) ? stripHtml(job.body) : job.body;
+      const normalizedBody = removeLegacyGoogleCalendarCta(job.body || '');
+      const htmlBody = isLikelyHtml(normalizedBody) ? normalizedBody : wrapPlainAsHtml(normalizedBody);
+      const textBody = isLikelyHtml(normalizedBody) ? stripHtml(normalizedBody) : normalizedBody;
 
       let attachments: Array<{
         content: string;
