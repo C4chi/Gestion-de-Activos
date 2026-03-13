@@ -42,12 +42,12 @@ export const InventoryView = ({
 
   return (
     <main className="flex-1 flex flex-col h-full overflow-hidden relative bg-gray-50">
-      <header className="bg-white border-b min-h-16 flex items-center justify-between px-4 lg:px-8 shadow-sm shrink-0 gap-4 flex-wrap py-2">
-        <div className="flex items-center">
+      <header className="bg-white border-b min-h-16 flex flex-col lg:flex-row lg:items-center lg:justify-between px-3 sm:px-4 lg:px-8 shadow-sm shrink-0 gap-3 py-2">
+        <div className="flex items-center self-start pl-12 lg:pl-0">
           <img src="/logo.png" alt="Logo" className="h-10 lg:h-14 object-contain" />
         </div>
-        <div className="flex flex-1 max-w-2xl gap-3 items-center">
-          <div className="relative flex-1">
+        <div className="flex w-full flex-col sm:flex-row lg:flex-1 lg:max-w-2xl gap-2 sm:gap-3 items-stretch sm:items-center">
+          <div className="relative w-full sm:flex-1 min-w-0">
             <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
             <input
               type="text"
@@ -57,10 +57,10 @@ export const InventoryView = ({
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2 border border-transparent focus-within:border-blue-300 transition">
+          <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2 border border-transparent focus-within:border-blue-300 transition w-full sm:w-auto min-w-0">
             <MapPin className="w-4 h-4 text-blue-500" />
             <select
-              className="bg-transparent text-sm outline-none min-w-[180px]"
+              className="bg-transparent text-sm outline-none w-full sm:min-w-[180px] min-w-0"
               value={locationFilter || ''}
               onChange={(e) => setLocationFilter?.(e.target.value)}
             >
@@ -71,9 +71,9 @@ export const InventoryView = ({
             </select>
           </div>
           {isAdminGlobal && (
-            <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2 border border-transparent focus-within:border-blue-300 transition">
+            <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2 border border-transparent focus-within:border-blue-300 transition w-full sm:w-auto min-w-0">
               <select
-                className="bg-transparent text-sm outline-none min-w-[180px]"
+                className="bg-transparent text-sm outline-none w-full sm:min-w-[180px] min-w-0"
                 value={gpsFilter || ''}
                 onChange={(e) => setGpsFilter?.(e.target.value)}
               >
@@ -86,7 +86,7 @@ export const InventoryView = ({
           )}
         </div>
         {notificationCenter && (
-          <div className="shrink-0 flex items-center">
+          <div className="shrink-0 flex items-center w-full sm:w-auto self-start sm:self-auto">
             {notificationCenter}
           </div>
         )}

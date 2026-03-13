@@ -428,7 +428,7 @@ export default function App() {
           gpsFilter={gpsFilter}
           setGpsFilter={setGpsFilter}
           notificationCenter={user ? (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <div
                 className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold ${
                   !isConnected
