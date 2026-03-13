@@ -153,7 +153,8 @@ export default function App() {
     unreadCount, 
     markAsRead, 
     markAllAsRead, 
-    deleteNotification 
+    deleteNotification,
+    deleteAllNotifications,
   } = useNotifications(user?.auth_id || user?.id);
 
   const {
@@ -431,6 +432,7 @@ export default function App() {
               onMarkAsRead={markAsRead}
               onMarkAllAsRead={markAllAsRead}
               onDelete={deleteNotification}
+              onDeleteAll={deleteAllNotifications}
             />
           ) : null}
           filteredAssets={filteredAssets}

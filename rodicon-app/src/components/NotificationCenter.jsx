@@ -13,6 +13,7 @@ export const NotificationCenter = ({
   onMarkAsRead,
   onMarkAllAsRead,
   onDelete,
+  onDeleteAll,
 }) => {
   const [showModal, setShowModal] = useState(false);
   const [filterType, setFilterType] = useState(null);
@@ -167,15 +168,26 @@ export const NotificationCenter = ({
             </div>
 
             {/* Footer */}
-            {unreadCount > 0 && (
+            {notifications.length > 0 && (
               <div className="border-t p-3 bg-slate-50">
-                <button
-                  onClick={onMarkAllAsRead}
-                  className="w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold text-sm hover:bg-indigo-700 transition flex items-center justify-center gap-2"
-                >
-                  <Check className="w-4 h-4" />
-                  Marcar todas como leídas
-                </button>
+                <div className="flex items-center gap-2">
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={onMarkAllAsRead}
+                      className="flex-1 bg-indigo-600 text-white py-2 rounded-lg font-semibold text-sm hover:bg-indigo-700 transition flex items-center justify-center gap-2"
+                    >
+                      <Check className="w-4 h-4" />
+                      Marcar todas como leídas
+                    </button>
+                  )}
+                  <button
+                    onClick={onDeleteAll}
+                    className={`${unreadCount > 0 ? 'flex-1' : 'w-full'} bg-rose-600 text-white py-2 rounded-lg font-semibold text-sm hover:bg-rose-700 transition flex items-center justify-center gap-2`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Eliminar todas
+                  </button>
+                </div>
               </div>
             )}
           </div>

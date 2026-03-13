@@ -176,6 +176,24 @@ export const useNotifications = (userId) => {
     }
   }, [normalizedUserId, tableAvailable]);
 
+  // Eliminar todas las notificaciones del usuario
+  const deleteAllNotifications = useCallback(async () => {
+    if (!tableAvailable) return;
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('usuario_id', normalizedUserId);
+
+      if (error) throw error;
+      setNotifications([]);
+      setUnreadCount(0);
+    } catch (err) {
+      console.error('Error eliminando todas las notificaciones:', err);
+      toast.error('Error eliminando notificaciones');
+    }
+  }, [normalizedUserId, tableAvailable]);
+
   return {
     notifications,
     unreadCount,
@@ -184,6 +202,7 @@ export const useNotifications = (userId) => {
     markAllAsRead,
     filterByType,
     deleteNotification,
+    deleteAllNotifications,
   };
 };
 
