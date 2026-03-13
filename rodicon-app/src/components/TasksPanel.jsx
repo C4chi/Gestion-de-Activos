@@ -427,7 +427,7 @@ export default function TasksPanel({ currentUser }) {
     ];
   };
 
-  const notifyTaskAssignment = async ({ taskId, title, assigneeIds, dueDate, channels }) => {
+  const notifyTaskAssignment = async ({ taskId, title, assigneeIds, dueDate }) => {
     const uniqueAssigneeIds = [...new Set((assigneeIds || []).map(Number).filter((value) => Number.isFinite(value)))];
     if (uniqueAssigneeIds.length === 0) return;
 
@@ -464,37 +464,37 @@ export default function TasksPanel({ currentUser }) {
       }
     }
 
-    if ((channels || []).includes('email')) {
-      const recipients = uniqueAssigneeIds
-        .map((userId) => usersById.get(userId))
-        .filter((user) => user?.email)
-        .map((user) => ({
-          to_email: user.email,
-          body: `<div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
-            <h2 style="margin:0 0 12px 0;">📌 Nueva tarea asignada</h2>
-            <p style="margin:0 0 8px 0;">Hola <strong>${(user.nombre || user.nombre_usuario || 'Usuario')}</strong>, se te asignó una tarea.</p>
-            <p style="margin:0 0 8px 0;"><strong>Tarea:</strong> ${title}</p>
-            <p style="margin:0;"><strong>Fecha límite:</strong> ${dueDateLabel}</p>
-            ${calendarLink ? `<div style="margin-top:12px;"><a href="${calendarLink}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:600;">Añadir a Google Calendar</a></div>` : ''}
-          </div>`,
-        }));
+    const recipients = uniqueAssigneeIds
+      .map((userId) => usersById.get(userId))
+      .filter((user) => user?.email)
+      .map((user) => ({
+        to_email: user.email,
+        body: `<div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
+          <h2 style="margin:0 0 12px 0;">📌 Nueva tarea asignada</h2>
+          <p style="margin:0 0 8px 0;">Hola <strong>${(user.nombre || user.nombre_usuario || 'Usuario')}</strong>, se te asignó una tarea.</p>
+          <p style="margin:0 0 8px 0;"><strong>Tarea:</strong> ${title}</p>
+          <p style="margin:0;"><strong>Fecha límite:</strong> ${dueDateLabel}</p>
+          ${calendarLink ? `<div style="margin-top:12px;"><a href="${calendarLink}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:600;">Añadir a Google Calendar</a></div>` : ''}
+        </div>`,
+      }));
 
-      if (recipients.length > 0) {
-        const emailRows = recipients.map((recipient) => ({
-          task_id: taskId,
-          reminder_id: null,
-          to_email: recipient.to_email,
-          subject: `Nueva tarea asignada: ${title}`,
-          body: recipient.body,
-        }));
+    if (recipients.length > 0) {
+      const emailRows = recipients.map((recipient) => ({
+        task_id: taskId,
+        reminder_id: null,
+        to_email: recipient.to_email,
+        subject: `Nueva tarea asignada: ${title}`,
+        body: recipient.body,
+      }));
 
-        const { error: queueError } = await supabase
-          .from('task_email_queue')
-          .insert(emailRows);
+      const { error: queueError } = await supabase
+        .from('task_email_queue')
+        .insert(emailRows);
 
-        if (queueError) {
-          console.warn('No se pudo encolar email de asignación:', queueError.message);
-        }
+      if (queueError) {
+        console.warn('No se pudo encolar email de asignación:', queueError.message);
+      } else {
+        await dispatchEmails();
       }
     }
   };
@@ -840,7 +840,6 @@ export default function TasksPanel({ currentUser }) {
         title: form.title.trim(),
         assigneeIds: form.assigned_to,
         dueDate: dueDate ? dueDate.toISOString() : null,
-        channels,
       });
 
       toast.success('Tarea creada correctamente');
@@ -1103,7 +1102,6 @@ export default function TasksPanel({ currentUser }) {
         title: trimmedTitle,
         assigneeIds: parsedAssigneeIds,
         dueDate: dueDate ? dueDate.toISOString() : null,
-        channels: editModal.reminderChannels,
       });
 
       toast.success('Tarea actualizada');
