@@ -34,6 +34,59 @@ const wrapPlainAsHtml = (value: string) => {
 
 const stripHtml = (value: string) => (value || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
+const toIcsDate = (date: Date) => date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+
+const escapeIcsText = (value: string) =>
+  (value || '')
+    .replaceAll('\\', '\\\\')
+    .replaceAll(';', '\\;')
+    .replaceAll(',', '\\,')
+    .replaceAll('\n', '\\n');
+
+const toBase64Utf8 = (value: string) => {
+  const bytes = new TextEncoder().encode(value || '');
+  let binary = '';
+  for (let index = 0; index < bytes.length; index += 1) {
+    binary += String.fromCharCode(bytes[index]);
+  }
+  return btoa(binary);
+};
+
+const buildIcsAttachment = (params: {
+  uid: string;
+  title: string;
+  description?: string | null;
+  dueDate: Date;
+}) => {
+  const startDate = new Date(params.dueDate.getTime() - 30 * 60 * 1000);
+  const endDate = new Date(params.dueDate.getTime() + 30 * 60 * 1000);
+  const dtStamp = toIcsDate(new Date());
+
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Rodicon//Task Reminders//ES',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${escapeIcsText(params.uid)}`,
+    `DTSTAMP:${dtStamp}`,
+    `DTSTART:${toIcsDate(startDate)}`,
+    `DTEND:${toIcsDate(endDate)}`,
+    `SUMMARY:${escapeIcsText(params.title || 'Recordatorio de tarea')}`,
+    `DESCRIPTION:${escapeIcsText(params.description || 'Seguimiento de tarea')}`,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n');
+
+  return {
+    content: toBase64Utf8(ics),
+    filename: 'recordatorio-tarea.ics',
+    type: 'text/calendar; charset=utf-8',
+    disposition: 'attachment',
+  };
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -98,6 +151,31 @@ Deno.serve(async (req) => {
       const htmlBody = isLikelyHtml(job.body) ? job.body : wrapPlainAsHtml(job.body);
       const textBody = isLikelyHtml(job.body) ? stripHtml(job.body) : job.body;
 
+      let attachments: Array<{
+        content: string;
+        filename: string;
+        type: string;
+        disposition: string;
+      }> = [];
+
+      const { data: taskInfo } = await supabase
+        .from('tasks')
+        .select('title,description,due_date')
+        .eq('id', job.task_id)
+        .maybeSingle();
+
+      const dueDate = taskInfo?.due_date ? new Date(taskInfo.due_date) : null;
+      if (dueDate && !Number.isNaN(dueDate.getTime())) {
+        attachments = [
+          buildIcsAttachment({
+            uid: `${job.id}@rodicon.app`,
+            title: taskInfo?.title || job.subject || 'Recordatorio de tarea',
+            description: taskInfo?.description || textBody || 'Seguimiento de tarea',
+            dueDate,
+          }),
+        ];
+      }
+
       const sendgridResponse = await fetch('https://api.sendgrid.com/v3/mail/send', {
         method: 'POST',
         headers: {
@@ -112,6 +190,7 @@ Deno.serve(async (req) => {
             { type: 'text/plain', value: textBody || 'Recordatorio de tarea' },
             { type: 'text/html', value: htmlBody || wrapPlainAsHtml('Recordatorio de tarea') },
           ],
+          attachments,
         }),
       });
 
