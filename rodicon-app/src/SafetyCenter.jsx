@@ -94,8 +94,7 @@ export const SafetyCenter = ({ onClose, canHse = true }) => {
       return;
     }
     try {
-      const userPin = localStorage.getItem('userPin') || '0000';
-      await updateSafetyReport(reportId, { estado: 'CORREGIDO' }, userPin);
+      await updateSafetyReport(reportId, { estado: 'CORREGIDO' });
       
       setReports(prev =>
         prev.map(report =>

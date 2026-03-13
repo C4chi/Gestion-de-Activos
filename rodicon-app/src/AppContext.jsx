@@ -7,6 +7,7 @@ import { useSafetyWorkflow } from './hooks/useSafetyWorkflow';
 import { useFormValidation } from './hooks/useFormValidation';
 import { generatePdf } from './PurchaseOrderPDF';
 import { isOnline, saveSafetyReportOffline } from './utils/offlineSync';
+import { clearAppSession, getAppSession, saveAppSession } from './utils/storage';
 
 /**
  * AppContext centraliza TODO el estado global de la app
@@ -14,9 +15,22 @@ import { isOnline, saveSafetyReportOffline } from './utils/offlineSync';
  */
 export const AppContext = createContext();
 
+const sanitizeSessionUser = (rawUser) => {
+  if (!rawUser) return null;
+
+  return {
+    id: rawUser.id ?? null,
+    auth_id: rawUser.auth_id ?? null,
+    nombre: rawUser.nombre ?? null,
+    nombre_usuario: rawUser.nombre_usuario ?? null,
+    rol: rawUser.rol ?? null,
+  };
+};
+
 export const AppProvider = ({ children }) => {
   // Estado global
   const [user, setUser] = useState(null);
+  const [sessionReady, setSessionReady] = useState(false);
   const [assets, setAssets] = useState([]);
   const [allAssets, setAllAssets] = useState([]); // Todos los activos para KPIs
   const [purchases, setPurchases] = useState([]);
@@ -177,6 +191,67 @@ export const AppProvider = ({ children }) => {
     }
   }, [user]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const restoreSession = async () => {
+      const cachedUser = sanitizeSessionUser(getAppSession());
+
+      if (!cachedUser) {
+        if (!cancelled) setSessionReady(true);
+        return;
+      }
+
+      if (!isOnline()) {
+        if (!cancelled) {
+          setUser(cachedUser);
+          setSessionReady(true);
+        }
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('app_users')
+          .select('*')
+          .eq('id', cachedUser.id)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        const refreshedUser = sanitizeSessionUser(data);
+
+        if (!refreshedUser) {
+          clearAppSession();
+          if (!cancelled) {
+            setUser(null);
+          }
+          return;
+        }
+
+        saveAppSession(refreshedUser);
+        if (!cancelled) {
+          setUser(refreshedUser);
+        }
+      } catch (error) {
+        console.warn('No se pudo refrescar la sesión local, usando caché:', error?.message || error);
+        if (!cancelled) {
+          setUser(cachedUser);
+        }
+      } finally {
+        if (!cancelled) {
+          setSessionReady(true);
+        }
+      }
+    };
+
+    restoreSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Auto-fetch cuando user cambia
   useEffect(() => {
     if (user) {
@@ -240,10 +315,10 @@ export const AppProvider = ({ children }) => {
         return false;
       }
 
-      const user = data[0]; // Tomar el primer resultado
-      console.log('✅ Login exitoso para usuario:', user.nombre_usuario || user.nombre || user.id);
-      setUser(user);
-      if (onSuccess) onSuccess(user);
+      const authenticatedUser = sanitizeSessionUser(data[0]);
+      saveAppSession(authenticatedUser);
+      setUser(authenticatedUser);
+      if (onSuccess) onSuccess(authenticatedUser);
       return true;
     } catch (error) {
       console.error('🚨 Error al autenticar:', error.message);
@@ -774,6 +849,7 @@ export const AppProvider = ({ children }) => {
   };
 
   const logout = () => {
+    clearAppSession();
     setUser(null);
     setAssets([]);
     setPurchases([]);
@@ -804,6 +880,7 @@ export const AppProvider = ({ children }) => {
   const value = {
     // Estado
     user,
+    sessionReady,
     assets,
     allAssets, // Todos los activos para KPIs
     purchases,

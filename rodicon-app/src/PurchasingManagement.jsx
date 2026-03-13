@@ -142,11 +142,7 @@ export const PurchasingManagement = ({ onClose, onDownloadPdf, canManage = true,
       console.log(`[performStatusUpdate] Actualizar orden ${orderId} a ${newStatus}`);
       
       // Obtener PIN del usuario (desde AppContext o localStorage)
-      const userPin = localStorage.getItem('userPin') || '0000';
-
-      console.log(`[performStatusUpdate] Llamando updatePurchaseStatus...`);
-      await updatePurchaseStatus(orderId, newStatus, comment, userPin);
-      console.log(`[performStatusUpdate] updatePurchaseStatus completado`);
+      await updatePurchaseStatus(orderId, newStatus, comment);
       
       // Recargar TODAS las órdenes desde BD para sincronización completa
       console.log(`[performStatusUpdate] Recargando órdenes desde BD...`);

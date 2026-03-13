@@ -81,6 +81,7 @@ export default function App() {
   // --- ESTADO Y LÓGICA DEL CONTEXTO GLOBAL (Sin prop drilling) ---
   const {
     user,
+    sessionReady,
     assets,
     allAssets, // Todos los activos para calcular KPIs
     purchases,
@@ -127,7 +128,7 @@ export default function App() {
   const [locationFilter, setLocationFilter] = useState(savedSearch.locationFilter);
   const [gpsFilter, setGpsFilter] = useState(savedSearch.gpsFilter || '');
   const [activeOverlay, setActiveOverlay] = useState(null);
-  const [activeModal, setActiveModal] = useState(user ? null : 'PIN');
+  const [activeModal, setActiveModal] = useState(null);
   const [detailSidebarOpen, setDetailSidebarOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [tempAction, setTempAction] = useState(null);
@@ -191,6 +192,18 @@ export default function App() {
   };
 
   // Persistir filtros y preferencias cuando cambien
+  useEffect(() => {
+    if (!sessionReady) return;
+
+    setActiveModal((current) => {
+      if (user) {
+        return current === 'PIN' ? null : current;
+      }
+
+      return current ?? 'PIN';
+    });
+  }, [sessionReady, user]);
+
   useEffect(() => {
     saveSearchState({ search, filter, locationFilter, gpsFilter });
   }, [search, filter, locationFilter, gpsFilter]);
@@ -347,6 +360,17 @@ export default function App() {
   }), [assets, allAssets]);
 
   // --- RENDER ---
+
+  if (!sessionReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-3"></div>
+          <p className="text-gray-600">Restaurando sesión...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (activeModal === 'PIN') {
     return <PinModal onSubmit={handlePinSubmit} onSuccess={onPinSuccess} />;

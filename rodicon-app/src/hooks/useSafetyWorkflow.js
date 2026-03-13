@@ -147,9 +147,8 @@ export const useSafetyWorkflow = () => {
    * Actualizar reporte de seguridad
    * @param {string} reportId - ID del reporte
    * @param {Object} updates - Campos a actualizar
-   * @param {string} pin - PIN del usuario
    */
-  const updateSafetyReport = useCallback(async (reportId, updates, pin = null) => {
+  const updateSafetyReport = useCallback(async (reportId, updates) => {
     setLoading(true);
     setError(null);
     try {

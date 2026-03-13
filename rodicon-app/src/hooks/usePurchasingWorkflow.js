@@ -14,7 +14,7 @@ export const usePurchasingWorkflow = () => {
    * Valida transiciones de estado permitidas
    */
   const updatePurchaseStatus = useCallback(
-    async (purchaseOrderId, newStatus, comment = '', pin) => {
+    async (purchaseOrderId, newStatus, comment = '') => {
       setLoading(true);
       setError(null);
 

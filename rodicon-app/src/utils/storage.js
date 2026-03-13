@@ -117,6 +117,27 @@ export const getSearchState = () => {
   });
 };
 
+/**
+ * Guardar sesión local de la app para restaurar tras refresh/offline.
+ */
+export const saveAppSession = (sessionUser) => {
+  return saveToStorage('app_session', sessionUser, 30 * 24 * 60 * 60 * 1000);
+};
+
+/**
+ * Obtener sesión local de la app.
+ */
+export const getAppSession = () => {
+  return getFromStorage('app_session', null);
+};
+
+/**
+ * Limpiar sesión local de la app.
+ */
+export const clearAppSession = () => {
+  return removeFromStorage('app_session');
+};
+
 // Limpiar storage al cargar la app
 if (typeof window !== 'undefined') {
   cleanExpiredStorage();
