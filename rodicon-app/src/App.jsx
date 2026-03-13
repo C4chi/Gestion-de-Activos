@@ -390,74 +390,6 @@ export default function App() {
         </button>
       )}
 
-      {user && (
-        <div className="fixed top-4 right-4 z-40">
-          <div className={`rounded-xl border px-3 py-2 text-xs shadow-sm backdrop-blur-sm ${
-            !isConnected
-              ? 'bg-amber-50/95 border-amber-200 text-amber-700'
-              : 'bg-emerald-50/95 border-emerald-200 text-emerald-700'
-          }`}>
-            <div className="flex items-center gap-2">
-              {!isConnected ? (
-                <WifiOff className="h-4 w-4 shrink-0" />
-              ) : (
-                <Wifi className="h-4 w-4 shrink-0" />
-              )}
-              <span className="font-semibold">
-                {!isConnected ? 'Modo offline' : 'En linea'}
-              </span>
-              {isConnected && pendingCount > 0 && (
-                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
-                  {pendingCount} pendiente(s)
-                </span>
-              )}
-            </div>
-            {isConnected && pendingCount > 0 && (
-              <div className="mt-2 flex items-center gap-2">
-                <span className="text-[11px] text-blue-700">
-                  {syncing ? 'Sincronizando cambios...' : 'Hay cambios por sincronizar'}
-                </span>
-                <button
-                  type="button"
-                  onClick={performSync}
-                  disabled={syncing}
-                  className="underline font-semibold text-blue-700 disabled:opacity-50"
-                >
-                  {syncing ? 'Espera...' : 'Sincronizar'}
-                </button>
-              </div>
-            )}
-            {!isConnected && (
-              <div className="mt-1 text-[11px] text-amber-700">
-                El dispositivo esta trabajando sin conexion.
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {false && user && (!isConnected || pendingCount > 0) && (
-        <div className="fixed top-20 right-4 z-40">
-          <div className={`rounded-lg border px-3 py-2 text-xs shadow-sm ${
-            !isConnected
-              ? 'bg-amber-50 border-amber-200 text-amber-700'
-              : 'bg-blue-50 border-blue-200 text-blue-700'
-          }`}>
-            {!isConnected ? 'Sin conexión' : `${pendingCount} cambio(s) pendiente(s)`}
-            {isConnected && pendingCount > 0 && (
-              <button
-                type="button"
-                onClick={performSync}
-                disabled={syncing}
-                className="ml-2 underline font-semibold disabled:opacity-50"
-              >
-                {syncing ? 'Sincronizando...' : 'Sincronizar'}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -496,14 +428,42 @@ export default function App() {
           gpsFilter={gpsFilter}
           setGpsFilter={setGpsFilter}
           notificationCenter={user ? (
-            <NotificationCenter
-              notifications={notifications}
-              unreadCount={unreadCount}
-              onMarkAsRead={markAsRead}
-              onMarkAllAsRead={markAllAsRead}
-              onDelete={deleteNotification}
-              onDeleteAll={deleteAllNotifications}
-            />
+            <div className="flex items-center gap-2">
+              <div
+                className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold ${
+                  !isConnected
+                    ? 'bg-amber-50 border-amber-200 text-amber-700'
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                }`}
+                title={!isConnected ? 'El dispositivo esta trabajando sin conexion' : 'El dispositivo esta en linea'}
+              >
+                {!isConnected ? (
+                  <WifiOff className="h-4 w-4 shrink-0" />
+                ) : (
+                  <Wifi className="h-4 w-4 shrink-0" />
+                )}
+                <span>{!isConnected ? 'Offline' : 'En linea'}</span>
+                {isConnected && pendingCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={performSync}
+                    disabled={syncing}
+                    className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-700 disabled:opacity-50"
+                    title={syncing ? 'Sincronizando cambios' : 'Sincronizar cambios pendientes'}
+                  >
+                    {syncing ? '...' : pendingCount}
+                  </button>
+                )}
+              </div>
+              <NotificationCenter
+                notifications={notifications}
+                unreadCount={unreadCount}
+                onMarkAsRead={markAsRead}
+                onMarkAllAsRead={markAllAsRead}
+                onDelete={deleteNotification}
+                onDeleteAll={deleteAllNotifications}
+              />
+            </div>
           ) : null}
           filteredAssets={filteredAssets}
           onAssetSelect={handleAssetSelect}
