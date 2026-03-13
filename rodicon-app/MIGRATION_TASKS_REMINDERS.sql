@@ -165,11 +165,6 @@ DECLARE
   v_description TEXT;
   v_priority TEXT;
   v_due_date TEXT;
-  v_calendar_link TEXT;
-  v_calendar_title TEXT;
-  v_calendar_details TEXT;
-  v_calendar_start TEXT;
-  v_calendar_end TEXT;
   v_email_for_reminder BOOLEAN;
 BEGIN
   SELECT to_regclass('public.notifications') IS NOT NULL INTO v_has_notifications_table;
@@ -198,7 +193,6 @@ BEGIN
     v_description := replace(replace(COALESCE(rec.description, 'Sin descripción adicional.'), '<', '&lt;'), '>', '&gt;');
     v_priority := replace(replace(COALESCE(rec.priority, 'MEDIA'), '<', '&lt;'), '>', '&gt;');
     v_due_date := COALESCE(to_char(rec.due_date, 'YYYY-MM-DD HH24:MI'), 'Sin fecha límite');
-    v_calendar_link := '';
     v_email_for_reminder := FALSE;
 
     FOR assignee_rec IN
@@ -237,21 +231,6 @@ BEGIN
 
       IF ('email' = ANY (rec.channels)) AND assignee_rec.email IS NOT NULL THEN
         BEGIN
-          BEGIN
-            v_calendar_title := replace(replace(replace(replace(replace(COALESCE(rec.title, 'Recordatorio de tarea'), ' ', '%20'), '&', '%26'), '#', '%23'), '?', '%3F'), '+', '%2B');
-            v_calendar_details := replace(replace(replace(replace(replace(
-              'Tarea: ' || COALESCE(rec.title, 'Sin título') || E'\n' ||
-              'Descripción: ' || COALESCE(rec.description, 'Sin descripción') || E'\n' ||
-              'Prioridad: ' || COALESCE(rec.priority, 'MEDIA') || E'\n' ||
-              'Fecha de vencimiento: ' || v_due_date,
-              ' ', '%20'), '&', '%26'), '#', '%23'), '?', '%3F'), '+', '%2B');
-            v_calendar_start := to_char(rec.due_date - INTERVAL '30 minutes', 'YYYYMMDD"T"HH24MISS"Z"');
-            v_calendar_end := to_char(rec.due_date + INTERVAL '30 minutes', 'YYYYMMDD"T"HH24MISS"Z"');
-            v_calendar_link := 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' || v_calendar_title || '&details=' || v_calendar_details || '&dates=' || v_calendar_start || '/' || v_calendar_end;
-          EXCEPTION WHEN OTHERS THEN
-            v_calendar_link := '';
-          END;
-
           INSERT INTO task_email_queue (task_id, reminder_id, to_email, subject, body)
           VALUES (
             rec.task_id,
@@ -267,11 +246,6 @@ BEGIN
                 '<p style="margin: 0 0 8px 0;"><strong>Prioridad:</strong> ' || v_priority || '</p>' ||
                 '<p style="margin: 0;"><strong>Fecha de vencimiento:</strong> ' || v_due_date || '</p>' ||
               '</div>' ||
-              CASE WHEN v_calendar_link <> '' THEN
-                '<div style="margin-top: 12px;">' ||
-                  '<a href="' || v_calendar_link || '" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:600;">Añadir a Google Calendar</a>' ||
-                '</div>'
-              ELSE '' END ||
               '<p style="margin: 12px 0 0 0; color: #6b7280; font-size: 12px;">Mensaje automático de Rodicon.</p>' ||
             '</div>'
           );
